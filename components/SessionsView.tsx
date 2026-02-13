@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Home, Building2, Pencil, ArrowLeft, Trash2, AlertTriangle, ShieldAlert, List } from 'lucide-react';
+import { Building2, Pencil, ArrowLeft, List, Trash2, AlertTriangle } from 'lucide-react';
 import { BuildingInfo, Unit, Session } from '../types.ts';
 import CreateSessionView from './CreateSessionView.tsx';
 import EditManagementView from './EditManagementView.tsx';
@@ -123,31 +123,16 @@ const SessionsView: React.FC<SessionsViewProps> = ({ info, units = [], onClose, 
             <h3 className="text-xs font-black text-white/60 uppercase tracking-widest">Mevcut Yönetimi Düzenle</h3>
           </div>
 
-          <button 
-            onClick={() => setShowEdit(true)}
-            className="w-full bg-[#1e293b] hover:bg-[#2d3a4f] rounded-xl p-4 border border-white/10 transition-all group"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                  <Home size={20} className="text-blue-400" />
-                </div>
-                <div className="text-left">
-                  <p className="text-xs font-black text-white uppercase tracking-wide mb-0.5">Yönetim Paneli</p>
-                  <p className="text-[10px] text-white/40">Bilgileri Güncelle</p>
-                </div>
-              </div>
-              <Pencil size={16} className="text-blue-400 group-hover:scale-110 transition-transform" />
-            </div>
-          </button>
-        </div>
-
-        {/* Yönetim Bilgileri */}
-        <div className="bg-[#0f1729] rounded-2xl p-4 border border-white/10">
-          <div className="space-y-2">
+          {/* Yönetim Bilgileri */}
+          <div className="space-y-2 mb-4">
             <div className="bg-[#1e293b] rounded-xl p-3">
               <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Yönetim Adı</p>
               <p className="text-sm font-black text-white">{info.name}</p>
+            </div>
+
+            <div className="bg-[#1e293b] rounded-xl p-3">
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Yönetici</p>
+              <p className="text-sm font-black text-white">{info.managerName || '---'}</p>
             </div>
 
             <div className="bg-[#1e293b] rounded-xl p-3">
@@ -160,16 +145,47 @@ const SessionsView: React.FC<SessionsViewProps> = ({ info, units = [], onClose, 
               <p className="text-xs font-bold text-white/80 leading-relaxed">{info.address || 'Mahalle, Sokak, No...'}</p>
             </div>
           </div>
-        </div>
 
-        {/* Bilgileri Güncelle Butonu */}
-        <button 
-          onClick={() => setShowEdit(true)}
-          className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl py-4 font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center space-x-2"
-        >
-          <Pencil size={16} />
-          <span>Bilgileri Güncelle</span>
-        </button>
+          {/* Bilgileri Güncelle Butonu */}
+          <button 
+            onClick={() => setShowEdit(true)}
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl py-4 font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center space-x-2 mb-3"
+          >
+            <Pencil size={16} />
+            <span>Bilgileri Güncelle</span>
+          </button>
+
+          {/* Oturumu Sil Butonu */}
+          <button 
+            onClick={async () => {
+              const currentSession = db.getCurrentSession();
+              
+              if (window.confirm(`"${currentSession}" oturumunu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz!`)) {
+                if (window.confirm('SON UYARI: Oturum ve tüm verileri kalıcı olarak silinecek! Devam etmek istiyor musunuz?')) {
+                  try {
+                    // Oturumu Firebase'den sil
+                    await db.deleteData(`_sessions/${currentSession}`);
+                    await db.deleteData(currentSession);
+                    
+                    alert('Oturum başarıyla silindi');
+                    
+                    // Ana sayfaya dön ve sayfayı yenile
+                    onClose();
+                    window.location.reload();
+                  } catch (error) {
+                    console.error('Oturum silme hatası:', error);
+                    alert('Oturum silinemedi: ' + (error as Error).message);
+                  }
+                }
+              }
+            }}
+            className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl py-4 font-black text-xs uppercase tracking-widest shadow-lg shadow-red-500/20 active:scale-95 transition-all flex items-center justify-center space-x-2"
+          >
+            <AlertTriangle size={20} />
+            <Trash2 size={16} />
+            <span>Oturumu Sil</span>
+          </button>
+        </div>
       </div>
     </div>
   );

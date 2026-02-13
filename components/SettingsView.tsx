@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { Save, Loader2, X, Check, ChevronRight, UserCog, Building2, ShieldCheck, ToggleLeft, ToggleRight, ArrowLeft } from 'lucide-react';
+import { Save, Loader2, X, Check, ChevronRight, UserCog, Building2, ShieldCheck, ToggleLeft, ToggleRight, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { BuildingInfo, Unit } from '../types.ts';
+import { db } from '../databaseService';
 
 interface SettingsViewProps {
   buildingInfo: BuildingInfo;
@@ -166,15 +167,42 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
               Hesap hareketlerinde iptal edilen belgeleri silin. Silme işlemi bilançosu kilitlenmeyen aylar için yapılır. Kilitli aylar bu durumdan etkilenmez.
             </p>
             <button 
-              onClick={() => {
-                if (window.confirm('İptal edilen belgeleri silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
-                  // İptal edilen belgeleri sil
-                  alert('İptal edilen belgeler silindi');
+              onClick={async () => {
+                const currentSession = db.getCurrentSession();
+                if (window.confirm(`"${currentSession}" oturumundaki iptal edilen belgeleri silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`)) {
+                  try {
+                    // İptal edilen belgeleri sil (sadece aktif oturum için)
+                    const transactions = await db.getTransactions();
+                    const cancelledTransactions = transactions.filter(t => 
+                      t.description && (
+                        t.description.includes('İPTAL') || 
+                        t.description.includes('IPTAL') ||
+                        t.description.toLowerCase().includes('iptal')
+                      )
+                    );
+                    
+                    if (cancelledTransactions.length === 0) {
+                      alert('İptal edilen belge bulunamadı.');
+                      return;
+                    }
+                    
+                    // İptal edilen belgeleri sil
+                    for (const tx of cancelledTransactions) {
+                      await db.deleteTransaction(tx.id);
+                    }
+                    
+                    alert(`${cancelledTransactions.length} adet iptal edilen belge silindi.`);
+                    window.location.reload(); // Sayfayı yenile
+                  } catch (error) {
+                    console.error('İptal edilen belgeler silinemedi:', error);
+                    alert('Silme işlemi başarısız oldu.');
+                  }
                 }
               }}
-              className="w-full bg-pink-600 hover:bg-pink-500 text-white rounded-2xl py-3 font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all"
+              className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl py-3 font-black text-base uppercase tracking-widest shadow-lg shadow-red-500/20 active:scale-95 transition-all flex items-center justify-center space-x-3"
             >
-              SİL
+              <AlertTriangle size={24} />
+              <span>SİL</span>
             </button>
           </div>
 
@@ -185,17 +213,27 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
               Yönetim verilerini sıfırlayın. Bugüne kadar yapılan tüm muhasebe verileri kalıcı olarak silinir ve bir daha geri döndürülemez. Bağımsız bölümler, apartmanlar, ayarlar, malik ve kiracı bilgileri bu durumdan etkilenmez.
             </p>
             <button 
-              onClick={() => {
-                if (window.confirm('TÜM muhasebe verilerini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz!')) {
+              onClick={async () => {
+                const currentSession = db.getCurrentSession();
+                if (window.confirm(`"${currentSession}" oturumundaki TÜM muhasebe verilerini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz!`)) {
                   if (window.confirm('SON UYARI: Bu işlem GERİ ALINAMAZ! Devam etmek istiyor musunuz?')) {
-                    onResetMoney();
-                    alert('Muhasebe verileri temizlendi');
+                    try {
+                      // Sadece aktif oturumun transaction verilerini sil
+                      await db.saveTransactions([]);
+                      onResetMoney();
+                      alert('Muhasebe verileri temizlendi');
+                      window.location.reload(); // Sayfayı yenile
+                    } catch (error) {
+                      console.error('Muhasebe verileri temizlenemedi:', error);
+                      alert('Temizleme işlemi başarısız oldu.');
+                    }
                   }
                 }
               }}
-              className="w-full bg-pink-600 hover:bg-pink-500 text-white rounded-2xl py-3 font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all"
+              className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl py-3 font-black text-base uppercase tracking-widest shadow-lg shadow-red-500/20 active:scale-95 transition-all flex items-center justify-center space-x-3"
             >
-              TEMİZLE
+              <AlertTriangle size={24} />
+              <span>TEMİZLE</span>
             </button>
           </div>
         </div>
