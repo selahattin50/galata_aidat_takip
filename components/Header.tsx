@@ -33,7 +33,7 @@ const Header: React.FC<HeaderProps> = ({ info, onLogout }) => {
       </div>
 
       <div className="flex flex-col items-center mt-2">
-        <div className="flex items-center space-x-2 mb-1">
+        <div className="flex items-center space-x-2 mb-[7px]">
           <Shield size={10} className="text-blue-500/50" />
           <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.4em]">SİSTEM YÖNETİCİSİ</span>
         </div>
@@ -44,7 +44,7 @@ const Header: React.FC<HeaderProps> = ({ info, onLogout }) => {
 
       <button 
         onClick={handleExit}
-        className="absolute left-6 top-8 p-3 text-red-500 hover:text-red-400 active:scale-90 transition-all rounded-full group"
+        className="absolute left-[34px] top-8 p-3 text-red-500 hover:text-red-400 active:scale-90 transition-all rounded-full group"
         title="Uygulamadan Çık"
       >
         <Power size={22} strokeWidth={2.5} className="transition-colors drop-shadow-[0_0_5px_rgba(239,68,68,0.3)]" />

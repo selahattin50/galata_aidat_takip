@@ -31,6 +31,33 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ balance }) => {
     }).format(val);
   };
 
+  const renderCustomLabel = (props: any) => {
+    const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    if (percent < 0.05) return null;
+
+    return (
+      <text 
+        x={x} 
+        y={y} 
+        fill="white" 
+        textAnchor="middle" 
+        dominantBaseline="central"
+        style={{ 
+          fontSize: '11px', 
+          fontWeight: '900',
+          textShadow: '0 1px 3px rgba(0,0,0,0.8)'
+        }}
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
   return (
     <div className="px-1">
       <div className="bg-[#111827]/90 backdrop-blur-2xl border border-white/5 rounded-[22px] py-2.5 px-5 flex items-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden min-h-[105px]">
@@ -41,13 +68,16 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ balance }) => {
             <PieChart>
               <Pie
                 data={chartData}
-                innerRadius="72%"
+                innerRadius="40%"
                 outerRadius="95%"
-                paddingAngle={0}
+                paddingAngle={1}
                 dataKey="value"
                 startAngle={90}
                 endAngle={450}
-                stroke="none"
+                stroke="#ffffff"
+                strokeWidth={0.5}
+                label={renderCustomLabel}
+                labelLine={false}
               >
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />

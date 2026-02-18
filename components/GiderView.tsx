@@ -133,7 +133,7 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
               type="date" 
               value={st.dt} 
               onChange={e => setSt({ ...st, dt: e.target.value })} 
-              className="bg-white/5 w-full h-14 rounded-2xl px-4 text-[16px] font-black text-white outline-none border border-white/5" 
+              className="bg-white/5 w-full h-[52px] rounded-2xl px-4 text-[15px] font-black text-white outline-none border border-white/5" 
             />
           </div>
         </section>

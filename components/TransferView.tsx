@@ -79,7 +79,7 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave }) => {
             <div className="grid grid-cols-2 gap-5">
               <div>
                 <label className="text-[13px] font-bold text-white/30 uppercase tracking-widest block mb-3 ml-1">Transfer Tarihi</label>
-                <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="bg-black/20 w-full h-14 rounded-2xl px-3 text-[13px] font-bold text-white outline-none border border-white/5" />
+                <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="bg-black/20 w-full h-[52px] rounded-2xl px-3 text-[15px] font-bold text-white outline-none border border-white/5" />
               </div>
               <div>
                 <label className="text-[13px] font-bold text-white/30 uppercase tracking-widest block mb-3 ml-1">Miktar (₺)</label>

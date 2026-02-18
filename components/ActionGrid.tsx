@@ -36,12 +36,12 @@ const ActionGrid: React.FC<ActionGridProps> = ({ variant = 'grid', onActionClick
           <button 
             key={idx} 
             onClick={() => onActionClick?.(action.label)} 
-            className="flex flex-col items-center justify-center glass-panel rounded-[24px] p-3 h-24 active:bg-green-600/20 active:border-green-500/30 active:scale-95 transition-all border border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.3)] group"
+            className="flex flex-col items-center justify-center glass-panel rounded-[24px] p-3 h-[88px] active:bg-green-600/20 active:border-green-500/30 active:scale-95 transition-all border border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.3)] group"
           >
             <div className="text-[#22c55e] group-hover:text-green-400 group-hover:scale-110 transition-all duration-300 mb-2">
               {action.icon}
             </div>
-            <span className="text-[11px] font-black uppercase tracking-widest text-white/80 text-center leading-tight">
+            <span className="text-[10px] font-black uppercase tracking-widest text-white/80 text-center leading-tight">
               {action.label}
             </span>
           </button>

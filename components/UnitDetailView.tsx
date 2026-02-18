@@ -37,11 +37,55 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
   };
 
   const getMonthStatus = (mIdx: number) => {
-    const month = mIdx + 1;
     const now = new Date();
-    if (unit.debt <= 0) return 'paid';
-    if (month <= now.getMonth() + 1) return 'unpaid';
-    return 'future';
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // Gelecek aylar
+    if (mIdx > currentMonth) {
+      return 'future';
+    }
+
+    // Yönetici muafiyeti kontrolü
+    if (unit.id === info.managerUnitId && info.isManagerExempt) {
+      return 'exempt';
+    }
+
+    // Toplam gelir ve borçlandırmaları hesapla
+    const totalIncome = transactions
+      .filter(tx => tx.unitId === unit.id && tx.type === 'GELİR')
+      .reduce((sum, tx) => sum + tx.amount, 0);
+    
+    const totalManualDebt = transactions
+      .filter(tx => tx.unitId === unit.id && tx.type === 'BORÇLANDIRMA')
+      .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+    let runningCredit = totalIncome - totalManualDebt;
+    const duesValue = info.duesAmount || 750;
+
+    // Her ay için sırayla kontrol et
+    for (let m = 0; m <= 11; m++) {
+      const hasManualForThisMonth = transactions.some(tx => 
+        tx.unitId === unit.id && 
+        tx.type === 'BORÇLANDIRMA' && 
+        tx.periodMonth === m && 
+        tx.periodYear === currentYear
+      );
+      
+      let isPaidThisMonth = false;
+      if (!hasManualForThisMonth) {
+        if (runningCredit >= duesValue) {
+          runningCredit -= duesValue;
+          isPaidThisMonth = true;
+        }
+      }
+
+      if (m === mIdx) {
+        return isPaidThisMonth ? 'paid' : 'unpaid';
+      }
+    }
+
+    return 'unpaid';
   };
 
   const handleQuickUpdate = () => {
@@ -145,14 +189,14 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
             <>
               {/* MALİK KARTI */}
               <div className="bg-[#1e293b]/60 backdrop-blur-xl rounded-[24px] p-4 border border-blue-500/20 shadow-2xl relative overflow-hidden">
-                <div className="flex items-center space-x-4 relative z-10">
-                  <div className="w-12 h-12 rounded-xl bg-blue-600 border border-blue-400/30 flex flex-col items-center justify-center shadow-lg shrink-0">
-                    <span className="text-[8px] font-black text-white/50 uppercase leading-none mb-0.5">NO</span>
-                    <span className="text-xl font-black text-white leading-none">{unit.no}</span>
+                <div className="flex items-center space-x-3 relative z-10">
+                  <div className="w-11 h-11 rounded-xl bg-blue-600 border border-blue-400/30 flex flex-col items-center justify-center shadow-lg shrink-0">
+                    <span className="text-[7px] font-black text-white/50 uppercase leading-none mb-0.5">NO</span>
+                    <span className="text-lg font-black text-white leading-none">{unit.no}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <span className="text-[9px] font-black text-blue-400 uppercase tracking-[0.2em] mb-0.5 block">MALİK BİLGİLERİ</span>
-                    <h2 className="text-[17px] font-black text-white uppercase truncate leading-tight tracking-tight">
+                    <h2 className="text-[16px] font-black text-white uppercase leading-tight tracking-tight break-words">
                       {unit.ownerName || 'İSİM BELİRTİLMEDİ'}
                     </h2>
                     <div className="flex items-center space-x-1.5 mt-1 bg-black/20 w-fit px-2.5 py-0.5 rounded-full border border-white/5">
@@ -168,13 +212,13 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
               {/* KİRACI KARTI (Varsa) */}
               {unit.tenantName && (
                 <div className="bg-[#1e293b]/40 backdrop-blur-xl rounded-[24px] p-4 border border-orange-500/20 shadow-2xl relative overflow-hidden animate-in slide-in-from-top-2 duration-300">
-                  <div className="flex items-center space-x-4 relative z-10">
-                    <div className="w-12 h-12 rounded-xl bg-orange-600/20 border border-orange-500/30 flex items-center justify-center shrink-0">
-                      <UserCheck size={24} className="text-orange-500" />
+                  <div className="flex items-center space-x-3 relative z-10">
+                    <div className="w-11 h-11 rounded-xl bg-orange-600/20 border border-orange-500/30 flex items-center justify-center shrink-0">
+                      <UserCheck size={22} className="text-orange-500" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <span className="text-[9px] font-black text-orange-400 uppercase tracking-[0.2em] mb-0.5 block">KİRACI BİLGİLERİ</span>
-                      <h2 className="text-[17px] font-black text-white uppercase truncate leading-tight tracking-tight">
+                      <h2 className="text-[16px] font-black text-white uppercase leading-tight tracking-tight break-words">
                         {unit.tenantName}
                       </h2>
                       <div className="flex items-center space-x-1.5 mt-1 bg-black/20 w-fit px-2.5 py-0.5 rounded-full border border-white/5">
@@ -196,8 +240,8 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
           <div className="bg-blue-600 p-2.5 rounded-xl text-white shadow-lg"><Info size={22} /></div>
           <div>
             <h3 className="text-[10px] font-black text-white/40 tracking-[0.15em] uppercase mb-0.5">BORÇLANDIRMA ÖZETİ</h3>
-            <p className="text-[14px] font-black text-yellow-400 leading-none">
-              Toplam <span className="text-white">₺{formatCurrency(unit.debt)}</span> borç fişi mevcut.
+            <p className="text-[14px] font-black leading-none">
+              Toplam <span className={unit.debt > 0 ? 'text-red-500' : 'text-green-500'}>₺{formatCurrency(unit.debt)}</span> borç fişi mevcut.
             </p>
           </div>
         </section>
@@ -240,8 +284,18 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
           <div className="grid grid-cols-12 gap-1">
             {months.map((m, idx) => {
               const status = getMonthStatus(idx);
+              let bgColor = 'bg-[#1e293b] border-white/5 opacity-40';
+              
+              if (status === 'paid') {
+                bgColor = 'bg-green-700/60 border-green-500/40';
+              } else if (status === 'unpaid') {
+                bgColor = 'bg-rose-800/60 border-rose-500/40';
+              } else if (status === 'exempt') {
+                bgColor = 'bg-blue-600/40 border-blue-400/20';
+              }
+              
               return (
-                <div key={m} className={`h-8 flex items-center justify-center rounded-[6px] border transition-all ${status === 'paid' ? 'bg-green-700/60 border-green-500/40' : status === 'unpaid' ? 'bg-rose-800/60 border-rose-500/40' : 'bg-[#1e293b] border-white/5 opacity-40'}`}>
+                <div key={m} className={`h-8 flex items-center justify-center rounded-[6px] border transition-all ${bgColor}`}>
                   <span className="text-[9px] font-black text-white leading-none">{idx + 1}</span>
                 </div>
               );

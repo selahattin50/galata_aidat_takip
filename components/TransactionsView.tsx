@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useMemo } from 'react';
-import { ArrowLeft, Inbox, Calendar, ChevronDown, X, Edit3, Save, Printer, Share2, CloudLightning, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Inbox, Calendar, ChevronDown, X, Edit3, Save, Printer, Share2, CloudLightning, ShieldCheck, Trash2 } from 'lucide-react';
 import { Transaction, Unit, FileEntry } from '../types.ts';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -21,6 +21,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
   const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [deletingTx, setDeletingTx] = useState<Transaction | null>(null);
   
   const [txToPrint, setTxToPrint] = useState<Transaction | null>(null);
 
@@ -104,6 +105,13 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
     }
   };
 
+  const handleDelete = () => {
+    if (deletingTx) {
+      onDeleteTransaction(deletingTx.id);
+      setDeletingTx(null);
+    }
+  };
+
   const generateReceipt = async (tx: Transaction, mode: 'download' | 'share') => {
     setTxToPrint(tx);
     setIsProcessing(true);
@@ -127,9 +135,18 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
       
       const fileName = `${tx.date.replace(/\./g, '_')}_Daire${getUnitNo(tx.unitId)}.pdf`;
 
+      // WhatsApp paylaşımı için telefon numarasını al
+      const unit = units.find(u => u.id === tx.unitId);
+      let phoneNumber = '';
+      if (unit) {
+        phoneNumber = unit.tenantPhone || unit.phone || '';
+        // Telefon numarasını temizle (sadece rakamlar)
+        phoneNumber = phoneNumber.replace(/\D/g, '');
+      }
+
       // İndir modunda paylaşma dialogu açma
       const shouldShare = mode === 'share';
-      const savedInfo = await PDFService.saveAndShareFromJsPDF(pdf, fileName, shouldShare);
+      const savedInfo = await PDFService.saveAndShareFromJsPDF(pdf, fileName, shouldShare, phoneNumber);
       
       // Her zaman dosyalar bölümüne ekle (URI, boyut ve dosya adı ile)
       onAddFile(fileName, 'Diğer', savedInfo.uri, savedInfo.size, savedInfo.fileName);
@@ -241,7 +258,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
               <div className="flex items-center space-x-2.5">
                 <Calendar size={22} className="text-blue-400 group-hover:scale-110 transition-transform" />
                 <span className="text-[13px] font-black uppercase tracking-[0.1em] text-white whitespace-nowrap">
-                  {selectedMonth === 'all' ? 'HEPSİ' : `${months[selectedMonth].toUpperCase()} ${selectedYear}`}
+                  {`${months[selectedMonth as number].toUpperCase()} ${selectedYear}`}
                 </span>
               </div>
               <ChevronDown size={18} className={`text-white/40 transition-transform duration-300 ${isDatePickerOpen ? 'rotate-180' : ''}`} />
@@ -250,21 +267,27 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
             {isDatePickerOpen && (
               <div className="absolute top-16 left-0 right-0 z-[230] bg-[#1e293b] border-2 border-blue-500/20 rounded-[24px] shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-hidden py-1 animate-in fade-in slide-in-from-top-4 duration-300 ring-4 ring-black/40 min-w-[200px]">
                 <div className="max-h-[300px] overflow-y-auto no-scrollbar">
-                  <button 
-                    onClick={() => { setSelectedMonth('all'); setIsDatePickerOpen(false); }}
-                    className={`w-full py-2 px-4 text-[11px] font-black uppercase tracking-widest border-b border-white/5 text-center transition-colors ${selectedMonth === 'all' ? 'text-blue-400 bg-blue-400/5' : 'text-white/60 hover:bg-white/5'}`}
-                  >
-                    TÜMÜ
-                  </button>
-                  {months.map((m, idx) => (
-                    <button 
-                      key={idx} 
-                      onClick={() => { setSelectedMonth(idx); setIsDatePickerOpen(false); }} 
-                      className={`w-full py-2 px-4 text-[11px] font-black uppercase tracking-widest border-b border-white/5 last:border-0 text-center transition-colors ${selectedMonth === idx ? 'text-green-400 bg-green-400/5' : 'text-white/60 hover:bg-white/5'}`}
-                    >
-                      {m.toUpperCase()} {selectedYear}
-                    </button>
-                  ))}
+                  {months.map((m, idx) => {
+                    // Sadece geçmiş ve şu anki ayı göster
+                    const now = new Date();
+                    const currentMonth = now.getMonth();
+                    const currentYear = now.getFullYear();
+                    
+                    // Gelecek ayları gizle
+                    if (selectedYear === currentYear && idx > currentMonth) {
+                      return null;
+                    }
+                    
+                    return (
+                      <button 
+                        key={idx} 
+                        onClick={() => { setSelectedMonth(idx); setIsDatePickerOpen(false); }} 
+                        className={`w-full py-2 px-4 text-[11px] font-black uppercase tracking-widest border-b border-white/5 last:border-0 text-center transition-colors ${selectedMonth === idx ? 'text-green-400 bg-green-400/5' : 'text-white/60 hover:bg-white/5'}`}
+                      >
+                        {m.toUpperCase()} {selectedYear}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -283,13 +306,19 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                   <div className="flex items-center space-x-1.5 mb-0.5 opacity-60">
                     <span className="text-[7px] font-black uppercase tracking-widest">{tx.type}</span>
                     <span className="w-0.5 h-0.5 rounded-full bg-white/20" />
-                    <span className="text-[10px] font-black uppercase text-blue-400 tracking-tight">D.{getUnitNo(tx.unitId)}</span>
-                    <span className="w-0.5 h-0.5 rounded-full bg-white/20" />
                     <span className="text-[7px] font-black uppercase tracking-widest">{tx.date}</span>
                   </div>
-                  <p className="text-[12px] font-bold text-white uppercase truncate leading-tight mb-1">{tx.description.split('[')[0].trim().replace(/^MAKBUZ\s+/i, '')}</p>
+                  <p className="text-[12px] font-bold text-white uppercase truncate leading-tight mb-1">
+                    <span className="text-cyan-400">D.{getUnitNo(tx.unitId)}</span> {tx.description.split('[')[0].trim().replace(/^MAKBUZ\s+/i, '')}
+                  </p>
                   
                   <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => setDeletingTx(tx)} 
+                      className="p-1.5 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 active:scale-90 transition-all"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                     <button 
                       onClick={() => setEditingTx(tx)} 
                       className="p-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-500 active:scale-90 transition-all"
@@ -329,7 +358,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
               </div>
               <div>
                 <label className="text-[7px] font-black text-white/30 uppercase block mb-1">TARİH</label>
-                <input type="date" value={trToIsoDate(editingTx.date)} onChange={e => setEditingTx({...editingTx, date: isoToTrDate(e.target.value)})} className="w-full h-10 bg-black/40 border border-white/10 rounded-lg px-3 text-[14px] font-bold text-white outline-none focus:border-blue-500" />
+                <input type="date" value={trToIsoDate(editingTx.date)} onChange={e => setEditingTx({...editingTx, date: isoToTrDate(e.target.value)})} className="w-full h-[52px] bg-black/40 border border-white/10 rounded-lg px-3 text-[15px] font-bold text-white outline-none focus:border-blue-500" />
               </div>
               <div>
                 <label className="text-[7px] font-black text-white/30 uppercase block mb-1">AÇIKLAMA</label>
@@ -338,6 +367,42 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
               <button onClick={handleUpdate} className="w-full h-11 bg-blue-600 text-white rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center space-x-2">
                 <Save size={14} /><span>KAYDET</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletingTx && (
+        <div className="fixed inset-0 z-[400] bg-black/90 backdrop-blur-md flex items-center justify-center px-6">
+          <div className="bg-[#1e293b] w-full max-w-sm rounded-[24px] p-5 border border-red-500/20 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-[9px] font-black uppercase tracking-widest text-red-400">SİLME ONAYI</h3>
+              <button onClick={() => setDeletingTx(null)} className="text-white/40"><X size={20} /></button>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                <p className="text-[11px] font-bold text-white/80 mb-2">Bu işlemi silmek istediğinizden emin misiniz?</p>
+                <div className="text-[9px] text-white/60 space-y-1">
+                  <p><span className="font-black">Daire:</span> {getUnitNo(deletingTx.unitId)}</p>
+                  <p><span className="font-black">Açıklama:</span> {deletingTx.description.split('[')[0].trim()}</p>
+                  <p><span className="font-black">Tutar:</span> ₺{formatCurrency(deletingTx.amount)}</p>
+                  <p><span className="font-black">Tarih:</span> {deletingTx.date}</p>
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                <button 
+                  onClick={() => setDeletingTx(null)} 
+                  className="flex-1 h-11 bg-white/5 border border-white/10 text-white rounded-xl font-black text-[9px] uppercase tracking-[0.2em] active:scale-95 transition-all"
+                >
+                  VAZGEÇ
+                </button>
+                <button 
+                  onClick={handleDelete} 
+                  className="flex-1 h-11 bg-red-600 text-white rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center space-x-2"
+                >
+                  <Trash2 size={14} /><span>SİL</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

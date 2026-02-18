@@ -82,11 +82,4 @@ export interface FileEntry {
   fileName?: string; // Gerçek dosya adı (Documents klasöründe)
 }
 
-export interface Session {
-  id: string; // Benzersiz ID (00001, 00002, vb.)
-  name: string; // Yönetim adı
-  createdAt: string; // Oluşturulma tarihi
-  lastAccessed: string; // Son erişim tarihi
-}
-
 export type ActiveTab = 'home' | 'menu' | 'sessions' | 'settings' | 'files';

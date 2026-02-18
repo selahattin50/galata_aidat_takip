@@ -236,8 +236,8 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, info, transactions, onClos
             onClick={() => setSelectedUnit(unit)}
             className="bg-[#111827]/60 backdrop-blur-2xl rounded-[24px] py-3 px-5 flex items-center justify-between border border-white/5 hover:bg-white/10 active:bg-white/10 transition-all cursor-pointer shadow-xl"
           >
-            <div className="flex items-center space-x-5 min-w-0">
-              <div className="flex flex-col items-center justify-center shrink-0 w-10">
+            <div className="flex items-center space-x-3 min-w-0">
+              <div className="flex flex-col items-start justify-center shrink-0">
                 <span className="text-2xl font-black text-white leading-none">{unit.no}</span>
               </div>
               <div className="flex-1 min-w-0">

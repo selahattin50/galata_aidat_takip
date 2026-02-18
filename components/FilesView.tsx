@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FileText, FilePlus, Search, X, Trash2, File, ImageIcon, FileCode, ChevronRight, FolderOpen, Filter, ArrowLeft } from 'lucide-react';
+import { FileText, FilePlus, Search, X, Trash2, File, ImageIcon, FileCode, ChevronRight, FolderOpen, Filter, ArrowLeft, ExternalLink, Share2 } from 'lucide-react';
 import { FileEntry } from '../types.ts';
 
 interface FilesViewProps {
@@ -8,9 +8,10 @@ interface FilesViewProps {
   onAddFile: (file: Omit<FileEntry, 'id'>) => void;
   onDeleteFile: (id: string) => void;
   onOpenFile: (file: FileEntry) => void;
+  onShareFile?: (file: FileEntry) => void;
 }
 
-const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, onOpenFile }) => {
+const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, onOpenFile, onShareFile }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('Hepsi');
@@ -20,6 +21,18 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
   const [fileDate, setFileDate] = useState(new Date().toISOString().split('T')[0]);
 
   const categories = ['Hepsi', 'Fatura', 'Sözleşme', 'Tutanak', 'Karar', 'Diğer'];
+
+  const handleShareFile = async (file: FileEntry) => {
+    if (onShareFile) {
+      await onShareFile(file);
+    }
+  };
+
+  const handleOpenFile = async (file: FileEntry) => {
+    if (onOpenFile) {
+      await onOpenFile(file);
+    }
+  };
 
   const filteredFiles = files.filter(f => {
     const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -103,8 +116,7 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
           filteredFiles.map((file) => (
             <div 
               key={file.id} 
-              onClick={() => file.uri && onOpenFile(file)}
-              className={`glass-panel rounded-[28px] p-4 flex items-center border border-white/5 hover:bg-white/5 transition-all group ${file.uri ? 'cursor-pointer active:scale-98' : ''}`}
+              className="glass-panel rounded-[28px] p-4 flex items-center border border-white/5 hover:bg-white/5 transition-all group"
             >
               <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center shrink-0 mr-4 shadow-inner">
                 {getFileIcon(file.extension)}
@@ -128,20 +140,28 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
               </div>
 
               <div className="ml-4 flex items-center space-x-2">
+                {file.uri && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleShareFile(file);
+                    }}
+                    className="p-2.5 bg-green-500/10 rounded-xl hover:bg-green-500/20 transition-all active:scale-90 border border-green-500/20"
+                    title="Aç veya Paylaş"
+                  >
+                    <Share2 size={16} className="text-green-400" />
+                  </button>
+                )}
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteFile(file.id);
                   }}
-                  className="p-3 bg-red-500/10 rounded-xl hover:bg-red-500/20 transition-all opacity-0 group-hover:opacity-100 active:scale-90"
+                  className="p-2.5 bg-red-500/10 rounded-xl hover:bg-red-500/20 transition-all active:scale-90 border border-red-500/20"
+                  title="Sil"
                 >
                   <Trash2 size={16} className="text-red-500" />
                 </button>
-                {file.uri && (
-                  <div className="p-2 text-white/30">
-                    <ChevronRight size={18} />
-                  </div>
-                )}
               </div>
             </div>
           ))
@@ -189,7 +209,7 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
                   type="date" 
                   value={fileDate}
                   onChange={(e) => setFileDate(e.target.value)}
-                  className="bg-white/5 w-full h-14 rounded-2xl px-5 text-[16px] font-black text-white outline-none border border-white/10 focus:border-blue-500/50 focus:bg-white/10 transition-all"
+                  className="bg-white/5 w-full h-[52px] rounded-2xl px-5 text-[15px] font-black text-white outline-none border border-white/10 focus:border-blue-500/50 focus:bg-white/10 transition-all"
                 />
               </div>
 

@@ -20,6 +20,8 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
   const [amount, setAmount] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>(now.toISOString().split('T')[0]);
   const [selectedPayerType, setSelectedPayerType] = useState<'Malik' | 'Kiracı'>('Kiracı');
+  const [paymentMethod, setPaymentMethod] = useState<'EFT/Havale' | 'Elden Ödeme' | 'Kredi Bakiyesinden'>('EFT/Havale');
+  const [showPaymentMethodList, setShowPaymentMethodList] = useState(false);
   const [showUnitGrid, setShowUnitGrid] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -180,6 +182,37 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
         )}
 
         {selectedUnit && (
+          <section className="animate-in fade-in zoom-in-95 duration-300 relative">
+            <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">
+              {selectedUnit.tenantName ? '3. ÖDEME ŞEKLİ' : '2. ÖDEME ŞEKLİ'}
+            </label>
+            <button 
+              onClick={() => setShowPaymentMethodList(!showPaymentMethodList)}
+              className="w-full bg-[#1e293b] rounded-xl h-12 flex items-center justify-between px-4 border border-white/10 hover:bg-[#203140] transition-all shadow-lg"
+            >
+              <span className="text-[13px] font-black uppercase tracking-wider text-white">
+                {paymentMethod}
+              </span>
+              <ChevronDown size={16} className={`text-white/30 transition-transform ${showPaymentMethodList ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {showPaymentMethodList && (
+              <div className="absolute top-full left-0 right-0 z-[110] mt-1 bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+                {['EFT/Havale', 'Elden Ödeme', 'Kredi Bakiyesinden'].map((method) => (
+                  <button 
+                    key={method}
+                    onClick={() => { setPaymentMethod(method as any); setShowPaymentMethodList(false); }}
+                    className={`w-full py-3 px-4 text-left border-b border-white/5 last:border-0 hover:bg-blue-500/20 transition-colors ${paymentMethod === method ? 'bg-blue-500/10 text-blue-400' : 'text-white/60'}`}
+                  >
+                    <span className="text-[12px] font-black uppercase tracking-widest">{method}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {selectedUnit && (
           <div className="animate-in fade-in zoom-in-95 duration-500 space-y-4">
             <section className="bg-[#111827] rounded-[28px] p-5 border border-white/10 shadow-2xl space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -190,7 +223,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
                         type="date" 
                         value={selectedDate} 
                         onChange={(e) => setSelectedDate(e.target.value)} 
-                        className="w-full h-12 bg-black/40 border border-white/10 rounded-xl px-3 text-[14px] font-black text-white outline-none focus:border-blue-500/30 transition-all shadow-inner" 
+                        className="w-full h-[52px] bg-black/40 border border-white/10 rounded-xl px-3 text-[15px] font-black text-white outline-none focus:border-blue-500/30 transition-all shadow-inner" 
                      />
                      <Calendar size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
                    </div>

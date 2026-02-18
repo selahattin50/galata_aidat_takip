@@ -17,6 +17,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
     name: buildingInfo?.name || '',
     address: buildingInfo?.address || '',
     managerName: buildingInfo?.managerName || '',
+    taxNo: buildingInfo?.taxNo || '',
     duesAmount: (buildingInfo?.duesAmount || 750).toString(),
     managerUnitId: buildingInfo?.managerUnitId || '',
     isManagerExempt: buildingInfo?.isManagerExempt || false,
@@ -32,7 +33,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
       ...buildingInfo, 
       name: st.name, 
       address: st.address, 
-      managerName: st.managerName, 
+      managerName: st.managerName,
+      taxNo: st.taxNo, 
       duesAmount: parseFloat(st.duesAmount) || 0, 
       managerUnitId: st.managerUnitId, 
       isManagerExempt: st.isManagerExempt, 
@@ -60,6 +62,60 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
       </div>
 
       <div className="space-y-4 px-1">
+      
+      {/* 0. YÖNETİM BİLGİLERİ */}
+      <section className="bg-purple-900/10 backdrop-blur-md rounded-[40px] p-6 border border-white/5 shadow-xl space-y-5">
+        <div className="flex items-center space-x-2 opacity-40 mb-1 px-1">
+          <Building2 size={16} className="text-purple-400" />
+          <h2 className="text-[11px] font-black tracking-[0.2em] uppercase text-purple-100">YÖNETİM BİLGİLERİ</h2>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="bg-black/40 p-4 rounded-3xl border border-white/5 shadow-inner">
+            <label className="text-[9px] font-black opacity-30 uppercase block mb-1.5 ml-1">Yönetim Adı</label>
+            <input 
+              type="text" 
+              value={st.name} 
+              onChange={e => setSt({ ...st, name: e.target.value })} 
+              className="bg-transparent outline-none font-black text-lg w-full text-white" 
+              placeholder="Galata Apartmanı"
+            />
+          </div>
+
+          <div className="bg-black/40 p-4 rounded-3xl border border-white/5 shadow-inner">
+            <label className="text-[9px] font-black opacity-30 uppercase block mb-1.5 ml-1">Yönetici Adı</label>
+            <input 
+              type="text" 
+              value={st.managerName} 
+              onChange={e => setSt({ ...st, managerName: e.target.value })} 
+              className="bg-transparent outline-none font-black text-lg w-full text-white" 
+              placeholder="Ad Soyad"
+            />
+          </div>
+
+          <div className="bg-black/40 p-4 rounded-3xl border border-white/5 shadow-inner">
+            <label className="text-[9px] font-black opacity-30 uppercase block mb-1.5 ml-1">Vergi No</label>
+            <input 
+              type="text" 
+              value={st.taxNo || ''} 
+              onChange={e => setSt({ ...st, taxNo: e.target.value })} 
+              className="bg-transparent outline-none font-black text-lg w-full text-white" 
+              placeholder="12345678901"
+            />
+          </div>
+
+          <div className="bg-black/40 p-4 rounded-3xl border border-white/5 shadow-inner">
+            <label className="text-[9px] font-black opacity-30 uppercase block mb-1.5 ml-1">Yönetim Adresi</label>
+            <textarea 
+              value={st.address} 
+              onChange={e => setSt({ ...st, address: e.target.value })} 
+              className="bg-transparent outline-none font-bold text-sm w-full text-white resize-none" 
+              placeholder="Mahalle, Sokak, No..."
+              rows={3}
+            />
+          </div>
+        </div>
+      </section>
       
       {/* 1. BİNA VE AİDAT AYARLARI */}
       <section className="bg-emerald-900/10 backdrop-blur-md rounded-[40px] p-6 border border-white/5 shadow-xl space-y-5">
@@ -236,6 +292,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
               <span>TEMİZLE</span>
             </button>
           </div>
+
         </div>
       </section>
 

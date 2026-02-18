@@ -1,9 +1,9 @@
 import { ref, set, get, update, remove, onValue, off } from 'firebase/database';
 import { database } from './firebaseConfig';
-import { BuildingInfo, Unit, Transaction, BoardMember, FileEntry, Session } from './types';
+import { BuildingInfo, Unit, Transaction, BoardMember, FileEntry } from './types';
 
 class DatabaseService {
-  private currentSessionId: string = 'galata_v16'; // Varsayılan oturum
+  private currentSessionId: string = 'galata_v16'; // Tek oturum sistemi
 
   // Aktif oturumu ayarla
   setCurrentSession(sessionId: string): void {
@@ -14,66 +14,6 @@ class DatabaseService {
   // Aktif oturumu al
   getCurrentSession(): string {
     return this.currentSessionId;
-  }
-
-  // Tüm oturumları al
-  async getAllSessions(): Promise<Session[]> {
-    try {
-      const sessionsRef = ref(database, '_sessions');
-      const snapshot = await get(sessionsRef);
-      if (!snapshot.exists()) return [];
-      
-      const sessionsObj = snapshot.val();
-      return Object.values(sessionsObj).filter(s => s !== null);
-    } catch (error) {
-      console.error('Oturumlar alınamadı:', error);
-      return [];
-    }
-  }
-
-  // Yeni oturum oluştur
-  async createSession(name: string): Promise<string> {
-    try {
-      // Mevcut oturumları al
-      const sessions = await this.getAllSessions();
-      
-      // Yeni ID oluştur (00001, 00002, vb.)
-      let newId = 1;
-      if (sessions.length > 0) {
-        const maxId = Math.max(...sessions.map(s => parseInt(s.id)));
-        newId = maxId + 1;
-      }
-      
-      const sessionId = newId.toString().padStart(5, '0');
-      const now = new Date().toISOString();
-      
-      const newSession: Session = {
-        id: sessionId,
-        name: name,
-        createdAt: now,
-        lastAccessed: now
-      };
-      
-      // Oturumu kaydet
-      await set(ref(database, `_sessions/${sessionId}`), newSession);
-      
-      console.log('✓ Yeni oturum oluşturuldu:', sessionId, name);
-      return sessionId;
-    } catch (error) {
-      console.error('Oturum oluşturulamadı:', error);
-      throw error;
-    }
-  }
-
-  // Oturum son erişim zamanını güncelle
-  async updateSessionAccess(sessionId: string): Promise<void> {
-    try {
-      await update(ref(database, `_sessions/${sessionId}`), {
-        lastAccessed: new Date().toISOString()
-      });
-    } catch (error) {
-      console.error('Oturum erişim zamanı güncellenemedi:', error);
-    }
   }
 
   // Veri kaydetme
@@ -117,6 +57,19 @@ class DatabaseService {
       await remove(dataRef);
     } catch (error) {
       console.error('Database delete error:', error);
+      throw error;
+    }
+  }
+
+  // Direkt path ile veri silme (oturum prefix'i olmadan)
+  async deleteDataDirect(path: string): Promise<void> {
+    try {
+      console.log('🗑️ Direkt silme yapılıyor:', path);
+      const dataRef = ref(database, path);
+      await remove(dataRef);
+      console.log('✓ Direkt silme başarılı:', path);
+    } catch (error) {
+      console.error('❌ Direkt silme hatası:', path, error);
       throw error;
     }
   }
@@ -263,10 +216,12 @@ class DatabaseService {
   async testConnection(): Promise<boolean> {
     try {
       console.log('Firebase bağlantısı test ediliyor...');
-      await this.saveData('test', { message: 'Test başarılı', timestamp: Date.now() });
-      const result = await this.getData('test');
-      console.log('Test sonucu:', result);
-      return result !== null;
+      // Test verilerini _sessions altına yaz (oturum bağımsız)
+      const testRef = ref(database, '_test');
+      await set(testRef, { message: 'Test başarılı', timestamp: Date.now() });
+      const result = await get(testRef);
+      console.log('Test sonucu:', result.val());
+      return result.exists();
     } catch (error) {
       console.error('Firebase test hatası:', error);
       return false;
@@ -276,6 +231,12 @@ class DatabaseService {
   // GİDER test fonksiyonu - Direkt Firebase'e GİDER yaz
   async testGiderWrite(): Promise<boolean> {
     try {
+      // Eğer oturum ID'si boşsa test yapma
+      if (!this.currentSessionId) {
+        console.log('⚠️ Oturum ID boş, GİDER testi atlanıyor');
+        return true;
+      }
+      
       console.log('🧪 GİDER test yazma başlıyor...');
       
       const testGider = {

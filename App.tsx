@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import Header from './components/Header.tsx';
 import SummaryCard from './components/SummaryCard.tsx';
 import ActionGrid from './components/ActionGrid.tsx';
@@ -70,6 +71,19 @@ const App: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [activeSubView, setActiveSubView] = useState<string | null>(null);
+
+  // Ref'ler ile güncel state'leri takip et
+  const activeTabRef = useRef<ActiveTab>('home');
+  const activeSubViewRef = useRef<string | null>(null);
+
+  // State değiştiğinde ref'leri güncelle
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    activeSubViewRef.current = activeSubView;
+  }, [activeSubView]);
 
   const [buildingInfo, setBuildingInfo] = useState<BuildingInfo>(DEFAULT_BUILDING_INFO);
   const [units, setUnits] = useState<Unit[]>(INITIAL_UNITS);
@@ -232,6 +246,55 @@ const App: React.FC = () => {
     }
   }, [files, isAuthenticated, isLoading]);
 
+  // Android geri tuşu yönetimi
+  useEffect(() => {
+    console.log('🔧 Geri tuşu listener kurulumu başlatılıyor...');
+    
+    const handleBackButton = (event: any) => {
+      const currentTab = activeTabRef.current;
+      const currentSubView = activeSubViewRef.current;
+      
+      console.log('🔙 Geri tuşuna basıldı - activeTab:', currentTab, 'activeSubView:', currentSubView);
+      
+      // Eğer subview açıksa, subview'i kapat
+      if (currentSubView) {
+        console.log('✓ SubView kapatılıyor:', currentSubView);
+        setActiveSubView(null);
+        event?.preventDefault?.();
+        return;
+      }
+      
+      // Eğer ana sayfa değilse, ana sayfaya dön
+      if (currentTab !== 'home') {
+        console.log('✓ Ana sayfaya dönülüyor, mevcut tab:', currentTab);
+        setActiveTab('home');
+        event?.preventDefault?.();
+        return;
+      }
+      
+      // Ana sayfadaysa uygulamadan çık
+      console.log('✓ Ana sayfada, uygulamadan çıkılıyor');
+      CapacitorApp.exitApp();
+    };
+
+    // Capacitor App plugin listener
+    let listenerHandle: any = null;
+    
+    CapacitorApp.addListener('backButton', handleBackButton).then(handle => {
+      listenerHandle = handle;
+      console.log('✅ Geri tuşu listener başarıyla kuruldu');
+    }).catch(err => {
+      console.error('❌ Geri tuşu listener kurulumu hatası:', err);
+    });
+
+    return () => {
+      if (listenerHandle) {
+        console.log('🧹 Geri tuşu listener temizleniyor');
+        listenerHandle.remove();
+      }
+    };
+  }, []); // Boş dependency array - sadece bir kez çalışır
+
   const unitsWithBalances = useMemo(() => {
     if (!Array.isArray(units)) return INITIAL_UNITS;
     const now = new Date();
@@ -379,6 +442,104 @@ const App: React.FC = () => {
     console.log('Dosya eklendi:', newFile);
   };
 
+  const handleShareFile = async (file: FileEntry) => {
+    try {
+      const { Share } = await import('@capacitor/share');
+      
+      if (file.uri) {
+        console.log('Dosya paylaşılıyor/açılıyor:', file.uri);
+        await Share.share({
+          title: file.name,
+          text: file.name,
+          url: file.uri,
+          dialogTitle: 'Aç veya Paylaş'
+        });
+      } else {
+        alert('Dosya yolu bulunamadı. Lütfen PDF\'i yeniden oluşturun.');
+      }
+    } catch (error) {
+      console.error('Paylaşma hatası:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      if (!errorMsg.toLowerCase().includes('canceled') && !errorMsg.toLowerCase().includes('cancel')) {
+        alert('Dosya paylaşılamadı: ' + errorMsg);
+      }
+    }
+  };
+
+  const handleOpenFile = async (file: FileEntry) => {
+    try {
+      if (!file.uri) {
+        alert('Dosya yolu bulunamadı. Lütfen PDF\'i yeniden oluşturun.');
+        return;
+      }
+
+      console.log('PDF açılıyor:', file.uri);
+      console.log('Dosya adı:', file.fileName);
+
+      // Dosyayı oku ve base64 olarak al
+      const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      
+      if (file.fileName) {
+        try {
+          const fileData = await Filesystem.readFile({
+            path: file.fileName,
+            directory: Directory.Documents
+          });
+
+          console.log('Dosya okundu, base64 uzunluğu:', fileData.data.toString().length);
+
+          // Base64 data'yı blob'a çevir
+          const base64Data = fileData.data as string;
+          const byteCharacters = atob(base64Data);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'application/pdf' });
+          
+          // Blob'dan URL oluştur
+          const blobUrl = URL.createObjectURL(blob);
+          
+          // Browser ile aç
+          const { Browser } = await import('@capacitor/browser');
+          await Browser.open({ 
+            url: blobUrl,
+            presentationStyle: 'fullscreen'
+          });
+
+          // Cleanup
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        } catch (readError) {
+          console.error('Dosya okuma hatası:', readError);
+          // Fallback: Share API kullan
+          const { Share } = await import('@capacitor/share');
+          await Share.share({
+            title: file.name,
+            text: 'PDF Görüntüle',
+            url: file.uri,
+            dialogTitle: 'PDF ile aç'
+          });
+        }
+      } else {
+        // fileName yoksa direkt Share kullan
+        const { Share } = await import('@capacitor/share');
+        await Share.share({
+          title: file.name,
+          text: 'PDF Görüntüle',
+          url: file.uri,
+          dialogTitle: 'PDF ile aç'
+        });
+      }
+    } catch (error) {
+      console.error('PDF açma hatası:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      if (!errorMsg.toLowerCase().includes('canceled') && !errorMsg.toLowerCase().includes('cancel')) {
+        alert('PDF açılamadı: ' + errorMsg);
+      }
+    }
+  };
+
   if (!isAuthenticated) {
     if (showRegister) {
       return <RegisterView onRegister={handleRegister} onBackToLogin={() => setShowRegister(false)} />;
@@ -413,27 +574,10 @@ const App: React.FC = () => {
         ) : (
           activeTab === 'menu' ? <MenuView onActionClick={(sv, tab) => { if(tab) setActiveTab(tab); else setActiveSubView(sv); }} onLogout={handleLogout} onClose={() => setActiveTab('home')} /> :
           activeTab === 'settings' ? <SettingsView buildingInfo={buildingInfo} onUpdateBuildingInfo={setBuildingInfo} units={unitsWithBalances} onResetMoney={() => setTransactions([])} onClose={() => setActiveTab('home')} /> :
+          activeTab === 'sessions' ? <SessionsView info={buildingInfo} units={unitsWithBalances} onClose={() => setActiveTab('home')} onUpdateInfo={setBuildingInfo} /> :
           activeTab === 'home' ? <div className="space-y-3 pt-1"><SummaryCard balance={balance} /><ActionGrid variant="grid" onActionClick={a => { const m: any = { 'Tahsilat': 'tahsilat', 'Gider': 'gider', 'Borçlandır': 'borclandir', 'Gelir': 'gelir', 'İade': 'iade', 'Transfer': 'transfer', 'Bağımsız Bölümler': 'units', 'İşlem Hareketleri': 'history', 'Alacak Listesi': 'receivables' }; if (m[a]) setActiveSubView(m[a]); }} /><SecondaryWidgets onActionClick={a => { const m: any = { 'AİDAT ÇİZELGE': 'aidat-cizelge', 'AYLIK BİLANÇO': 'monthly-report', 'YILLIK BİLANÇO': 'yearly-report' }; if (m[a]) setActiveSubView(m[a]); }} /><LastTransaction transaction={(Array.isArray(transactions) && transactions.length > 0) ? transactions[0] : null} /></div> :
-          activeTab === 'sessions' ? <SessionsView info={buildingInfo} units={unitsWithBalances} onClose={() => setActiveTab('home')} onManagementCreated={data => { setBuildingInfo(data); setUnits(INITIAL_UNITS); setTransactions([]); }} onManagementUpdated={setBuildingInfo} onDeleteManagement={() => {}} /> : 
-          activeTab === 'files' ? <FilesView files={files} onAddFile={f => setFiles(p => [...(Array.isArray(p) ? p : []), { ...f, id: Math.random().toString(36).slice(2) }])} onDeleteFile={id => setFiles(p => p.filter(x => x.id !== id))} onOpenFile={async (file) => {
-            try {
-              const { PDFService } = await import('./pdfService.ts');
-              if (file.uri) {
-                console.log('PDF açılıyor:', file.uri);
-                console.log('Dosya adı:', file.fileName);
-                await PDFService.openPDF(file.uri, file.fileName);
-              } else {
-                alert('Dosya yolu bulunamadı. Lütfen PDF\'i yeniden oluşturun.');
-              }
-            } catch (error) {
-              console.error('PDF açma hatası:', error);
-              const errorMsg = error instanceof Error ? error.message : 'Bilinmeyen hata';
-              // "canceled" hatalarını gösterme
-              if (!errorMsg.toLowerCase().includes('canceled')) {
-                alert('PDF açılamadı: ' + errorMsg);
-              }
-            }
-          }} /> : null
+          
+          activeTab === 'files' ? <FilesView files={files} onAddFile={f => setFiles(p => [...(Array.isArray(p) ? p : []), { ...f, id: Math.random().toString(36).slice(2) }])} onDeleteFile={id => setFiles(p => p.filter(x => x.id !== id))} onOpenFile={handleOpenFile} onShareFile={handleShareFile} /> : null
         )}
       </main>
       <BottomNav activeTab={activeTab} onTabChange={t => { setActiveTab(t); setActiveSubView(null); }} />
@@ -442,3 +586,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+

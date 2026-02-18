@@ -150,7 +150,7 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">İşlem Tarihi</label>
-                <input type="date" value={formData.date} onChange={(e) => setFormData(prev => ({...prev, date: e.target.value}))} className="bg-black/20 w-full h-10 rounded-xl px-3 text-[15px] font-bold text-white outline-none border border-white/5" />
+                <input type="date" value={formData.date} onChange={(e) => setFormData(prev => ({...prev, date: e.target.value}))} className="bg-black/20 w-full h-[52px] rounded-xl px-3 text-[15px] font-bold text-white outline-none border border-white/5" />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">Tutar (₺)</label>

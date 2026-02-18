@@ -115,7 +115,7 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave }) => {
               type="date" 
               value={formData.date} 
               onChange={e => setFormData(prev => ({...prev, date: e.target.value}))} 
-              className="bg-white/5 w-full h-11 rounded-xl px-3 text-[15px] font-black text-white outline-none border border-white/5" 
+              className="bg-white/5 w-full h-[52px] rounded-xl px-3 text-[15px] font-black text-white outline-none border border-white/5" 
             />
           </div>
         </section>
