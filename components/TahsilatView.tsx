@@ -64,7 +64,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
 
     const description = debtItem 
       ? `${months[debtItem.month]} AYI AİDAT` 
-      : `TAHSİLAT`;
+      : `${months[finalMonth]} AYI AİDAT`;
 
     onSave(finalAmount, description, 'genel', selectedDate, selectedUnitId, finalMonth, finalYear);
     setIsSaving(false);

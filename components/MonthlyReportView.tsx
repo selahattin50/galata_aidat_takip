@@ -299,7 +299,7 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
               ) : (
                 reportData.expenses.map((item, i) => (
                   <div key={i} className="flex justify-between items-start border-b border-gray-200 pb-3 last:border-0">
-                    <span className="text-[10px] text-black font-black uppercase tracking-tight leading-tight flex-1 pr-2">{item.label}</span>
+                    <span className="text-[8px] text-black font-black uppercase tracking-tight leading-tight flex-1 pr-2">{item.label}</span>
                     <span className="text-[11px] text-black font-black whitespace-nowrap">{formatCurrency(item.total)}</span>
                   </div>
                 ))
@@ -318,8 +318,8 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
                 </div>
               ) : (
                 reportData.incomes.map((item, i) => (
-                  <div key={i} className="flex justify-between items-start border-b border-gray-200 pb-3 last:border-0">
-                    <span className={`text-[10px] font-black uppercase tracking-tight leading-tight flex-1 pr-2 ${item.label.includes('DEVİR') ? 'text-blue-600' : 'text-black'}`}>{item.label}</span>
+                  <div key={i} className="flex justify-between items-start border-b border-gray-200 pb-3 last:border-0 -ml-[8px]">
+                    <span className={`text-[8px] font-black uppercase tracking-tight leading-tight flex-1 pr-2 ${item.label.includes('DEVİR') ? 'text-blue-600' : 'text-black'}`}>{item.label}</span>
                     <span className={`text-[11px] font-black whitespace-nowrap ${item.label.includes('DEVİR') ? 'text-blue-600' : 'text-black'}`}>{formatCurrency(item.total)}</span>
                   </div>
                 ))

@@ -33,15 +33,15 @@ const STORAGE_KEYS = {
   AUTH: 'galata_v16_auth'
 };
 
-const DEFAULT_BUILDING_INFO: BuildingInfo = { 
-  name: "GALATA APARTMANI", 
-  address: "Cevherdudaev Mahallesi Yasemin Sokak No 6 Nevşehir", 
-  role: "Yönetici", 
+const DEFAULT_BUILDING_INFO: BuildingInfo = {
+  name: "GALATA APARTMANI",
+  address: "Cevherdudaev Mahallesi Yasemin Sokak No 6 Nevşehir",
+  role: "Yönetici",
   managerName: "Selahattin Ölgün",
   taxNo: "3881743149",
   duesAmount: 750,
-  isManagerExempt: false, 
-  managerUnitId: '', 
+  isManagerExempt: false,
+  managerUnitId: '',
   isAutoDuesEnabled: true
 };
 
@@ -61,8 +61,8 @@ const INITIAL_UNITS: Unit[] = Array.from({ length: 24 }, (_, i) => ({
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     try {
-      return localStorage.getItem(STORAGE_KEYS.AUTH) === 'true' || 
-             sessionStorage.getItem(STORAGE_KEYS.AUTH) === 'true';
+      return localStorage.getItem(STORAGE_KEYS.AUTH) === 'true' ||
+        sessionStorage.getItem(STORAGE_KEYS.AUTH) === 'true';
     } catch { return false; }
   });
 
@@ -102,7 +102,7 @@ const App: React.FC = () => {
       try {
         setIsLoading(true);
         console.log('Firebase\'den veri yükleniyor...');
-        
+
         // Önce Firebase bağlantısını test et
         const isConnected = await db.testConnection();
         if (!isConnected) {
@@ -111,7 +111,7 @@ const App: React.FC = () => {
           return;
         }
         console.log('✓ Firebase bağlantısı başarılı!');
-        
+
         // Tüm verileri Firebase'den çek
         const [info, unitsData, transactionsData, boardData, filesData] = await Promise.all([
           db.getBuildingInfo(),
@@ -121,9 +121,9 @@ const App: React.FC = () => {
           db.getFiles()
         ]);
 
-        console.log('Firebase veriler:', { 
-          info: !!info, 
-          units: unitsData?.length || 0, 
+        console.log('Firebase veriler:', {
+          info: !!info,
+          units: unitsData?.length || 0,
           transactions: transactionsData?.length || 0,
           board: boardData?.length || 0,
           files: filesData?.length || 0
@@ -136,7 +136,7 @@ const App: React.FC = () => {
         } else {
           console.log('Building info yok, default kullanılıyor');
         }
-        
+
         if (unitsData && unitsData.length > 0) {
           console.log('✓ Units yüklendi:', unitsData.length, 'adet');
           setUnits(unitsData);
@@ -145,17 +145,17 @@ const App: React.FC = () => {
           // İlk yüklemede default units'i kaydet
           await db.saveUnits(INITIAL_UNITS);
         }
-        
+
         if (transactionsData && transactionsData.length > 0) {
           console.log('✓ Transactions yüklendi:', transactionsData.length);
           setTransactions(transactionsData);
         }
-        
+
         if (boardData && boardData.length > 0) {
           console.log('✓ Board members yüklendi:', boardData.length);
           setBoardMembers(boardData);
         }
-        
+
         if (filesData && filesData.length > 0) {
           console.log('✓ Files yüklendi:', filesData.length);
           setFiles(filesData);
@@ -172,7 +172,7 @@ const App: React.FC = () => {
   }, [isAuthenticated]);
 
   // Verileri Firebase'e kaydet (debounce ile)
-  useEffect(() => { 
+  useEffect(() => {
     if (isAuthenticated && !isLoading && buildingInfo) {
       const timer = setTimeout(() => {
         console.log('Building info Firebase\'e kaydediliyor...');
@@ -186,7 +186,7 @@ const App: React.FC = () => {
     }
   }, [buildingInfo, isAuthenticated, isLoading]);
 
-  useEffect(() => { 
+  useEffect(() => {
     if (isAuthenticated && !isLoading && Array.isArray(units)) {
       const timer = setTimeout(() => {
         console.log('Units Firebase\'e kaydediliyor:', units.length, 'adet');
@@ -202,16 +202,16 @@ const App: React.FC = () => {
     }
   }, [units, isAuthenticated, isLoading]);
 
-  useEffect(() => { 
+  useEffect(() => {
     if (isAuthenticated && !isLoading && Array.isArray(transactions)) {
       console.log('⏰ Transactions değişti, Firebase\'e kaydedilecek:', transactions.length, 'adet');
-      console.log('⏰ Son 5 transaction:', transactions.slice(0, 5).map(t => ({ 
-        id: t.id, 
-        type: t.type, 
-        amount: t.amount, 
-        desc: t.description?.substring(0, 30) 
+      console.log('⏰ Son 5 transaction:', transactions.slice(0, 5).map(t => ({
+        id: t.id,
+        type: t.type,
+        amount: t.amount,
+        desc: t.description?.substring(0, 30)
       })));
-      
+
       const timer = setTimeout(() => {
         console.log('Transactions Firebase\'e kaydediliyor:', transactions.length);
         db.saveTransactions(transactions)
@@ -222,7 +222,7 @@ const App: React.FC = () => {
     }
   }, [transactions, isAuthenticated, isLoading]);
 
-  useEffect(() => { 
+  useEffect(() => {
     if (isAuthenticated && !isLoading && Array.isArray(boardMembers)) {
       const timer = setTimeout(() => {
         console.log('Board members Firebase\'e kaydediliyor:', boardMembers.length);
@@ -234,7 +234,7 @@ const App: React.FC = () => {
     }
   }, [boardMembers, isAuthenticated, isLoading]);
 
-  useEffect(() => { 
+  useEffect(() => {
     if (isAuthenticated && !isLoading && Array.isArray(files)) {
       const timer = setTimeout(() => {
         console.log('Files Firebase\'e kaydediliyor:', files.length);
@@ -249,13 +249,13 @@ const App: React.FC = () => {
   // Android geri tuşu yönetimi
   useEffect(() => {
     console.log('🔧 Geri tuşu listener kurulumu başlatılıyor...');
-    
+
     const handleBackButton = (event: any) => {
       const currentTab = activeTabRef.current;
       const currentSubView = activeSubViewRef.current;
-      
+
       console.log('🔙 Geri tuşuna basıldı - activeTab:', currentTab, 'activeSubView:', currentSubView);
-      
+
       // Eğer subview açıksa, subview'i kapat
       if (currentSubView) {
         console.log('✓ SubView kapatılıyor:', currentSubView);
@@ -263,7 +263,7 @@ const App: React.FC = () => {
         event?.preventDefault?.();
         return;
       }
-      
+
       // Eğer ana sayfa değilse, ana sayfaya dön
       if (currentTab !== 'home') {
         console.log('✓ Ana sayfaya dönülüyor, mevcut tab:', currentTab);
@@ -271,7 +271,7 @@ const App: React.FC = () => {
         event?.preventDefault?.();
         return;
       }
-      
+
       // Ana sayfadaysa uygulamadan çık
       console.log('✓ Ana sayfada, uygulamadan çıkılıyor');
       CapacitorApp.exitApp();
@@ -279,7 +279,7 @@ const App: React.FC = () => {
 
     // Capacitor App plugin listener
     let listenerHandle: any = null;
-    
+
     CapacitorApp.addListener('backButton', handleBackButton).then(handle => {
       listenerHandle = handle;
       console.log('✅ Geri tuşu listener başarıyla kuruldu');
@@ -294,6 +294,88 @@ const App: React.FC = () => {
       }
     };
   }, []); // Boş dependency array - sadece bir kez çalışır
+
+  /* Otomatik aidat kontrolü ve eksik işlem oluşturma (Krediden Tahsilat) - İPTAL EDİLDİ
+
+    const generateAutoTransactions = () => {
+      const newTransactions: Transaction[] = [];
+      const now = new Date();
+      const currentMonthIdx = now.getMonth();
+      const currentYear = now.getFullYear();
+      const duesAmount = buildingInfo.duesAmount || 750;
+
+      units.forEach(unit => {
+        // Skip exempt units
+        if (buildingInfo.isManagerExempt && unit.id === buildingInfo.managerUnitId) return;
+
+        // Calculate initial credit (Income - Existing Manual Debts)
+        const unitTransactions = transactions.filter(t => t.unitId === unit.id);
+        const totalIncome = unitTransactions.filter(t => t.type === 'GELİR').reduce((sum, t) => sum + (t.amount || 0), 0);
+        // "BORÇLANDIRMA" transaction'ları, hem manuel eklenenleri hem de bizim otomatik eklediklerimizi kapsar
+        const manualDebts = unitTransactions.filter(t => t.type === 'BORÇLANDIRMA');
+        const totalManualDebt = manualDebts.reduce((sum, t) => sum + (t.amount || 0), 0);
+
+        // Başlangıç kredisi (Henüz işlenmemiş aylar için düşülmemiş hali)
+        // Dikkat: Burada totalManualDebt zaten o ana kadar eklenmiş "Krediden Tahsilat"ları da içeriyor olacak (bir sonraki render'da)
+        let runningCredit = totalIncome - totalManualDebt;
+
+        // Iterate months to simulate and capture missing 'credit payments'
+        for (let m = 0; m <= currentMonthIdx; m++) {
+          // Bu ay için zaten bir borçlandırma (manuel veya otomatik) var mı?
+          const hasManual = manualDebts.some(t => t.periodMonth === m && t.periodYear === currentYear);
+
+          if (!hasManual) {
+            // Eğer yoksa ve kredi yetiyorsa -> Otomatik işlem oluştur
+            if (runningCredit >= duesAmount) {
+
+              const monthName = new Date(currentYear, m, 1).toLocaleString('tr-TR', { month: 'long' });
+              const uMonthName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+
+              // Create a real transaction
+              const newTx: Transaction = {
+                id: "auto_" + Math.random().toString(36).slice(2) + "_" + Date.now(),
+                type: 'BORÇLANDIRMA',
+                amount: duesAmount,
+                unitId: unit.id,
+                description: `${uMonthName} ${currentYear} Aidat Tahsilatı (Krediden Ödendi)`,
+                date: new Date(currentYear, m, 1).toLocaleDateString('tr-TR'), // 1st of month
+                periodMonth: m,
+                periodYear: currentYear
+              };
+
+              newTransactions.push(newTx);
+
+              // Krediyi düş, böylece sonraki aylar için doğru hesaplansın
+              runningCredit -= duesAmount;
+            } else {
+              // Kredi yetmiyor, borç birikiyor (Sistemin mevcut işleyişi bunu 'debt' olarak gösteriyor zaten)
+              // Burada bir işlem yapmamıza gerek yok, sadece döngü için logic.
+            }
+          }
+        }
+      });
+      return newTransactions;
+    };
+
+    // Debounce veya check
+    const timer = setTimeout(() => {
+      const newTx = generateAutoTransactions();
+      if (newTx.length > 0) {
+        console.log('🔄 Otomatik Krediden Tahsilat İşlemleri Oluşturuluyor:', newTx.length, 'adet');
+
+        const updatedTransactions = [...newTx, ...transactions];
+        setTransactions(updatedTransactions);
+
+        // Firebase'e kaydet
+        db.saveTransactions(updatedTransactions)
+          .then(() => console.log('✓ Otomatik işlemler veritabanına kaydedildi'))
+          .catch(err => console.error('✗ Otomatik işlem kaydetme hatası:', err));
+      }
+    }, 1000); // 1 saniye bekle ki diğer yüklemeler tam bitsin
+
+    return () => clearTimeout(timer);
+
+  */
 
   const unitsWithBalances = useMemo(() => {
     if (!Array.isArray(units)) return INITIAL_UNITS;
@@ -320,6 +402,7 @@ const App: React.FC = () => {
     });
   }, [units, transactions, buildingInfo]);
 
+
   const balance: BalanceSummary = useMemo(() => {
     const txArr = Array.isArray(transactions) ? transactions : [];
     const totalIncome = txArr.filter(tx => tx?.type === 'GELİR').reduce((sum, tx) => sum + (tx?.amount || 0), 0);
@@ -335,29 +418,6 @@ const App: React.FC = () => {
     setIsAuthenticated(true);
   };
 
-  const handleRegister = async (email: string, password: string, name: string, phone: string) => {
-    try {
-      console.log('Yeni kullanıcı kaydı:', { email, name, phone });
-      
-      // Kullanıcı bilgilerini Firebase'e kaydet
-      const userData = {
-        email,
-        password, // Not: Gerçek uygulamada şifreyi hash'lemek gerekir
-        name,
-        phone,
-        createdAt: new Date().toISOString()
-      };
-      
-      await db.saveData('users/' + email.replace(/[.@]/g, '_'), userData);
-      
-      alert(`Hesabınız başarıyla oluşturuldu!\n\nE-posta: ${email}\nAd: ${name}\n\nŞimdi giriş yapabilirsiniz.`);
-      setShowRegister(false);
-    } catch (error) {
-      console.error('Kayıt hatası:', error);
-      alert('Kayıt sırasında hata oluştu: ' + (error as Error).message);
-    }
-  };
-
   const handleLogout = () => {
     localStorage.removeItem(STORAGE_KEYS.AUTH);
     sessionStorage.removeItem(STORAGE_KEYS.AUTH);
@@ -368,7 +428,7 @@ const App: React.FC = () => {
     const newUnit = { ...u, id: Math.random().toString(36).slice(2), credit: 0, debt: 0 };
     const updatedUnits = [...(Array.isArray(units) ? units : []), newUnit];
     setUnits(updatedUnits);
-    
+
     // Hemen Firebase'e kaydet
     if (isAuthenticated && !isLoading) {
       db.saveUnits(updatedUnits)
@@ -380,7 +440,7 @@ const App: React.FC = () => {
   const handleEditUnit = (u: Unit) => {
     const updatedUnits = units.map(x => x.id === u.id ? u : x);
     setUnits(updatedUnits);
-    
+
     // Hemen Firebase'e kaydet
     if (isAuthenticated && !isLoading) {
       db.saveUnits(updatedUnits)
@@ -391,20 +451,20 @@ const App: React.FC = () => {
 
   const handleAddTransaction = async (amount: number, description: string, type: any, vault: any = 'genel', date?: string, unitId?: string, periodMonth?: number, periodYear?: number) => {
     console.log('🔵 handleAddTransaction çağrıldı:', { amount, description, type, vault, date, unitId });
-    
+
     const formattedDate = date ? (date.includes('-') ? date.split('-').reverse().join('.') : date) : new Date().toLocaleDateString('tr-TR');
     const newTx: Transaction = { id: Math.random().toString(36).slice(2), type, amount, description: `${description} [${vault}]`, unitId, date: formattedDate, periodMonth, periodYear };
-    
+
     console.log('🔵 Yeni transaction oluşturuldu:', newTx);
-    
+
     const updatedTransactions = [newTx, ...(Array.isArray(transactions) ? transactions : [])];
-    
+
     console.log('🔵 Güncellenmiş transactions listesi:', updatedTransactions.length, 'adet');
     console.log('🔵 İlk 3 transaction:', updatedTransactions.slice(0, 3).map(t => ({ type: t.type, amount: t.amount, desc: t.description })));
-    
+
     // Önce state'i güncelle
     setTransactions(updatedTransactions);
-    
+
     // Hemen Firebase'e kaydet (await ile bekle)
     if (isAuthenticated && !isLoading) {
       console.log('🔵 Firebase\'e kaydediliyor...');
@@ -412,7 +472,7 @@ const App: React.FC = () => {
         await db.saveTransactions(updatedTransactions);
         console.log('✓ Transaction Firebase\'e kaydedildi');
         console.log('✓ Kaydedilen transaction sayısı:', updatedTransactions.length);
-        
+
         // Firebase kaydı başarılı olduktan sonra view'ı değiştir
         console.log('🔵 View değiştiriliyor: history');
         setActiveSubView('history');
@@ -445,7 +505,7 @@ const App: React.FC = () => {
   const handleShareFile = async (file: FileEntry) => {
     try {
       const { Share } = await import('@capacitor/share');
-      
+
       if (file.uri) {
         console.log('Dosya paylaşılıyor/açılıyor:', file.uri);
         await Share.share({
@@ -478,7 +538,7 @@ const App: React.FC = () => {
 
       // Dosyayı oku ve base64 olarak al
       const { Filesystem, Directory } = await import('@capacitor/filesystem');
-      
+
       if (file.fileName) {
         try {
           const fileData = await Filesystem.readFile({
@@ -497,13 +557,13 @@ const App: React.FC = () => {
           }
           const byteArray = new Uint8Array(byteNumbers);
           const blob = new Blob([byteArray], { type: 'application/pdf' });
-          
+
           // Blob'dan URL oluştur
           const blobUrl = URL.createObjectURL(blob);
-          
+
           // Browser ile aç
           const { Browser } = await import('@capacitor/browser');
-          await Browser.open({ 
+          await Browser.open({
             url: blobUrl,
             presentationStyle: 'fullscreen'
           });
@@ -542,7 +602,7 @@ const App: React.FC = () => {
 
   if (!isAuthenticated) {
     if (showRegister) {
-      return <RegisterView onRegister={handleRegister} onBackToLogin={() => setShowRegister(false)} />;
+      return <RegisterView onBackToLogin={() => setShowRegister(false)} />;
     }
     return <LoginView onLogin={handleLogin} onShowRegister={() => setShowRegister(true)} />;
   }
@@ -550,34 +610,34 @@ const App: React.FC = () => {
   return (
     <div className="app-gradient text-white pb-24 max-w-md mx-auto shadow-2xl relative min-h-screen">
       {!activeSubView && activeTab === 'home' && <Header info={buildingInfo} onLogout={handleLogout} />}
-      
+
       <main className="px-4">
         {activeSubView ? (
           activeSubView === 'tahsilat' ? <TahsilatView units={unitsWithBalances} info={buildingInfo} transactions={transactions} onClose={() => setActiveSubView(null)} onSave={(a, desc, v, dt, uId, m, y) => handleAddTransaction(a, desc, 'GELİR', v, dt, uId, m, y)} /> :
-          activeSubView === 'gider' ? <GiderView onClose={() => setActiveSubView(null)} onSave={async (a, d, v, dt) => await handleAddTransaction(a, d, 'GİDER', v, dt)} /> :
-          activeSubView === 'borclandir' ? <BorclandirView units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt, uId, m, y) => handleAddTransaction(a, d, 'BORÇLANDIRMA', v, dt, uId, m, y)} /> :
-          activeSubView === 'gelir' ? <GelirView onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt) => handleAddTransaction(a, d, 'GELİR', v, dt)} /> :
-          activeSubView === 'iade' ? <IadeView units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt, uId) => handleAddTransaction(a, d, 'GİDER', v, dt, uId)} /> :
-          activeSubView === 'transfer' ? <TransferView onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt) => handleAddTransaction(a, d, 'TRANSFER', v, dt)} /> :
-          activeSubView === 'units' ? <UnitsView units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddUnit={handleAddUnit} onEditUnit={handleEditUnit} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
-          activeSubView === 'history' ? <TransactionsView transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} onDeleteTransaction={async (id) => {
-            setTransactions(p => p.filter(x => x.id !== id));
-            if (isAuthenticated && !isLoading) {
-              try { await db.deleteTransaction(id); } catch (err) { console.error('✗ Silme esnasında hata:', err); }
-            }
-          }} onUpdateTransaction={tx => setTransactions(p => p.map(x => x.id === tx.id ? tx : x))} /> :
-          activeSubView === 'receivables' ? <ReceivablesView units={unitsWithBalances} onClose={() => setActiveSubView(null)} /> :
-          activeSubView === 'aidat-cizelge' ? <AidatCizelgeView units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddDues={() => {}} /> :
-          activeSubView === 'monthly-report' ? <MonthlyReportView transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
-          activeSubView === 'yearly-report' ? <YearlyReportView transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
-          activeSubView === 'board' ? <BoardView members={boardMembers} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddMember={m => setBoardMembers(p => [...(Array.isArray(p) ? p : []), { ...m, id: Math.random().toString(36).slice(2) }])} onDeleteMember={id => setBoardMembers(p => p.filter(x => x.id !== id))} /> : null
+            activeSubView === 'gider' ? <GiderView onClose={() => setActiveSubView(null)} onSave={async (a, d, v, dt) => await handleAddTransaction(a, d, 'GİDER', v, dt)} /> :
+              activeSubView === 'borclandir' ? <BorclandirView units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt, uId, m, y) => handleAddTransaction(a, d, 'BORÇLANDIRMA', v, dt, uId, m, y)} /> :
+                activeSubView === 'gelir' ? <GelirView onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt) => handleAddTransaction(a, d, 'GELİR', v, dt)} /> :
+                  activeSubView === 'iade' ? <IadeView units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt, uId) => handleAddTransaction(a, d, 'GİDER', v, dt, uId)} /> :
+                    activeSubView === 'transfer' ? <TransferView onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt) => handleAddTransaction(a, d, 'TRANSFER', v, dt)} /> :
+                      activeSubView === 'units' ? <UnitsView units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddUnit={handleAddUnit} onEditUnit={handleEditUnit} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
+                        activeSubView === 'history' ? <TransactionsView transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} onDeleteTransaction={async (id) => {
+                          setTransactions(p => p.filter(x => x.id !== id));
+                          if (isAuthenticated && !isLoading) {
+                            try { await db.deleteTransaction(id); } catch (err) { console.error('✗ Silme esnasında hata:', err); }
+                          }
+                        }} onUpdateTransaction={tx => setTransactions(p => p.map(x => x.id === tx.id ? tx : x))} /> :
+                          activeSubView === 'receivables' ? <ReceivablesView units={unitsWithBalances} onClose={() => setActiveSubView(null)} /> :
+                            activeSubView === 'aidat-cizelge' ? <AidatCizelgeView units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddDues={() => { }} /> :
+                              activeSubView === 'monthly-report' ? <MonthlyReportView transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
+                                activeSubView === 'yearly-report' ? <YearlyReportView transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
+                                  activeSubView === 'board' ? <BoardView members={boardMembers} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddMember={m => setBoardMembers(p => [...(Array.isArray(p) ? p : []), { ...m, id: Math.random().toString(36).slice(2) }])} onDeleteMember={id => setBoardMembers(p => p.filter(x => x.id !== id))} /> : null
         ) : (
-          activeTab === 'menu' ? <MenuView onActionClick={(sv, tab) => { if(tab) setActiveTab(tab); else setActiveSubView(sv); }} onLogout={handleLogout} onClose={() => setActiveTab('home')} /> :
-          activeTab === 'settings' ? <SettingsView buildingInfo={buildingInfo} onUpdateBuildingInfo={setBuildingInfo} units={unitsWithBalances} onResetMoney={() => setTransactions([])} onClose={() => setActiveTab('home')} /> :
-          activeTab === 'sessions' ? <SessionsView info={buildingInfo} units={unitsWithBalances} onClose={() => setActiveTab('home')} onUpdateInfo={setBuildingInfo} /> :
-          activeTab === 'home' ? <div className="space-y-3 pt-1"><SummaryCard balance={balance} /><ActionGrid variant="grid" onActionClick={a => { const m: any = { 'Tahsilat': 'tahsilat', 'Gider': 'gider', 'Borçlandır': 'borclandir', 'Gelir': 'gelir', 'İade': 'iade', 'Transfer': 'transfer', 'Bağımsız Bölümler': 'units', 'İşlem Hareketleri': 'history', 'Alacak Listesi': 'receivables' }; if (m[a]) setActiveSubView(m[a]); }} /><SecondaryWidgets onActionClick={a => { const m: any = { 'AİDAT ÇİZELGE': 'aidat-cizelge', 'AYLIK BİLANÇO': 'monthly-report', 'YILLIK BİLANÇO': 'yearly-report' }; if (m[a]) setActiveSubView(m[a]); }} /><LastTransaction transaction={(Array.isArray(transactions) && transactions.length > 0) ? transactions[0] : null} /></div> :
-          
-          activeTab === 'files' ? <FilesView files={files} onAddFile={f => setFiles(p => [...(Array.isArray(p) ? p : []), { ...f, id: Math.random().toString(36).slice(2) }])} onDeleteFile={id => setFiles(p => p.filter(x => x.id !== id))} onOpenFile={handleOpenFile} onShareFile={handleShareFile} /> : null
+          activeTab === 'menu' ? <MenuView onActionClick={(sv, tab) => { if (tab) setActiveTab(tab); else setActiveSubView(sv); }} onLogout={handleLogout} onClose={() => setActiveTab('home')} /> :
+            activeTab === 'settings' ? <SettingsView buildingInfo={buildingInfo} onUpdateBuildingInfo={setBuildingInfo} units={unitsWithBalances} onResetMoney={() => setTransactions([])} onClose={() => setActiveTab('home')} /> :
+              activeTab === 'sessions' ? <SessionsView info={buildingInfo} units={unitsWithBalances} onClose={() => setActiveTab('home')} onUpdateInfo={setBuildingInfo} /> :
+                activeTab === 'home' ? <div className="space-y-3 pt-1"><SummaryCard balance={balance} /><ActionGrid variant="grid" onActionClick={a => { const m: any = { 'Tahsilat': 'tahsilat', 'Gider': 'gider', 'Borçlandır': 'borclandir', 'Gelir': 'gelir', 'İade': 'iade', 'Transfer': 'transfer', 'Bağımsız Bölümler': 'units', 'İşlem Hareketleri': 'history', 'Alacak Listesi': 'receivables' }; if (m[a]) setActiveSubView(m[a]); }} /><SecondaryWidgets onActionClick={a => { const m: any = { 'AİDAT ÇİZELGE': 'aidat-cizelge', 'AYLIK BİLANÇO': 'monthly-report', 'YILLIK BİLANÇO': 'yearly-report' }; if (m[a]) setActiveSubView(m[a]); }} /><LastTransaction transaction={(Array.isArray(transactions) && transactions.length > 0) ? transactions[0] : null} /></div> :
+
+                  activeTab === 'files' ? <FilesView files={files} onAddFile={f => setFiles(p => [...(Array.isArray(p) ? p : []), { ...f, id: Math.random().toString(36).slice(2) }])} onDeleteFile={id => setFiles(p => p.filter(x => x.id !== id))} onOpenFile={handleOpenFile} onShareFile={handleShareFile} /> : null
         )}
       </main>
       <BottomNav activeTab={activeTab} onTabChange={t => { setActiveTab(t); setActiveSubView(null); }} />

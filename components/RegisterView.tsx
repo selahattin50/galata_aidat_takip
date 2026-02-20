@@ -2,11 +2,10 @@ import React, { useState } from 'react';
 import { Building, Mail, Lock, User, Phone, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 
 interface RegisterViewProps {
-  onRegister: (email: string, password: string, name: string, phone: string) => void;
   onBackToLogin: () => void;
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onBackToLogin }) => {
+const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -15,7 +14,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onBackToLogin }
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email || !password || !name) {
@@ -33,7 +32,63 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onBackToLogin }
       return;
     }
 
-    onRegister(email, password, name, phone);
+    // Firebase Authentication ile kayıt
+    try {
+      const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+      const { auth } = await import('../firebaseConfig');
+      
+      console.log('Firebase Authentication ile kayıt başlatılıyor...');
+      
+      // Kullanıcı oluştur
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      console.log('Kullanıcı oluşturuldu:', userCredential.user.uid);
+      
+      // Kullanıcı profilini güncelle (isim ekle)
+      await updateProfile(userCredential.user, {
+        displayName: name
+      });
+      
+      console.log('Profil güncellendi');
+      
+      // Ek bilgileri Realtime Database'e kaydet
+      const { ref, set } = await import('firebase/database');
+      const { database } = await import('../firebaseConfig');
+      
+      const userDataRef = ref(database, `_userProfiles/${userCredential.user.uid}`);
+      await set(userDataRef, {
+        name: name,
+        phone: phone || '',
+        email: email,
+        createdAt: new Date().toISOString()
+      });
+      
+      console.log('Kullanıcı profili kaydedildi');
+      
+      alert(`Hesabınız başarıyla oluşturuldu!\n\nE-posta: ${email}\nAd: ${name}\n\nŞimdi giriş yapabilirsiniz.`);
+      onBackToLogin();
+    } catch (error: any) {
+      console.error('Kayıt hatası:', error);
+      console.error('Hata kodu:', error.code);
+      console.error('Hata mesajı:', error.message);
+      
+      let errorMessage = 'Kayıt sırasında hata oluştu!';
+      
+      // Firebase Authentication hatalarını kontrol et
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'Bu e-posta adresi zaten kullanılıyor!';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Geçersiz e-posta adresi!';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Şifre çok zayıf! En az 6 karakter olmalıdır.';
+      } else if (error.code === 'auth/operation-not-allowed') {
+        errorMessage = 'E-posta/şifre girişi Firebase Console\'da aktif değil!\n\nLütfen Firebase Console > Authentication > Sign-in method bölümünden Email/Password metodunu aktif edin.';
+      } else if (error.message) {
+        errorMessage = `Hata: ${error.message}`;
+      }
+      
+      alert(errorMessage);
+    }
   };
 
   return (

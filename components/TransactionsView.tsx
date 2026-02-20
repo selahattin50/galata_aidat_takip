@@ -200,7 +200,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
               </div>
               <div className="flex items-center justify-between mt-auto pb-4">
                 <div className="flex flex-col justify-center mt-[-40px]">
-                   <p className="text-[14px] font-black text-slate-950 uppercase italic tracking-tight mb-5 bg-slate-100/50 p-2">
+                   <p className="text-[22px] font-black text-slate-950 uppercase italic tracking-tight mb-5 bg-slate-100/50 p-2">
                      # YALNIZ {numberToWordsTr(txToPrint.amount)} #
                    </p>
                    
@@ -214,13 +214,13 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                      <span className="text-[54px] font-black text-slate-950 leading-none tracking-tighter">{formatCurrency(txToPrint.amount)}</span>
                   </div>
                   
-                  <div className="relative w-[160px] h-[160px] flex items-center justify-center mt-5">
+                  <div className="relative w-[150px] h-[150px] flex items-center justify-center mt-[11px]">
                     <div className="absolute inset-0 border-[5px] border-green-600 rounded-full"></div>
                     <div className="absolute inset-[10px] border-[2px] border-green-600 rounded-full"></div>
-                    <svg viewBox="0 0 160 160" className="absolute inset-0 w-full h-full">
+                    <svg viewBox="0 0 150 150" className="absolute inset-0 w-full h-full">
                       <defs>
-                        <path id="txPathTop" d="M 30,80 A 50,50 0 0,1 130,80" />
-                        <path id="txPathBottom" d="M 25,80 A 55,55 0 0,0 135,80" />
+                        <path id="txPathTop" d="M 30,75 A 45,45 0 0,1 120,75" />
+                        <path id="txPathBottom" d="M 25,75 A 50,50 0 0,0 125,75" />
                       </defs>
                       <text className="fill-green-600 text-[18px] font-black uppercase tracking-[0.2em]">
                         <textPath xlinkHref="#txPathTop" startOffset="50%" textAnchor="middle">GALATA</textPath>
@@ -229,8 +229,8 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                         <textPath xlinkHref="#txPathBottom" startOffset="50%" textAnchor="middle">APARTMANI</textPath>
                       </text>
                     </svg>
-                    <div className="z-10 bg-green-600 text-white px-4 py-2 rotate-[-2deg] shadow-2xl flex items-center justify-center border border-white/20 min-w-[120px]">
-                      <span className="text-[14px] font-black tracking-tighter uppercase whitespace-nowrap leading-none">TAHSİL EDİLDİ</span>
+                    <div className="z-10 bg-green-600 text-white px-4 pt-[2px] pb-[13px] rotate-[-2deg] shadow-2xl flex items-center justify-center border border-white/20 min-w-[120px]">
+                      <span className="text-[16px] font-black tracking-tighter uppercase whitespace-nowrap leading-none">TAHSİL EDİLDİ</span>
                     </div>
                   </div>
                 </div>
@@ -266,6 +266,30 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
             
             {isDatePickerOpen && (
               <div className="absolute top-16 left-0 right-0 z-[230] bg-[#1e293b] border-2 border-blue-500/20 rounded-[24px] shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-hidden py-1 animate-in fade-in slide-in-from-top-4 duration-300 ring-4 ring-black/40 min-w-[200px]">
+                {/* Yıl Seçici */}
+                <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 bg-black/20">
+                  <button 
+                    onClick={() => setSelectedYear(selectedYear - 1)} 
+                    className="p-1 text-white/60 hover:text-white active:scale-90 transition-all"
+                  >
+                    <ChevronDown size={16} className="rotate-90" />
+                  </button>
+                  <span className="text-[11px] font-black text-white uppercase tracking-widest">{selectedYear}</span>
+                  <button 
+                    onClick={() => {
+                      const now = new Date();
+                      if (selectedYear < now.getFullYear()) {
+                        setSelectedYear(selectedYear + 1);
+                      }
+                    }} 
+                    className="p-1 text-white/60 hover:text-white active:scale-90 transition-all disabled:opacity-30"
+                    disabled={selectedYear >= new Date().getFullYear()}
+                  >
+                    <ChevronDown size={16} className="-rotate-90" />
+                  </button>
+                </div>
+                
+                {/* Ay Listesi */}
                 <div className="max-h-[300px] overflow-y-auto no-scrollbar">
                   {months.map((m, idx) => {
                     // Sadece geçmiş ve şu anki ayı göster
@@ -282,7 +306,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                       <button 
                         key={idx} 
                         onClick={() => { setSelectedMonth(idx); setIsDatePickerOpen(false); }} 
-                        className={`w-full py-2 px-4 text-[11px] font-black uppercase tracking-widest border-b border-white/5 last:border-0 text-center transition-colors ${selectedMonth === idx ? 'text-green-400 bg-green-400/5' : 'text-white/60 hover:bg-white/5'}`}
+                        className={`w-full py-2 px-4 text-[11px] font-black uppercase tracking-widest border-b border-white/5 last:border-0 text-center transition-colors ${selectedMonth === idx && selectedYear === new Date().getFullYear() ? 'text-green-400 bg-green-400/5' : 'text-white/60 hover:bg-white/5'}`}
                       >
                         {m.toUpperCase()} {selectedYear}
                       </button>

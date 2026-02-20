@@ -88,13 +88,13 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ balance }) => {
         </div>
 
         {/* Sağ Taraf: Bakiye Verileri */}
-        <div className="w-[72%] pl-5 space-y-0.5 flex flex-col justify-center">
-          <div className="flex items-center space-x-2 mb-1">
-            <span className="text-[10px] font-black tracking-[0.2em] text-[#22c55e] uppercase">
+        <div className="w-[72%] pl-5 space-y-0.5 flex flex-col justify-center -mt-[10px]">
+          <div className="flex items-center space-x-2 mb-1 -ml-[15px]">
+            <span className="text-[15px] font-black tracking-[0.2em] text-[#22c55e] uppercase">
               {vaultType === 'genel' ? 'GENEL GİDER' : 'DEMİRBAŞ'}
             </span>
             <button onClick={() => setVaultType(v => v === 'genel' ? 'demirbas' : 'genel')} className="text-[#22c55e]/30 hover:text-[#22c55e] transition-colors">
-              <RefreshCw size={12} strokeWidth={3} />
+              <RefreshCw size={15} strokeWidth={3} />
             </button>
           </div>
 

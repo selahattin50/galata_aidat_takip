@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Lock, User, Eye, EyeOff, Loader2, Building2, ShieldCheck, Check, Info } from 'lucide-react';
+import { Lock, User, Eye, EyeOff, Loader2, Building2, ShieldCheck, Check, Info, Mail } from 'lucide-react';
 
 interface LoginViewProps {
   onLogin: (remember: boolean) => void;
@@ -16,6 +16,9 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetMessage, setResetMessage] = useState('');
 
   // Sayfa yüklendiğinde hatırlanan kullanıcı adını getir
   useEffect(() => {
@@ -30,22 +33,92 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
     setError('');
     setIsLoading(true);
 
-    // Mock authentication delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-
     const cleanUsername = username.trim().toLowerCase();
     const cleanPassword = password.trim();
 
+    // Önce admin kontrolü
     if (cleanUsername === 'admin' && cleanPassword === 'admin123') {
-      // "Beni Hatırla" seçiliyse kullanıcı adını kaydet, değilse sil
       if (rememberMe) {
         localStorage.setItem(REMEMBERED_USER_KEY, cleanUsername);
       } else {
         localStorage.removeItem(REMEMBERED_USER_KEY);
       }
       onLogin(rememberMe);
-    } else {
-      setError('Hatalı kullanıcı adı veya şifre!');
+      return;
+    }
+
+    // Firebase Authentication ile giriş
+    try {
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      const { auth } = await import('../firebaseConfig');
+      
+      await signInWithEmailAndPassword(auth, cleanUsername, cleanPassword);
+      
+      if (rememberMe) {
+        localStorage.setItem(REMEMBERED_USER_KEY, cleanUsername);
+      } else {
+        localStorage.removeItem(REMEMBERED_USER_KEY);
+      }
+      
+      onLogin(rememberMe);
+    } catch (error: any) {
+      console.error('Giriş hatası:', error);
+      
+      // Hata mesajlarını Türkçeleştir
+      let errorMessage = 'Hatalı kullanıcı adı veya şifre!';
+      if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Geçersiz e-posta adresi!';
+      } else if (error.code === 'auth/user-not-found') {
+        errorMessage = 'Kullanıcı bulunamadı!';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Hatalı şifre!';
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = 'Hatalı kullanıcı adı veya şifre!';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Çok fazla başarısız deneme! Lütfen daha sonra tekrar deneyin.';
+      }
+      
+      setError(errorMessage);
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetMessage('');
+    setError('');
+    
+    if (!resetEmail.trim()) {
+      setError('Lütfen e-posta adresinizi girin');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      const { auth } = await import('../firebaseConfig');
+      
+      await sendPasswordResetEmail(auth, resetEmail.trim());
+      
+      setResetMessage('Şifre sıfırlama bağlantısı e-posta adresinize gönderildi!');
+      setTimeout(() => {
+        setShowForgotPassword(false);
+        setResetEmail('');
+        setResetMessage('');
+      }, 3000);
+    } catch (error: any) {
+      console.error('Şifre sıfırlama hatası:', error);
+      
+      let errorMessage = 'Şifre sıfırlama başarısız!';
+      if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Geçersiz e-posta adresi!';
+      } else if (error.code === 'auth/user-not-found') {
+        errorMessage = 'Bu e-posta adresi ile kayıtlı kullanıcı bulunamadı!';
+      }
+      
+      setError(errorMessage);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -124,7 +197,13 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
                 <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest group-hover:text-white/60 transition-colors">Beni Hatırla</span>
               </button>
               
-              <button type="button" className="text-[10px] font-bold text-blue-400/60 uppercase tracking-widest hover:text-blue-400 transition-colors">Şifremi Unuttum</button>
+              <button 
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-[10px] font-bold text-blue-400/60 uppercase tracking-widest hover:text-blue-400 transition-colors"
+              >
+                Şifremi Unuttum
+              </button>
             </div>
 
             <button 
@@ -158,6 +237,67 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
             <p className="text-[8px] font-bold">Version 2.4.0 • 2026 Tüm Hakları Saklıdır</p>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center px-6 animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-[#1e293b]/95 backdrop-blur-2xl rounded-[40px] p-8 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-300">
+            <h2 className="text-2xl font-black text-white mb-2 text-center">ŞİFREMİ UNUTTUM</h2>
+            <p className="text-xs text-white/60 text-center mb-6 font-bold">E-posta adresinize şifre sıfırlama bağlantısı göndereceğiz</p>
+            
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] ml-1">E-POSTA ADRESİ</label>
+                <div className="relative group">
+                  <input 
+                    type="email" 
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="ornek@email.com"
+                    className="w-full h-14 bg-white/5 border border-white/10 focus:border-blue-500/50 rounded-2xl px-12 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all placeholder:text-white/10"
+                    required
+                  />
+                  <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-blue-400 transition-colors" />
+                </div>
+              </div>
+
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3">
+                  <p className="text-[10px] font-black text-red-400 text-center uppercase tracking-widest">{error}</p>
+                </div>
+              )}
+
+              {resetMessage && (
+                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
+                  <p className="text-[10px] font-black text-green-400 text-center uppercase tracking-widest">{resetMessage}</p>
+                </div>
+              )}
+
+              <div className="flex space-x-3 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setResetEmail('');
+                    setError('');
+                    setResetMessage('');
+                  }}
+                  className="flex-1 h-14 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 rounded-2xl font-black text-xs uppercase tracking-[0.2em] active:scale-[0.98] transition-all"
+                >
+                  İPTAL
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-1 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-blue-600/20 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center"
+                >
+                  {isLoading ? <Loader2 size={20} className="animate-spin" /> : 'GÖNDER'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

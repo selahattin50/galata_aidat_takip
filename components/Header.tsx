@@ -26,18 +26,12 @@ const Header: React.FC<HeaderProps> = ({ info, onLogout }) => {
 
   return (
     <div className="sticky top-0 z-[100] -mx-4 px-6 pt-8 pb-1 flex flex-col items-center relative animate-in fade-in duration-700 bg-[#030712]/80 backdrop-blur-xl border-b border-white/5 shadow-2xl">
-      
-      <div className="absolute top-2 left-4 flex items-center space-x-1 opacity-20">
-        <Database size={8} />
-        <span className="text-[7px] font-black uppercase tracking-widest text-white">DB: GALATA_V16_LOCAL</span>
-      </div>
 
       <div className="flex flex-col items-center mt-2">
-        <div className="flex items-center space-x-2 mb-[7px]">
-          <Shield size={10} className="text-blue-500/50" />
-          <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.4em]">SİSTEM YÖNETİCİSİ</span>
-        </div>
-        <h2 className="text-sm font-black text-white uppercase tracking-widest leading-none">
+        <h1 className="text-lg font-black text-white uppercase tracking-wider leading-none mb-1">
+          {info.name || 'GALATA APARTMANI'}
+        </h1>
+        <h2 className="text-xs font-bold text-blue-400 uppercase tracking-widest leading-none mt-[10px]">
           {info.managerName || 'YÖNETİCİ TANIMSIZ'}
         </h2>
       </div>
