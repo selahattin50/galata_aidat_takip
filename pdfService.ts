@@ -29,7 +29,7 @@ export class PDFService {
     try {
       // Blob'u base64'e çevir
       const base64Data = await this.blobToBase64(pdfBlob);
-      
+
       if (Capacitor.isNativePlatform()) {
         // Mobil cihazda (Android/iOS)
         return await this.saveAndShareNative(base64Data, fileName, pdfBlob.size, shouldShare, phoneNumber);
@@ -49,11 +49,14 @@ export class PDFService {
    */
   private static async saveAndShareNative(base64Data: string, fileName: string, fileSize: number, shouldShare: boolean, phoneNumber?: string): Promise<SavedPDFInfo> {
     try {
-      // PDF'i kalıcı depolamaya kaydet (Documents klasörü)
+      // Android 11+ için özel izin kontrolü gerekebilir, ancak Directory.Data 
+      // genelde izin gerektirmeden uygulama özel klasörüne yazar.
+
+      // PDF'i kalıcı depolamaya kaydet (Uygulama özel klasörü)
       const savedFile = await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: Directory.Documents,
+        directory: Directory.Data, // Directory.Documents yerine Directory.Data kullanmak daha uyumlu
       });
 
       console.log('PDF kaydedildi:', savedFile.uri);
@@ -66,7 +69,7 @@ export class PDFService {
         if (phoneNumber && phoneNumber.length > 0) {
           console.log('WhatsApp ile paylaşım başlatılıyor...');
           console.log('Telefon numarası:', phoneNumber);
-          
+
           try {
             // Telefon numarasını uluslararası formata çevir
             let formattedPhone = phoneNumber;
@@ -78,15 +81,15 @@ export class PDFService {
             if (!formattedPhone.startsWith('90') && !formattedPhone.startsWith('+')) {
               formattedPhone = '90' + formattedPhone;
             }
-            
+
             console.log('Formatlanmış telefon:', formattedPhone);
-            
+
             // Native WhatsApp plugin ile paylaş
             await WhatsAppShare.shareToWhatsApp({
               phoneNumber: formattedPhone,
               filePath: savedFile.uri
             });
-            
+
             console.log('WhatsApp paylaşımı başarılı');
           } catch (error) {
             console.error('WhatsApp paylaşma hatası:', error);
@@ -176,7 +179,7 @@ export class PDFService {
       if (Capacitor.isNativePlatform()) {
         console.log('PDF açılıyor - URI:', uri);
         console.log('Dosya adı:', fileName);
-        
+
         // Android'de FileOpener plugin'i yerine Share kullan ama sadece PDF uygulamaları için
         // Bu sayede kullanıcı PDF görüntüleyici seçebilir
         await Share.share({

@@ -1,11 +1,13 @@
 
 import React from 'react';
-import { Database, Shield, Power } from 'lucide-react';
+import { Database, Shield, Power, Mail } from 'lucide-react';
 import { BuildingInfo } from '../types.ts';
 
 interface HeaderProps {
   info: BuildingInfo;
   onLogout: () => void;
+  onMessagesClick: () => void;
+  unreadCount?: number;
 }
 
 // Android JavaScript Interface tanımı
@@ -17,7 +19,7 @@ declare global {
   }
 }
 
-const Header: React.FC<HeaderProps> = ({ info, onLogout }) => {
+const Header: React.FC<HeaderProps> = ({ info, onLogout, onMessagesClick, unreadCount = 0 }) => {
   const handleExit = () => {
     console.log('Exit button clicked');
     // Logout yap - giriş ekranına dön
@@ -36,12 +38,24 @@ const Header: React.FC<HeaderProps> = ({ info, onLogout }) => {
         </h2>
       </div>
 
-      <button 
+      <button
         onClick={handleExit}
         className="absolute left-[34px] top-8 p-3 text-red-500 hover:text-red-400 active:scale-90 transition-all rounded-full group"
         title="Uygulamadan Çık"
       >
         <Power size={22} strokeWidth={2.5} className="transition-colors drop-shadow-[0_0_5px_rgba(239,68,68,0.3)]" />
+      </button>
+
+      <button
+        onClick={onMessagesClick}
+        className="absolute right-[25px] top-8 text-emerald-400 hover:text-emerald-300 active:scale-90 transition-all p-3"
+      >
+        <Mail size={22} />
+        {unreadCount > 0 && (
+          <span className="absolute top-2 right-2 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-lg animate-pulse border border-[#030712]">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
       </button>
     </div>
   );

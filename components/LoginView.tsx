@@ -8,6 +8,7 @@ interface LoginViewProps {
 }
 
 const REMEMBERED_USER_KEY = 'galata_remembered_username';
+const FAILED_ATTEMPTS_KEY = 'galata_failed_login_attempts';
 
 const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
   const [username, setUsername] = useState('');
@@ -26,6 +27,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
     if (savedUser) {
       setUsername(savedUser);
     }
+    // Eski şifre kaydı kalmışsa güvenlik için temizle
+    localStorage.removeItem('galata_remembered_password');
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -36,60 +39,86 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
     const cleanUsername = username.trim().toLowerCase();
     const cleanPassword = password.trim();
 
-    // Önce admin kontrolü
-    if (cleanUsername === 'admin' && cleanPassword === 'admin123') {
-      if (rememberMe) {
-        localStorage.setItem(REMEMBERED_USER_KEY, cleanUsername);
-      } else {
-        localStorage.removeItem(REMEMBERED_USER_KEY);
-      }
-      onLogin(rememberMe);
+    // Sadece email formatında girişe izin ver
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(cleanUsername)) {
+      setError('Lütfen geçerli bir e-posta adresi giriniz! (İsim veya kullanıcı adı ile giriş yapılamaz)');
+      setIsLoading(false);
       return;
     }
+
+    // Hatalı deneme sayısını kontrol et
+    const failedAttempts = parseInt(localStorage.getItem(FAILED_ATTEMPTS_KEY) || '0');
 
     // Firebase Authentication ile giriş
     try {
       const { signInWithEmailAndPassword } = await import('firebase/auth');
       const { auth } = await import('../firebaseConfig');
-      
+
       await signInWithEmailAndPassword(auth, cleanUsername, cleanPassword);
-      
+
+      // Giriş başarılı - Deneme sayısını sıfırla
+      localStorage.removeItem(FAILED_ATTEMPTS_KEY);
+
       if (rememberMe) {
         localStorage.setItem(REMEMBERED_USER_KEY, cleanUsername);
       } else {
         localStorage.removeItem(REMEMBERED_USER_KEY);
       }
-      
+
+      // Şifreyi asla kaydetme
+      localStorage.removeItem('galata_remembered_password');
+
       onLogin(rememberMe);
     } catch (error: any) {
       console.error('Giriş hatası:', error);
-      
+
+      // Hatalı deneme sayısını artır
+      const newFailedAttempts = failedAttempts + 1;
+      localStorage.setItem(FAILED_ATTEMPTS_KEY, newFailedAttempts.toString());
+
       // Hata mesajlarını Türkçeleştir
       let errorMessage = 'Hatalı kullanıcı adı veya şifre!';
-      if (error.code === 'auth/invalid-email') {
+
+      // 5. hatalı denemede otomatik şifre sıfırlama maili gönder ve bloke et
+      if (newFailedAttempts >= 5) {
+        try {
+          const { sendPasswordResetEmail } = await import('firebase/auth');
+          const { auth } = await import('../firebaseConfig');
+          await sendPasswordResetEmail(auth, cleanUsername);
+          errorMessage = '5 KEZ HATALI GİRİŞ YAPILDI! HESABINIZ GÜVENLİĞİNİZ İÇİN BLOKE EDİLDİ. E-POSTA ADRESİNİZE ŞİFRE SIFIRLAMA BAĞLANTISI GÖNDERİLDİ.';
+          // Sayacı sıfırla ki mail tekrar tekrar gitmesin
+          localStorage.removeItem(FAILED_ATTEMPTS_KEY);
+        } catch (resetErr) {
+          console.error('Bloke sonrası reset mail hatası:', resetErr);
+          errorMessage = '5 KEZ HATALI GİRİŞ YAPILDI! HESABINIZ BLOKE EDİLDİ. LÜTFEN ŞİFREMİ UNUTTUM BÖLÜMÜNDEN SIFIRLAMA TALEBİ GÖNDERİN.';
+        }
+      } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Geçersiz e-posta adresi!';
       } else if (error.code === 'auth/user-not-found') {
         errorMessage = 'Kullanıcı bulunamadı!';
       } else if (error.code === 'auth/wrong-password') {
-        errorMessage = 'Hatalı şifre!';
+        errorMessage = `HATALI ŞİFRE! (KALAN DENEME HAKKI: ${5 - newFailedAttempts})`;
       } else if (error.code === 'auth/invalid-credential') {
-        errorMessage = 'Hatalı kullanıcı adı veya şifre!';
+        errorMessage = `HATALI KULLANICI ADI VEYA ŞİFRE! (KALAN DENEME HAKKI: ${5 - newFailedAttempts})`;
       } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'Çok fazla başarısız deneme! Lütfen daha sonra tekrar deneyin.';
+        errorMessage = 'ÇOK FAZLA BAŞARISIZ DENEME! LÜTFEN DAHA SONRA TEKRAR DENEYİN.';
       }
-      
+
       setError(errorMessage);
       setIsLoading(false);
     }
   };
 
+  // Şifre sıfırlama talebi
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetMessage('');
     setError('');
-    
-    if (!resetEmail.trim()) {
-      setError('Lütfen e-posta adresinizi girin');
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!resetEmail.trim() || !emailPattern.test(resetEmail.trim())) {
+      setError('Lütfen geçerli bir e-posta adresi girin');
       return;
     }
 
@@ -98,9 +127,9 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
     try {
       const { sendPasswordResetEmail } = await import('firebase/auth');
       const { auth } = await import('../firebaseConfig');
-      
+
       await sendPasswordResetEmail(auth, resetEmail.trim());
-      
+
       setResetMessage('Şifre sıfırlama bağlantısı e-posta adresinize gönderildi!');
       setTimeout(() => {
         setShowForgotPassword(false);
@@ -109,14 +138,14 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
       }, 3000);
     } catch (error: any) {
       console.error('Şifre sıfırlama hatası:', error);
-      
+
       let errorMessage = 'Şifre sıfırlama başarısız!';
       if (error.code === 'auth/invalid-email') {
         errorMessage = 'Geçersiz e-posta adresi!';
       } else if (error.code === 'auth/user-not-found') {
         errorMessage = 'Bu e-posta adresi ile kayıtlı kullanıcı bulunamadı!';
       }
-      
+
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -127,12 +156,12 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
     <div className="fixed inset-0 z-[200] app-gradient flex items-center justify-center px-6 overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-blue-600/10 rounded-full blur-[100px]" />
       <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-green-600/10 rounded-full blur-[100px]" />
-      
+
       <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-700">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-[28px] bg-white/5 border border-white/10 mb-6 shadow-2xl relative group">
-             <div className="absolute inset-0 bg-blue-500/10 rounded-[28px] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-             <Building2 size={40} className="text-white relative z-10" strokeWidth={1.5} />
+            <div className="absolute inset-0 bg-blue-500/10 rounded-[28px] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Building2 size={40} className="text-white relative z-10" strokeWidth={1.5} />
           </div>
           <h1 className="text-3xl font-black italic tracking-tighter text-white mb-2">Galata Apartmanı</h1>
           <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] leading-none">AİDAT TAKİP SİSTEMİ</p>
@@ -140,16 +169,16 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
 
         <div className="bg-[#1e293b]/40 backdrop-blur-2xl rounded-[40px] p-8 border border-white/10 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
-          
+
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] ml-1">KULLANICI ADI</label>
               <div className="relative group">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
+                  placeholder="ornek@email.com"
                   className={`w-full h-14 bg-white/5 border rounded-2xl px-12 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all placeholder:text-white/10 ${error ? 'border-red-500/50' : 'border-white/10 focus:border-blue-500/50'}`}
                   required
                 />
@@ -160,8 +189,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
             <div className="space-y-2">
               <label className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] ml-1">ŞİFRE</label>
               <div className="relative group">
-                <input 
-                  type={showPassword ? 'text' : 'password'} 
+                <input
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••"
@@ -169,7 +198,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
                   required
                 />
                 <Lock size={18} className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${error ? 'text-red-400' : 'text-white/20 group-focus-within:text-blue-400'}`} />
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/60 transition-colors"
@@ -186,7 +215,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
             )}
 
             <div className="flex items-center justify-between px-1">
-              <button 
+              <button
                 type="button"
                 onClick={() => setRememberMe(!rememberMe)}
                 className="flex items-center space-x-2 group cursor-pointer"
@@ -196,8 +225,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
                 </div>
                 <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest group-hover:text-white/60 transition-colors">Beni Hatırla</span>
               </button>
-              
-              <button 
+
+              <button
                 type="button"
                 onClick={() => setShowForgotPassword(true)}
                 className="text-[10px] font-bold text-blue-400/60 uppercase tracking-widest hover:text-blue-400 transition-colors"
@@ -206,7 +235,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
               </button>
             </div>
 
-            <button 
+            <button
               type="submit"
               disabled={isLoading}
               className="w-full h-16 bg-blue-600 hover:bg-blue-500 text-white rounded-3xl font-black text-sm uppercase tracking-[0.2em] shadow-2xl shadow-blue-600/20 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center space-x-3"
@@ -222,7 +251,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
             </button>
 
             {/* Register Button */}
-            <button 
+            <button
               type="button"
               onClick={onShowRegister}
               className="w-full h-14 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 rounded-3xl font-black text-xs uppercase tracking-[0.2em] active:scale-[0.98] transition-all"
@@ -231,10 +260,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
             </button>
           </form>
         </div>
-        
+
         <div className="mt-8 text-center flex flex-col items-center space-y-2 opacity-20">
-            <p className="text-[9px] font-black uppercase tracking-[0.3em]">GALATA DİJİTAL YÖNETİM SİSTEMİ</p>
-            <p className="text-[8px] font-bold">Version 2.4.0 • 2026 Tüm Hakları Saklıdır</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.3em]">GALATA DİJİTAL YÖNETİM SİSTEMİ</p>
+          <p className="text-[8px] font-bold">Version 2.4.0 • 2026 Tüm Hakları Saklıdır</p>
         </div>
       </div>
 
@@ -244,13 +273,13 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
           <div className="w-full max-w-md bg-[#1e293b]/95 backdrop-blur-2xl rounded-[40px] p-8 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-300">
             <h2 className="text-2xl font-black text-white mb-2 text-center">ŞİFREMİ UNUTTUM</h2>
             <p className="text-xs text-white/60 text-center mb-6 font-bold">E-posta adresinize şifre sıfırlama bağlantısı göndereceğiz</p>
-            
+
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] ml-1">E-POSTA ADRESİ</label>
                 <div className="relative group">
-                  <input 
-                    type="email" 
+                  <input
+                    type="email"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
                     placeholder="ornek@email.com"
@@ -274,7 +303,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
               )}
 
               <div className="flex space-x-3 pt-2">
-                <button 
+                <button
                   type="button"
                   onClick={() => {
                     setShowForgotPassword(false);
@@ -286,7 +315,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
                 >
                   İPTAL
                 </button>
-                <button 
+                <button
                   type="submit"
                   disabled={isLoading}
                   className="flex-1 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-blue-600/20 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center"

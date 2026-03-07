@@ -4,6 +4,8 @@ export interface BalanceSummary {
   alacakBakiyesi: number;
   demirbasKasasi: number;
   toplam: number;
+  monthlyCollected: number;
+  monthlyRemainingDebt: number;
 }
 
 export interface BuildingInfo {
@@ -83,3 +85,11 @@ export interface FileEntry {
 }
 
 export type ActiveTab = 'home' | 'menu' | 'sessions' | 'settings' | 'files';
+
+export interface AppMessage {
+  id: string;
+  senderEmail: string;
+  senderName: string;
+  content: string;
+  createdAt: string;
+}

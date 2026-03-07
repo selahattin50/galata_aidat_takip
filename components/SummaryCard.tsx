@@ -16,8 +16,8 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ balance }) => {
   const currentToplam = currentMevcut + currentAlacak;
 
   const chartData = [
-    { name: 'Mevcut', value: currentMevcut > 0 ? currentMevcut : 0, color: '#22c55e' },
-    { name: 'Alacak', value: currentAlacak > 0 ? currentAlacak : 0, color: '#ef4444' },
+    { name: 'Tahsilat', value: balance.monthlyCollected || 0, color: '#22c55e' },
+    { name: 'Alacak', value: balance.monthlyRemainingDebt || 0, color: '#ef4444' },
   ].filter(d => d.value > 0);
 
   if (chartData.length === 0) {
@@ -31,37 +31,12 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ balance }) => {
     }).format(val);
   };
 
-  const renderCustomLabel = (props: any) => {
-    const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
-    const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-    if (percent < 0.05) return null;
-
-    return (
-      <text 
-        x={x} 
-        y={y} 
-        fill="white" 
-        textAnchor="middle" 
-        dominantBaseline="central"
-        style={{ 
-          fontSize: '11px', 
-          fontWeight: '900',
-          textShadow: '0 1px 3px rgba(0,0,0,0.8)'
-        }}
-      >
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    );
-  };
 
   return (
     <div className="px-1">
       <div className="bg-[#111827]/90 backdrop-blur-2xl border border-white/5 rounded-[22px] py-2.5 px-5 flex items-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden min-h-[105px]">
-        
+
         {/* Sol Taraf: Donut Grafik */}
         <div className="w-[28%] aspect-square relative flex items-center justify-center">
           <ResponsiveContainer width="100%" height="100%">
@@ -76,7 +51,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ balance }) => {
                 endAngle={450}
                 stroke="#ffffff"
                 strokeWidth={0.5}
-                label={renderCustomLabel}
+                label={false}
                 labelLine={false}
               >
                 {chartData.map((entry, index) => (

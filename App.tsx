@@ -26,37 +26,29 @@ import LoginView from './components/LoginView.tsx';
 import RegisterView from './components/RegisterView.tsx';
 import FilesView from './components/FilesView.tsx';
 import MenuView from './components/MenuView.tsx';
-import { BuildingInfo, ActiveTab, Transaction, Unit, BoardMember, FileEntry, BalanceSummary } from './types.ts';
+import MessagesView from './components/MessagesView.tsx';
+import { BuildingInfo, ActiveTab, Transaction, Unit, BoardMember, FileEntry, BalanceSummary, AppMessage } from './types.ts';
 import { db } from './databaseService';
+import { auth } from './firebaseConfig';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 const STORAGE_KEYS = {
   AUTH: 'galata_v16_auth'
 };
 
 const DEFAULT_BUILDING_INFO: BuildingInfo = {
-  name: "GALATA APARTMANI",
-  address: "Cevherdudaev Mahallesi Yasemin Sokak No 6 Nevşehir",
+  name: "YENİ APARTMAN YÖNETİMİ",
+  address: "Adres bilgisi giriniz",
   role: "Yönetici",
-  managerName: "Selahattin Ölgün",
-  taxNo: "3881743149",
-  duesAmount: 750,
+  managerName: "Yönetici Adı",
+  taxNo: "",
+  duesAmount: 0,
   isManagerExempt: false,
   managerUnitId: '',
   isAutoDuesEnabled: true
 };
 
-const INITIAL_UNITS: Unit[] = Array.from({ length: 24 }, (_, i) => ({
-  id: `u${i + 1}`,
-  no: (i + 1).toString(),
-  ownerName: '',
-  phone: '',
-  credit: 0,
-  debt: 0,
-  status: 'Malik',
-  type: '3+1',
-  m2: 100,
-  huzurHakki: 'YOK'
-}));
+const INITIAL_UNITS: Unit[] = [];
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -90,6 +82,11 @@ const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [boardMembers, setBoardMembers] = useState<BoardMember[]>([]);
   const [files, setFiles] = useState<FileEntry[]>([]);
+  const [messages, setMessages] = useState<AppMessage[]>([]);
+
+  const [lastSeenMsgTime, setLastSeenMsgTime] = useState(() => {
+    return parseInt(localStorage.getItem('galata_last_msg_time') || '0', 10);
+  });
 
   // Firebase'den verileri yükle
   useEffect(() => {
@@ -103,22 +100,46 @@ const App: React.FC = () => {
         setIsLoading(true);
         console.log('Firebase\'den veri yükleniyor...');
 
-        // Önce Firebase bağlantısını test et
-        const isConnected = await db.testConnection();
-        if (!isConnected) {
-          alert('Firebase bağlantısı kurulamadı! İnternet bağlantınızı kontrol edin.');
-          setIsLoading(false);
+        let currentUser = auth.currentUser;
+
+        if (!currentUser) {
+          console.log('Firebase oturumu bekleniyor (onAuthStateChanged)...');
+          currentUser = await new Promise<any>((resolve) => {
+            let timeout = setTimeout(() => {
+              console.log('⚠️ Firebase yetkilendirmesi zaman aşımına uğradı');
+              resolve(null);
+            }, 6000);
+
+            const unsubscribe = onAuthStateChanged(auth, (user) => {
+              if (user) {
+                clearTimeout(timeout);
+                unsubscribe();
+                resolve(user);
+              }
+            });
+          });
+        }
+
+        if (!currentUser) {
+          console.error('❌ Oturum alınamadı, çıkış yapılıyor.');
+          handleLogout();
           return;
         }
-        console.log('✓ Firebase bağlantısı başarılı!');
+
+        console.log('✓ Firebase oturumu doğrulandı:', currentUser.email);
+        db.setCurrentSession(`users/${currentUser.uid}`);
+
+        // Önce Firebase bağlantısını test et
+        const isConnected = await db.testConnection();
 
         // Tüm verileri Firebase'den çek
-        const [info, unitsData, transactionsData, boardData, filesData] = await Promise.all([
+        const [info, unitsData, transactionsData, boardData, filesData, messagesData] = await Promise.all([
           db.getBuildingInfo(),
           db.getUnits(),
           db.getTransactions(),
           db.getBoardMembers(),
-          db.getFiles()
+          db.getFiles(),
+          db.getMessages()
         ]);
 
         console.log('Firebase veriler:', {
@@ -132,9 +153,28 @@ const App: React.FC = () => {
         // Veri varsa güncelle, yoksa default değerleri kullan
         if (info) {
           console.log('✓ Building info yüklendi');
-          setBuildingInfo(info);
+
+          // GÜVENLİK FİLTRESİ: Geçmişteki sızıntıdan dolayı corrupted (bozulmuş) olan hesapları temizle
+          const isSelahattin = currentUser.email === 'selahattin50@gmail.com';
+          const isManagerSelahattin = info.managerName && info.managerName.toLocaleUpperCase('tr-TR').includes('SELAHATTİN');
+          const isBuildingGalata = info.name && info.name.toLocaleUpperCase('tr-TR').includes('GALATA');
+
+          if (!isSelahattin && (isManagerSelahattin || (isBuildingGalata && unitsData && unitsData.length > 20))) {
+            console.warn('⚠️ OTOMATİK TEMİZLEME: Başka hesaba ait veri sızıntısı tespit edildi ve temizlendi.');
+            setBuildingInfo(DEFAULT_BUILDING_INFO);
+            setUnits(INITIAL_UNITS);
+            setTransactions([]);
+            setBoardMembers([]);
+            setFiles([]);
+            setMessages([]);
+            // Veritabanını da bu hesap için sıfırla
+            await db.clearAllData();
+          } else {
+            setBuildingInfo(info);
+          }
         } else {
           console.log('Building info yok, default kullanılıyor');
+          setBuildingInfo(DEFAULT_BUILDING_INFO);
         }
 
         if (unitsData && unitsData.length > 0) {
@@ -142,6 +182,7 @@ const App: React.FC = () => {
           setUnits(unitsData);
         } else {
           console.log('Units yok, default kullanılıyor');
+          setUnits(INITIAL_UNITS);
           // İlk yüklemede default units'i kaydet
           await db.saveUnits(INITIAL_UNITS);
         }
@@ -149,16 +190,29 @@ const App: React.FC = () => {
         if (transactionsData && transactionsData.length > 0) {
           console.log('✓ Transactions yüklendi:', transactionsData.length);
           setTransactions(transactionsData);
+        } else {
+          setTransactions([]);
         }
 
         if (boardData && boardData.length > 0) {
           console.log('✓ Board members yüklendi:', boardData.length);
           setBoardMembers(boardData);
+        } else {
+          setBoardMembers([]);
         }
 
         if (filesData && filesData.length > 0) {
           console.log('✓ Files yüklendi:', filesData.length);
           setFiles(filesData);
+        } else {
+          setFiles([]);
+        }
+
+        if (messagesData && messagesData.length > 0) {
+          console.log('✓ Messages yüklendi:', messagesData.length);
+          setMessages(messagesData);
+        } else {
+          setMessages([]);
         }
       } catch (error) {
         console.error('✗ Firebase veri yükleme hatası:', error);
@@ -245,6 +299,18 @@ const App: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [files, isAuthenticated, isLoading]);
+
+  useEffect(() => {
+    if (isAuthenticated && !isLoading && Array.isArray(messages)) {
+      const timer = setTimeout(() => {
+        console.log('Messages Firebase\'e kaydediliyor:', messages.length);
+        db.saveMessages(messages)
+          .then(() => console.log('✓ Messages kaydedildi'))
+          .catch(err => console.error('✗ Messages kaydetme hatası:', err));
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [messages, isAuthenticated, isLoading]);
 
   // Android geri tuşu yönetimi
   useEffect(() => {
@@ -384,18 +450,32 @@ const App: React.FC = () => {
     const currentYear = now.getFullYear();
 
     return units.map(unit => {
-      if (!unit || !unit.id) return { ...INITIAL_UNITS[0], id: Math.random().toString() };
+      if (!unit || !unit.id) return { id: Math.random().toString(), no: '', ownerName: '', phone: '', credit: 0, debt: 0, status: 'Malik', type: '3+1', m2: 100, huzurHakki: 'YOK' };
       const isExempt = buildingInfo?.isManagerExempt && unit.id === buildingInfo?.managerUnitId;
       if (isExempt) return { ...unit, credit: 0, debt: 0 };
       const totalIncome = (Array.isArray(transactions) ? transactions : []).filter(tx => tx && tx.unitId === unit.id && tx.type === 'GELİR').reduce((sum, tx) => sum + (tx.amount || 0), 0);
       const totalManualDebt = (Array.isArray(transactions) ? transactions : []).filter(tx => tx && tx.unitId === unit.id && tx.type === 'BORÇLANDIRMA').reduce((sum, tx) => sum + (tx.amount || 0), 0);
       let runningCredit = totalIncome - totalManualDebt;
       let totalDebtAccrued = 0;
-      const duesValue = buildingInfo?.duesAmount || 750;
-      if (buildingInfo?.isAutoDuesEnabled && duesValue > 0) {
+      const duesValue = Number(buildingInfo?.duesAmount) || 750;
+
+      // Aidat çizelgesi ve kredilerden aidatı "istisnasız" düşüyoruz.
+      if (duesValue > 0) {
         for (let m = 0; m <= currentMonthIdx; m++) {
           const hasManualForThisMonth = (Array.isArray(transactions) ? transactions : []).some(tx => tx && tx.unitId === unit.id && tx.type === 'BORÇLANDIRMA' && tx.periodMonth === m && tx.periodYear === currentYear);
-          if (!hasManualForThisMonth) { if (runningCredit >= duesValue) runningCredit -= duesValue; else totalDebtAccrued += duesValue; }
+          if (!hasManualForThisMonth) {
+            if (runningCredit >= duesValue) {
+              runningCredit -= duesValue;
+            } else {
+              // Kredi yetmiyorsa borca yaz (kalan krediyi de sfırla, çünkü bir kısmı ödendi)
+              if (runningCredit > 0) {
+                totalDebtAccrued += (duesValue - runningCredit);
+                runningCredit = 0;
+              } else {
+                totalDebtAccrued += duesValue;
+              }
+            }
+          }
         }
       }
       return { ...unit, credit: runningCredit > 0 ? runningCredit : 0, debt: totalDebtAccrued > 0 ? totalDebtAccrued : 0 };
@@ -409,8 +489,36 @@ const App: React.FC = () => {
     const totalExpense = txArr.filter(tx => tx?.type === 'GİDER').reduce((sum, tx) => sum + (tx?.amount || 0), 0);
     const mevcut = totalIncome - totalExpense;
     const alacak = Array.isArray(unitsWithBalances) ? unitsWithBalances.reduce((sum, u) => sum + (u?.debt || 0), 0) : 0;
-    return { mevcutBakiye: mevcut, alacakBakiyesi: alacak, toplam: mevcut + alacak, demirbasKasasi: 0 };
-  }, [unitsWithBalances, transactions]);
+
+    // İçinde bulunduğumuz ay için Aidat Performansı (Grafik için)
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Bu ay için yapılan tahsilatlar (GELİR tipinde ve bu aya ait olanlar)
+    // periodMonth 0-indexed yapılmıştı handleAddTransaction'da
+    const monthlyCollected = txArr.filter(tx =>
+      tx.type === 'GELİR' &&
+      tx.periodMonth === currentMonth &&
+      tx.periodYear === currentYear
+    ).reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+    // Bu ay toplam toplanması gereken (Muaf olmayan daire sayısı * aidat)
+    const activeUnits = (Array.isArray(units) ? units : []).filter(u => !(buildingInfo?.isManagerExempt && u.id === buildingInfo?.managerUnitId)).length;
+    const monthlyTarget = activeUnits * (buildingInfo.duesAmount || 0);
+
+    // Bu ay kalan alacak (O ayın toplamından tahsilat düşülür)
+    const monthlyRemainingDebt = Math.max(0, monthlyTarget - monthlyCollected);
+
+    return {
+      mevcutBakiye: mevcut,
+      alacakBakiyesi: alacak,
+      toplam: mevcut + alacak,
+      demirbasKasasi: 0,
+      monthlyCollected,
+      monthlyRemainingDebt
+    };
+  }, [unitsWithBalances, transactions, buildingInfo, units]);
 
   const handleLogin = (remember: boolean) => {
     if (remember) localStorage.setItem(STORAGE_KEYS.AUTH, 'true');
@@ -419,9 +527,26 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    // Çıkış yapıldığında firebase auth oturumunu da tamamen kapat
+    signOut(auth).catch(err => console.error('SignOut hatası:', err));
+
+    setIsAuthenticated(false);
+
+    // Eski kullanıcının verilerini tamamen temizle
+    setBuildingInfo(DEFAULT_BUILDING_INFO);
+    setUnits(INITIAL_UNITS);
+    setTransactions([]);
+    setBoardMembers([]);
+    setFiles([]);
+    setMessages([]);
+    db.setCurrentSession(''); // Oturumu tamamen sıfırla
+
+    // Sadece oturum bilgilerini temizle (Email hatırasını korumak için)
     localStorage.removeItem(STORAGE_KEYS.AUTH);
     sessionStorage.removeItem(STORAGE_KEYS.AUTH);
-    setIsAuthenticated(false);
+
+    setActiveTab('home');
+    setActiveSubView(null);
   };
 
   const handleAddUnit = (u: Omit<Unit, 'id' | 'credit' | 'debt'>) => {
@@ -543,7 +668,7 @@ const App: React.FC = () => {
         try {
           const fileData = await Filesystem.readFile({
             path: file.fileName,
-            directory: Directory.Documents
+            directory: Directory.Data
           });
 
           console.log('Dosya okundu, base64 uzunluğu:', fileData.data.toString().length);
@@ -607,9 +732,52 @@ const App: React.FC = () => {
     return <LoginView onLogin={handleLogin} onShowRegister={() => setShowRegister(true)} />;
   }
 
+  const unreadCount = messages.filter(m => new Date(m.createdAt).getTime() > lastSeenMsgTime).length;
+
+  const handleMessagesClick = () => {
+    setActiveSubView('messages');
+    const now = Date.now();
+    setLastSeenMsgTime(now);
+    localStorage.setItem('galata_last_msg_time', now.toString());
+  };
+
+  const handleSendMessage = async (content: string) => {
+    const newMsg: AppMessage = {
+      id: Math.random().toString(36).slice(2),
+      senderEmail: auth.currentUser?.email || 'Bilinmiyor',
+      senderName: auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Kullanıcı',
+      content,
+      createdAt: new Date().toISOString()
+    };
+
+    const updatedMessages = [...messages, newMsg];
+    setMessages(updatedMessages);
+
+    if (isAuthenticated && !isLoading) {
+      try {
+        await db.saveMessages(updatedMessages);
+      } catch (err) {
+        console.error('Mesaj gönderme hatası:', err);
+      }
+    }
+  };
+
+  const handleDeleteMessage = async (id: string) => {
+    const updatedMessages = messages.filter(m => m.id !== id);
+    setMessages(updatedMessages);
+
+    if (isAuthenticated && !isLoading) {
+      try {
+        await db.deleteMessage(id);
+      } catch (err) {
+        console.error('Mesaj silme hatası:', err);
+      }
+    }
+  };
+
   return (
     <div className="app-gradient text-white pb-24 max-w-md mx-auto shadow-2xl relative min-h-screen">
-      {!activeSubView && activeTab === 'home' && <Header info={buildingInfo} onLogout={handleLogout} />}
+      {!activeSubView && activeTab === 'home' && <Header info={buildingInfo} onLogout={handleLogout} onMessagesClick={handleMessagesClick} unreadCount={unreadCount} />}
 
       <main className="px-4">
         {activeSubView ? (
@@ -630,7 +798,8 @@ const App: React.FC = () => {
                             activeSubView === 'aidat-cizelge' ? <AidatCizelgeView units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddDues={() => { }} /> :
                               activeSubView === 'monthly-report' ? <MonthlyReportView transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
                                 activeSubView === 'yearly-report' ? <YearlyReportView transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
-                                  activeSubView === 'board' ? <BoardView members={boardMembers} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddMember={m => setBoardMembers(p => [...(Array.isArray(p) ? p : []), { ...m, id: Math.random().toString(36).slice(2) }])} onDeleteMember={id => setBoardMembers(p => p.filter(x => x.id !== id))} /> : null
+                                  activeSubView === 'board' ? <BoardView members={boardMembers} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddMember={m => setBoardMembers(p => [...(Array.isArray(p) ? p : []), { ...m, id: Math.random().toString(36).slice(2) }])} onDeleteMember={id => setBoardMembers(p => p.filter(x => x.id !== id))} /> :
+                                    activeSubView === 'messages' ? <MessagesView messages={messages} onClose={() => setActiveSubView(null)} onSendMessage={handleSendMessage} onDeleteMessage={handleDeleteMessage} /> : null
         ) : (
           activeTab === 'menu' ? <MenuView onActionClick={(sv, tab) => { if (tab) setActiveTab(tab); else setActiveSubView(sv); }} onLogout={handleLogout} onClose={() => setActiveTab('home')} /> :
             activeTab === 'settings' ? <SettingsView buildingInfo={buildingInfo} onUpdateBuildingInfo={setBuildingInfo} units={unitsWithBalances} onResetMoney={() => setTransactions([])} onClose={() => setActiveTab('home')} /> :

@@ -22,7 +22,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [deletingTx, setDeletingTx] = useState<Transaction | null>(null);
-  
+
   const [txToPrint, setTxToPrint] = useState<Transaction | null>(null);
 
   const months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
@@ -120,7 +120,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
     try {
       const element = document.getElementById('receipt-print-area');
       if (!element) throw new Error("Yazdırma alanı bulunamadı");
-      
+
       const canvas = await html2canvas(element, {
         scale: 4,
         useCORS: true,
@@ -132,8 +132,9 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
 
       const pdf = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a5' });
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 148, undefined, 'FAST');
-      
-      const fileName = `${tx.date.replace(/\./g, '_')}_Daire${getUnitNo(tx.unitId)}.pdf`;
+
+      const sanitizedUnitNo = getUnitNo(tx.unitId).toString().replace(/[^a-zA-Z0-9]/g, '_');
+      const fileName = `${tx.date.replace(/\./g, '_')}_Daire${sanitizedUnitNo}.pdf`;
 
       // WhatsApp paylaşımı için telefon numarasını al
       const unit = units.find(u => u.id === tx.unitId);
@@ -147,10 +148,10 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
       // İndir modunda paylaşma dialogu açma
       const shouldShare = mode === 'share';
       const savedInfo = await PDFService.saveAndShareFromJsPDF(pdf, fileName, shouldShare, phoneNumber);
-      
+
       // Her zaman dosyalar bölümüne ekle (URI, boyut ve dosya adı ile)
       onAddFile(fileName, 'Diğer', savedInfo.uri, savedInfo.size, savedInfo.fileName);
-      
+
       if (mode === 'download') {
         alert('PDF başarıyla indirildi ve Dosyalar bölümüne eklendi!');
       }
@@ -168,9 +169,9 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
       {/* Yazdırma Şablonu */}
       <div className="fixed top-[-9999px] left-[-9999px] pointer-events-none">
         {txToPrint && (
-          <div 
-            id="receipt-print-area" 
-            className="bg-white text-slate-900 flex flex-col" 
+          <div
+            id="receipt-print-area"
+            className="bg-white text-slate-900 flex flex-col"
             style={{ width: '842px', height: '595px', padding: '50px 60px', fontFamily: 'sans-serif' }}
           >
             <div className="flex items-start justify-between mb-2">
@@ -186,11 +187,11 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
               </div>
             </div>
             <div className="h-[6px] bg-slate-900 w-full mb-6"></div>
-            
+
             <div className="flex-1 flex flex-col space-y-6">
               <div className="max-w-[100%]">
-                 <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest">DAİRE / KİŞİ</p>
-                 <p className="text-[30px] font-black text-[#0f172a] leading-none uppercase tracking-tighter">DAİRE NO: {getUnitNo(txToPrint.unitId)} - {getUnitName(txToPrint.unitId)}</p>
+                <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest">DAİRE / KİŞİ</p>
+                <p className="text-[30px] font-black text-[#0f172a] leading-none uppercase tracking-tighter">DAİRE NO: {getUnitNo(txToPrint.unitId)} - {getUnitName(txToPrint.unitId)}</p>
               </div>
               <div>
                 <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest">AÇIKLAMA</p>
@@ -200,20 +201,20 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
               </div>
               <div className="flex items-center justify-between mt-auto pb-4">
                 <div className="flex flex-col justify-center mt-[-40px]">
-                   <p className="text-[22px] font-black text-slate-950 uppercase italic tracking-tight mb-5 bg-slate-100/50 p-2">
-                     # YALNIZ {numberToWordsTr(txToPrint.amount)} #
-                   </p>
-                   
-                   <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest leading-none">İŞLEM TÜRÜ</p>
-                   <p className="text-[40px] font-black text-blue-600 uppercase leading-none m-0">{txToPrint.type}</p>
+                  <p className="text-[22px] font-black text-slate-950 uppercase italic tracking-tight mb-5 bg-slate-100/50 p-2">
+                    # YALNIZ {numberToWordsTr(txToPrint.amount)} #
+                  </p>
+
+                  <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest leading-none">İŞLEM TÜRÜ</p>
+                  <p className="text-[40px] font-black text-blue-600 uppercase leading-none m-0">{txToPrint.type}</p>
                 </div>
                 <div className="text-right flex flex-col items-end">
                   <p className="text-[14px] font-black text-slate-400 uppercase mb-[-14px] tracking-widest">TUTAR</p>
                   <div className="flex items-baseline justify-end space-x-4 mb-4">
-                     <span className="text-[36px] font-black text-slate-900 leading-none">₺</span>
-                     <span className="text-[54px] font-black text-slate-950 leading-none tracking-tighter">{formatCurrency(txToPrint.amount)}</span>
+                    <span className="text-[36px] font-black text-slate-900 leading-none">₺</span>
+                    <span className="text-[54px] font-black text-slate-950 leading-none tracking-tighter">{formatCurrency(txToPrint.amount)}</span>
                   </div>
-                  
+
                   <div className="relative w-[150px] h-[150px] flex items-center justify-center mt-[11px]">
                     <div className="absolute inset-0 border-[5px] border-green-600 rounded-full"></div>
                     <div className="absolute inset-[10px] border-[2px] border-green-600 rounded-full"></div>
@@ -237,7 +238,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
               </div>
             </div>
             <div className="mt-4 text-center border-t border-slate-100 pt-4">
-               <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.6em]">BU BELGE SİSTEM TARAFINDAN OTOMATİK OLUŞTURULMUŞTUR</p>
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.6em]">BU BELGE SİSTEM TARAFINDAN OTOMATİK OLUŞTURULMUŞTUR</p>
             </div>
           </div>
         )}
@@ -248,11 +249,11 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
           <ArrowLeft size={20} strokeWidth={2.5} />
         </button>
         <h3 className="text-[15px] font-black uppercase tracking-[0.25em] text-white leading-none">İŞLEM HAREKETLERİ</h3>
-        
+
         <div className="mt-5 w-full flex justify-center px-2">
           <div className="relative w-fit">
-            <button 
-              onClick={() => setIsDatePickerOpen(!isDatePickerOpen)} 
+            <button
+              onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
               className="bg-blue-600/10 border-2 border-blue-500/30 rounded-2xl h-14 px-3.5 flex items-center space-x-2.5 active:bg-blue-600/20 active:scale-[0.98] transition-all shadow-xl group"
             >
               <div className="flex items-center space-x-2.5">
@@ -263,32 +264,32 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
               </div>
               <ChevronDown size={18} className={`text-white/40 transition-transform duration-300 ${isDatePickerOpen ? 'rotate-180' : ''}`} />
             </button>
-            
+
             {isDatePickerOpen && (
               <div className="absolute top-16 left-0 right-0 z-[230] bg-[#1e293b] border-2 border-blue-500/20 rounded-[24px] shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-hidden py-1 animate-in fade-in slide-in-from-top-4 duration-300 ring-4 ring-black/40 min-w-[200px]">
                 {/* Yıl Seçici */}
                 <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 bg-black/20">
-                  <button 
-                    onClick={() => setSelectedYear(selectedYear - 1)} 
+                  <button
+                    onClick={() => setSelectedYear(selectedYear - 1)}
                     className="p-1 text-white/60 hover:text-white active:scale-90 transition-all"
                   >
                     <ChevronDown size={16} className="rotate-90" />
                   </button>
                   <span className="text-[11px] font-black text-white uppercase tracking-widest">{selectedYear}</span>
-                  <button 
+                  <button
                     onClick={() => {
                       const now = new Date();
                       if (selectedYear < now.getFullYear()) {
                         setSelectedYear(selectedYear + 1);
                       }
-                    }} 
+                    }}
                     className="p-1 text-white/60 hover:text-white active:scale-90 transition-all disabled:opacity-30"
                     disabled={selectedYear >= new Date().getFullYear()}
                   >
                     <ChevronDown size={16} className="-rotate-90" />
                   </button>
                 </div>
-                
+
                 {/* Ay Listesi */}
                 <div className="max-h-[300px] overflow-y-auto no-scrollbar">
                   {months.map((m, idx) => {
@@ -296,16 +297,16 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                     const now = new Date();
                     const currentMonth = now.getMonth();
                     const currentYear = now.getFullYear();
-                    
+
                     // Gelecek ayları gizle
                     if (selectedYear === currentYear && idx > currentMonth) {
                       return null;
                     }
-                    
+
                     return (
-                      <button 
-                        key={idx} 
-                        onClick={() => { setSelectedMonth(idx); setIsDatePickerOpen(false); }} 
+                      <button
+                        key={idx}
+                        onClick={() => { setSelectedMonth(idx); setIsDatePickerOpen(false); }}
                         className={`w-full py-2 px-4 text-[11px] font-black uppercase tracking-widest border-b border-white/5 last:border-0 text-center transition-colors ${selectedMonth === idx && selectedYear === new Date().getFullYear() ? 'text-green-400 bg-green-400/5' : 'text-white/60 hover:bg-white/5'}`}
                       >
                         {m.toUpperCase()} {selectedYear}
@@ -335,21 +336,21 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                   <p className="text-[12px] font-bold text-white uppercase truncate leading-tight mb-1">
                     <span className="text-cyan-400">D.{getUnitNo(tx.unitId)}</span> {tx.description.split('[')[0].trim().replace(/^MAKBUZ\s+/i, '')}
                   </p>
-                  
+
                   <div className="flex items-center space-x-2">
-                    <button 
-                      onClick={() => setDeletingTx(tx)} 
+                    <button
+                      onClick={() => setDeletingTx(tx)}
                       className="p-1.5 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 active:scale-90 transition-all"
                     >
                       <Trash2 size={14} />
                     </button>
-                    <button 
-                      onClick={() => setEditingTx(tx)} 
+                    <button
+                      onClick={() => setEditingTx(tx)}
                       className="p-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-500 active:scale-90 transition-all"
                     >
                       <Edit3 size={14} />
                     </button>
-                    <button 
+                    <button
                       onClick={() => generateReceipt(tx, 'share')}
                       className="p-1.5 bg-green-500/10 border border-green-500/20 rounded-lg text-green-500 active:scale-90 transition-all"
                     >
@@ -378,15 +379,15 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
             <div className="space-y-3">
               <div>
                 <label className="text-[7px] font-black text-white/30 uppercase block mb-1">TUTAR</label>
-                <input type="number" value={editingTx.amount} onChange={e => setEditingTx({...editingTx, amount: parseFloat(e.target.value) || 0})} className="w-full h-10 bg-black/40 border border-white/10 rounded-lg px-3 text-lg font-black text-white outline-none focus:border-blue-500" />
+                <input type="number" value={editingTx.amount} onChange={e => setEditingTx({ ...editingTx, amount: parseFloat(e.target.value) || 0 })} className="w-full h-10 bg-black/40 border border-white/10 rounded-lg px-3 text-lg font-black text-white outline-none focus:border-blue-500" />
               </div>
               <div>
                 <label className="text-[7px] font-black text-white/30 uppercase block mb-1">TARİH</label>
-                <input type="date" value={trToIsoDate(editingTx.date)} onChange={e => setEditingTx({...editingTx, date: isoToTrDate(e.target.value)})} className="w-full h-[52px] bg-black/40 border border-white/10 rounded-lg px-3 text-[15px] font-bold text-white outline-none focus:border-blue-500" />
+                <input type="date" value={trToIsoDate(editingTx.date)} onChange={e => setEditingTx({ ...editingTx, date: isoToTrDate(e.target.value) })} className="w-full h-[52px] bg-black/40 border border-white/10 rounded-lg px-3 text-[15px] font-bold text-white outline-none focus:border-blue-500" />
               </div>
               <div>
                 <label className="text-[7px] font-black text-white/30 uppercase block mb-1">AÇIKLAMA</label>
-                <input type="text" value={editingTx.description} onChange={e => setEditingTx({...editingTx, description: e.target.value})} className="w-full h-10 bg-black/40 border border-white/10 rounded-lg px-3 text-[9px] font-bold text-white outline-none focus:border-blue-500" />
+                <input type="text" value={editingTx.description} onChange={e => setEditingTx({ ...editingTx, description: e.target.value })} className="w-full h-10 bg-black/40 border border-white/10 rounded-lg px-3 text-[9px] font-bold text-white outline-none focus:border-blue-500" />
               </div>
               <button onClick={handleUpdate} className="w-full h-11 bg-blue-600 text-white rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center space-x-2">
                 <Save size={14} /><span>KAYDET</span>
@@ -414,14 +415,14 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                 </div>
               </div>
               <div className="flex space-x-2">
-                <button 
-                  onClick={() => setDeletingTx(null)} 
+                <button
+                  onClick={() => setDeletingTx(null)}
                   className="flex-1 h-11 bg-white/5 border border-white/10 text-white rounded-xl font-black text-[9px] uppercase tracking-[0.2em] active:scale-95 transition-all"
                 >
                   VAZGEÇ
                 </button>
-                <button 
-                  onClick={handleDelete} 
+                <button
+                  onClick={handleDelete}
                   className="flex-1 h-11 bg-red-600 text-white rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center space-x-2"
                 >
                   <Trash2 size={14} /><span>SİL</span>
@@ -434,13 +435,13 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
 
       {isProcessing && (
         <div className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center animate-in fade-in duration-300">
-           <div className="relative mb-4">
-              <div className="w-16 h-16 rounded-full border-3 border-t-blue-500 border-white/5 animate-spin" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                 <CloudLightning size={24} className="text-blue-500 animate-pulse" />
-              </div>
-           </div>
-           <h3 className="text-sm font-black tracking-widest uppercase text-white">HAZIRLANIYOR</h3>
+          <div className="relative mb-4">
+            <div className="w-16 h-16 rounded-full border-3 border-t-blue-500 border-white/5 animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <CloudLightning size={24} className="text-blue-500 animate-pulse" />
+            </div>
+          </div>
+          <h3 className="text-sm font-black tracking-widest uppercase text-white">HAZIRLANIYOR</h3>
         </div>
       )}
     </div>
