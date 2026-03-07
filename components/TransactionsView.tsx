@@ -177,7 +177,9 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
             <div className="flex items-start justify-between mb-2">
               <div>
                 <h2 className="font-black text-[42px] tracking-tight text-[#0f172a] leading-none uppercase m-0">GALATA APARTMANI</h2>
-                <p className="text-[20px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-7 m-0">TAHSİLAT DEKONTU</p>
+                <p className="text-[20px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-7 m-0">
+                  {txToPrint.type === 'GİDER' ? 'ÖDEME DEKONTU' : 'TAHSİLAT DEKONTU'}
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-[12px] font-black text-slate-400 uppercase mb-1 tracking-widest">BELGE NO</p>
@@ -191,7 +193,12 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
             <div className="flex-1 flex flex-col space-y-6">
               <div className="max-w-[100%]">
                 <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest">DAİRE / KİŞİ</p>
-                <p className="text-[30px] font-black text-[#0f172a] leading-none uppercase tracking-tighter">DAİRE NO: {getUnitNo(txToPrint.unitId)} - {getUnitName(txToPrint.unitId)}</p>
+                <p className="text-[30px] font-black text-[#0f172a] leading-none uppercase tracking-tighter">
+                  {getUnitNo(txToPrint.unitId) === 'GENEL'
+                    ? (txToPrint.type === 'GELİR' ? 'BİNA GELİRİ' : 'BİNA GİDERİ')
+                    : `DAİRE NO: ${getUnitNo(txToPrint.unitId)} - ${getUnitName(txToPrint.unitId)}`
+                  }
+                </p>
               </div>
               <div>
                 <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest">AÇIKLAMA</p>
@@ -231,7 +238,9 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                       </text>
                     </svg>
                     <div className="z-10 bg-green-600 text-white px-4 pt-[2px] pb-[13px] rotate-[-2deg] shadow-2xl flex items-center justify-center border border-white/20 min-w-[120px]">
-                      <span className="text-[16px] font-black tracking-tighter uppercase whitespace-nowrap leading-none">TAHSİL EDİLDİ</span>
+                      <span className="text-[16px] font-black tracking-tighter uppercase whitespace-nowrap leading-none">
+                        {txToPrint.type === 'GİDER' ? 'ÖDEME YAPILDI' : 'TAHSİL EDİLDİ'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -334,7 +343,11 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                     <span className="text-[7px] font-black uppercase tracking-widest">{tx.date}</span>
                   </div>
                   <p className="text-[12px] font-bold text-white uppercase truncate leading-tight mb-1">
-                    <span className="text-cyan-400">D.{getUnitNo(tx.unitId)}</span> {tx.description.split('[')[0].trim().replace(/^MAKBUZ\s+/i, '')}
+                    <span className="text-cyan-400">
+                      {getUnitNo(tx.unitId) === 'GENEL'
+                        ? (tx.type === 'GİDER' ? 'GİDER' : 'GELİR')
+                        : `DAİRE ${getUnitNo(tx.unitId)}`}
+                    </span> {tx.description.split('[')[0].trim().replace(/^MAKBUZ\s+/i, '')}
                   </p>
 
                   <div className="flex items-center space-x-2">
@@ -379,7 +392,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
             <div className="space-y-3">
               <div>
                 <label className="text-[7px] font-black text-white/30 uppercase block mb-1">TUTAR</label>
-                <input type="number" value={editingTx.amount} onChange={e => setEditingTx({ ...editingTx, amount: parseFloat(e.target.value) || 0 })} className="w-full h-10 bg-black/40 border border-white/10 rounded-lg px-3 text-lg font-black text-white outline-none focus:border-blue-500" />
+                <input type="number" value={editingTx.amount === 0 ? '' : editingTx.amount} onChange={e => setEditingTx({ ...editingTx, amount: parseFloat(e.target.value) || 0 })} className="w-full h-10 bg-black/40 border border-white/10 rounded-lg px-3 text-lg font-black text-white outline-none focus:border-blue-500" />
               </div>
               <div>
                 <label className="text-[7px] font-black text-white/30 uppercase block mb-1">TARİH</label>
