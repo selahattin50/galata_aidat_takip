@@ -16,6 +16,54 @@ class DatabaseService {
     return this.currentSessionId;
   }
 
+  // Kullanıcının tüm sitelerini (binalarını) listele
+  async getUserSites(uid: string): Promise<{ id: string, name: string }[]> {
+    try {
+      const sitesRef = ref(database, `users/${uid}/available_sites`);
+      const snapshot = await get(sitesRef);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        return Object.entries(data).map(([id, name]: any) => ({ id, name }));
+      }
+      return [];
+    } catch (error) {
+      console.error('getUserSites error:', error);
+      return [];
+    }
+  }
+
+  // Yeni bir site kaydı ekle
+  async addSiteToUser(uid: string, siteId: string, siteName: string): Promise<void> {
+    try {
+      const sitesRef = ref(database, `users/${uid}/available_sites/${siteId}`);
+      await set(sitesRef, siteName);
+    } catch (error) {
+      console.error('addSiteToUser error:', error);
+      throw error;
+    }
+  }
+
+  // Site adını güncelle
+  async updateSiteName(uid: string, siteId: string, newName: string): Promise<void> {
+    try {
+      const sitesRef = ref(database, `users/${uid}/available_sites/${siteId}`);
+      await set(sitesRef, newName);
+    } catch (error) {
+      console.error('updateSiteName error:', error);
+    }
+  }
+
+  // Site bağlantısını kaldır 
+  async removeSiteFromUser(uid: string, siteId: string): Promise<void> {
+    try {
+      const sitesRef = ref(database, `users/${uid}/available_sites/${siteId}`);
+      await remove(sitesRef);
+    } catch (error) {
+      console.error('removeSiteFromUser error:', error);
+      throw error;
+    }
+  }
+
   // Veri kaydetme
   async saveData(key: string, data: any): Promise<void> {
     if (!this.currentSessionId) {

@@ -83,6 +83,8 @@ const App: React.FC = () => {
   const [boardMembers, setBoardMembers] = useState<BoardMember[]>([]);
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [messages, setMessages] = useState<AppMessage[]>([]);
+  const [userSites, setUserSites] = useState<{ id: string, name: string }[]>([]);
+  const [activeSiteId, setActiveSiteId] = useState<string>(() => localStorage.getItem('galata_active_site_id') || 'main');
 
   const [lastSeenMsgTime, setLastSeenMsgTime] = useState(() => {
     return parseInt(localStorage.getItem('galata_last_msg_time') || '0', 10);
@@ -98,7 +100,15 @@ const App: React.FC = () => {
     const loadDataFromFirebase = async () => {
       try {
         setIsLoading(true);
-        console.log('Firebase\'den veri yükleniyor...');
+        console.log('Firebase\'den veri yükleniyor (Site:', activeSiteId, ')...');
+
+        // Site değişirken eski verileri temizle
+        setBuildingInfo(DEFAULT_BUILDING_INFO);
+        setUnits(INITIAL_UNITS);
+        setTransactions([]);
+        setBoardMembers([]);
+        setFiles([]);
+        setMessages([]);
 
         let currentUser = auth.currentUser;
 
@@ -127,7 +137,22 @@ const App: React.FC = () => {
         }
 
         console.log('✓ Firebase oturumu doğrulandı:', currentUser.email);
-        db.setCurrentSession(`users/${currentUser.uid}`);
+
+        // Kullanıcının yetkili olduğu binaları getir
+        const sites = await db.getUserSites(currentUser.uid);
+        setUserSites(sites);
+
+        // Eğer yüklü binalar arasında activeSiteId yoksa, varsa ilk olanı seç
+        let currentSiteId = activeSiteId;
+        if (sites.length > 0 && !sites.find(s => s.id === currentSiteId)) {
+          currentSiteId = sites[0].id;
+          setActiveSiteId(currentSiteId);
+          localStorage.setItem('galata_active_site_id', currentSiteId);
+        }
+
+        const sessionPath = currentSiteId === 'main' ? `users/${currentUser.uid}` : `users/${currentUser.uid}/sites/${currentSiteId}`;
+        db.setCurrentSession(sessionPath);
+        console.log('📌 Oturum yolu belirlendi:', sessionPath);
 
         // Önce Firebase bağlantısını test et
         const isConnected = await db.testConnection();
@@ -171,6 +196,12 @@ const App: React.FC = () => {
             await db.clearAllData();
           } else {
             setBuildingInfo(info);
+            // Eğer available_sites listesinde yoksa (eski kullanıcı), listeye ekle
+            if (sites.length === 0 || !sites.find(s => s.id === (activeSiteId || 'main'))) {
+              const siteName = info.name || "Varsayılan Bölüm";
+              await db.addSiteToUser(currentUser.uid, activeSiteId || 'main', siteName);
+              setUserSites([{ id: activeSiteId || 'main', name: siteName }]);
+            }
           }
         } else {
           console.log('Building info yok, default kullanılıyor');
@@ -223,7 +254,7 @@ const App: React.FC = () => {
     };
 
     loadDataFromFirebase();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, activeSiteId]); // siteId değiştiğinde veriyi tekrar yükle
 
   // Verileri Firebase'e kaydet (debounce ile)
   useEffect(() => {
@@ -238,7 +269,16 @@ const App: React.FC = () => {
       }, 500); // 0.5 saniye bekle
       return () => clearTimeout(timer);
     }
-  }, [buildingInfo, isAuthenticated, isLoading]);
+  }, [buildingInfo, isAuthenticated, isLoading, activeSiteId]);
+
+  // Bina ismi değiştiğinde available_sites listesini de güncelle
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (currentUser && buildingInfo?.name && isAuthenticated) {
+      db.updateSiteName(currentUser.uid, activeSiteId, buildingInfo.name);
+      setUserSites(prev => prev.map(s => s.id === activeSiteId ? { ...s, name: buildingInfo.name } : s));
+    }
+  }, [buildingInfo?.name, isAuthenticated, activeSiteId]);
 
   useEffect(() => {
     if (isAuthenticated && !isLoading && Array.isArray(units)) {
@@ -722,7 +762,70 @@ const App: React.FC = () => {
         ) : (
           activeTab === 'menu' ? <MenuView onActionClick={(sv, tab) => { if (tab) setActiveTab(tab); else setActiveSubView(sv); }} onLogout={handleLogout} onClose={() => setActiveTab('home')} /> :
             activeTab === 'settings' ? <SettingsView buildingInfo={buildingInfo} onUpdateBuildingInfo={setBuildingInfo} units={unitsWithBalances} onResetMoney={() => setTransactions([])} onClose={() => setActiveTab('home')} /> :
-              activeTab === 'sessions' ? <SessionsView info={buildingInfo} units={unitsWithBalances} onClose={() => setActiveTab('home')} onUpdateInfo={setBuildingInfo} /> :
+              activeTab === 'sessions' ? <SessionsView
+                activeSiteId={activeSiteId}
+                userSites={userSites}
+                onSelectSite={(id) => {
+                  setActiveSiteId(id);
+                  localStorage.setItem('galata_active_site_id', id);
+                  setActiveTab('home');
+                }}
+                onCreateSite={async (name) => {
+                  const currentUser = auth.currentUser;
+                  if (currentUser) {
+                    const newId = 'site_' + Math.random().toString(36).slice(2);
+                    await db.addSiteToUser(currentUser.uid, newId, name);
+                    setUserSites(p => [...p, { id: newId, name }]);
+                    setActiveSiteId(newId);
+                    localStorage.setItem('galata_active_site_id', newId);
+                    setActiveTab('home');
+                    // loadDataFromFirebase activeSiteId değişince tetiklenecek
+                  }
+                }}
+                onDeleteSite={async (id) => {
+                  const currentUser = auth.currentUser;
+                  if (currentUser && userSites.length > 1) {
+                    await db.removeSiteFromUser(currentUser.uid, id);
+                    setUserSites(p => p.filter(s => s.id !== id));
+                    if (activeSiteId === id) {
+                      const nextSite = userSites.find(s => s.id !== id);
+                      if (nextSite) {
+                        setActiveSiteId(nextSite.id);
+                        localStorage.setItem('galata_active_site_id', nextSite.id);
+                      }
+                    }
+                  } else {
+                    alert("Son kalan siteyi silemezsiniz.");
+                  }
+                }}
+                onUpdateUnits={async (newCount: number) => {
+                  setUnits(prev => {
+                    const currentCount = prev.length;
+                    if (newCount > currentCount) {
+                      const added = Array.from({ length: newCount - currentCount }, (_, i) => ({
+                        id: (currentCount + i + 1).toString(),
+                        no: (currentCount + i + 1).toString(),
+                        ownerName: "",
+                        phone: "",
+                        credit: 0,
+                        debt: 0,
+                        status: "Malik",
+                        type: "3+1",
+                        m2: 100,
+                        huzurHakki: "YOK"
+                      }));
+                      return [...prev, ...added];
+                    } else if (newCount < currentCount) {
+                      return prev.slice(0, newCount);
+                    }
+                    return prev;
+                  });
+                }}
+                info={buildingInfo}
+                units={unitsWithBalances}
+                onClose={() => setActiveTab('home')}
+                onUpdateInfo={setBuildingInfo}
+              /> :
                 activeTab === 'home' ? <div className="space-y-3 pt-1"><SummaryCard balance={balance} /><ActionGrid variant="grid" onActionClick={a => { const m: any = { 'Tahsilat': 'tahsilat', 'Gider': 'gider', 'Borçlandır': 'borclandir', 'Gelir': 'gelir', 'İade': 'iade', 'Transfer': 'transfer', 'Bağımsız Bölümler': 'units', 'İşlem Hareketleri': 'history', 'Alacak Listesi': 'receivables' }; if (m[a]) setActiveSubView(m[a]); }} /><SecondaryWidgets onActionClick={a => { const m: any = { 'AİDAT ÇİZELGE': 'aidat-cizelge', 'AYLIK BİLANÇO': 'monthly-report', 'YILLIK BİLANÇO': 'yearly-report' }; if (m[a]) setActiveSubView(m[a]); }} /><LastTransaction transaction={(Array.isArray(transactions) && transactions.length > 0) ? transactions[0] : null} /></div> :
 
                   activeTab === 'files' ? <FilesView files={files} onAddFile={f => setFiles(p => [...(Array.isArray(p) ? p : []), { ...f, id: Math.random().toString(36).slice(2) }])} onDeleteFile={id => setFiles(p => p.filter(x => x.id !== id))} onOpenFile={handleOpenFile} onShareFile={handleShareFile} /> : null

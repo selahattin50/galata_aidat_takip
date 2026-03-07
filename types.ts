@@ -84,6 +84,11 @@ export interface FileEntry {
   fileName?: string; // Gerçek dosya adı (Documents klasöründe)
 }
 
+export interface UserBuilding {
+  id: string;
+  name: string;
+}
+
 export type ActiveTab = 'home' | 'menu' | 'sessions' | 'settings' | 'files';
 
 export interface AppMessage {
