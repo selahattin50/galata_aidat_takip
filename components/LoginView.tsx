@@ -159,12 +159,12 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
 
       <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-700">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-[28px] bg-white/5 border border-white/10 mb-6 shadow-2xl relative group">
-            <div className="absolute inset-0 bg-blue-500/10 rounded-[28px] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-            <Building2 size={40} className="text-white relative z-10" strokeWidth={1.5} />
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-[32px] bg-white/5 border border-white/10 mb-6 shadow-2xl relative group p-2">
+            <div className="absolute inset-0 bg-blue-500/10 rounded-[32px] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+            <img src="/assets/logo.png" alt="Galata Logo" className="w-full h-full object-contain relative z-10" />
           </div>
-          <h1 className="text-3xl font-black italic tracking-tighter text-white mb-2">Galata Apartmanı</h1>
-          <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] leading-none">AİDAT TAKİP SİSTEMİ</p>
+          <h1 className="text-2xl font-light uppercase tracking-[0.3em] text-white mb-2">Galata Apartmanı</h1>
+          <p className="text-[9px] font-medium text-white/40 uppercase tracking-[0.4em] leading-none">AİDAT TAKİP SİSTEMİ</p>
         </div>
 
         <div className="bg-[#1e293b]/40 backdrop-blur-2xl rounded-[40px] p-8 border border-white/10 shadow-2xl relative overflow-hidden">

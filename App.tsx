@@ -158,22 +158,41 @@ const App: React.FC = () => {
         const isConnected = await db.testConnection();
 
         // Tüm verileri Firebase'den çek
-        const [info, unitsData, transactionsData, boardData, filesData, messagesData] = await Promise.all([
+        const emailKey = currentUser.email?.replace(/[.@]/g, '_');
+        const [info, unitsData, transactionsData, boardData, filesData, messagesData, userProfile, bannedData] = await Promise.all([
           db.getBuildingInfo(),
           db.getUnits(),
           db.getTransactions(),
           db.getBoardMembers(),
           db.getFiles(),
-          db.getMessages()
+          db.getMessages(),
+          db.getDataDirect(`_userProfiles/${currentUser.uid}`),
+          db.getDataDirect(`_bannedUsers/${emailKey}`)
         ]);
 
         console.log('Firebase veriler:', {
           info: !!info,
+          profile: !!userProfile,
+          banned: !!bannedData,
           units: unitsData?.length || 0,
-          transactions: transactionsData?.length || 0,
-          board: boardData?.length || 0,
-          files: filesData?.length || 0
+          transactions: transactionsData?.length || 0
         });
+
+        // GÜVENLİK KONTROLÜ: Eğer BANLIYSA dışarı at
+        if (bannedData && currentUser.email !== 'selahattin50@gmail.com') {
+          console.warn('⚠️ BANLI HESAP: Bu e-posta yasaklanmış, oturum kapatılıyor.');
+          alert('Hesabınız sistemden kalıcı olarak yasaklanmıştır.');
+          handleLogout();
+          return;
+        }
+
+        // GÜVENLİK KONTROLÜ: Eğer profil silinmişse (ve ana admin değilse) dışarı at
+        if (!userProfile && currentUser.email !== 'selahattin50@gmail.com') {
+          console.warn('⚠️ HESAP SİLİNMİŞ: Profil bulunamadı, oturum kapatılıyor.');
+          alert('Hesabınız yönetici tarafından silinmiştir veya geçersizdir.');
+          handleLogout();
+          return;
+        }
 
         // Veri varsa güncelle, yoksa default değerleri kullan
         if (info) {
@@ -401,6 +420,16 @@ const App: React.FC = () => {
     };
   }, []); // Boş dependency array - sadece bir kez çalışır
 
+  // Mesajları gerçek zamanlı dinle
+  useEffect(() => {
+    if (isAuthenticated) {
+      const unsubscribe = db.subscribeMessages((newMessages) => {
+        setMessages(newMessages);
+      });
+      return () => unsubscribe();
+    }
+  }, [isAuthenticated]);
+
 
   const unitsWithBalances = useMemo(() => {
     if (!Array.isArray(units)) return INITIAL_UNITS;
@@ -412,39 +441,56 @@ const App: React.FC = () => {
       if (!unit || !unit.id) return { id: Math.random().toString(), no: '', ownerName: '', phone: '', credit: 0, debt: 0, status: 'Malik', type: '3+1', m2: 100, huzurHakki: 'YOK' };
       const isExempt = buildingInfo?.isManagerExempt && unit.id === buildingInfo?.managerUnitId;
       if (isExempt) return { ...unit, credit: 0, debt: 0 };
-      const totalIncome = (Array.isArray(transactions) ? transactions : []).filter(tx => tx && tx.unitId === unit.id && tx.type === 'GELİR').reduce((sum, tx) => sum + (tx.amount || 0), 0);
-      const totalManualDebt = (Array.isArray(transactions) ? transactions : []).filter(tx => tx && tx.unitId === unit.id && tx.type === 'BORÇLANDIRMA').reduce((sum, tx) => sum + (tx.amount || 0), 0);
-      let runningCredit = totalIncome - totalManualDebt;
-      let totalDebtAccrued = 0;
+
+      const unitTransactions = (Array.isArray(transactions) ? transactions : []).filter(tx => tx && tx.unitId === unit.id);
+
+      // Nakit Gelir: (KREDİ) ile yapılan mahsuplar hariç tüm GELİR tipi işlemler (çünkü onlar nakit girişi değil, mevcut bakiye kullanımıdır)
+      const totalIncome = unitTransactions
+        .filter(tx => tx.type === 'GELİR' && !(tx.description || '').includes('(KREDİ)'))
+        .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+      const totalManualDebt = unitTransactions.filter(tx => tx.type === 'BORÇLANDIRMA').reduce((sum, tx) => sum + (tx.amount || 0), 0);
       const duesValue = Number(buildingInfo?.duesAmount) || 750;
 
-      // Aidat çizelgesi ve kredilerden aidatı "istisnasız" düşüyoruz.
+      let paidDuesTotal = 0;
+      let unpaidDuesTotal = 0;
+
+      // Aidat ödenme kontrolü: Sadece o aya özel (periodMonth) girişi olanlar aidatı kapatır
+      // (KREDİ) ile yapılan ödemeler de burada 'paid' olarak sayılır çünkü periodMonth ve periodYear değerleri vardır.
       if (duesValue > 0) {
         for (let m = 0; m <= currentMonthIdx; m++) {
-          const hasManualForThisMonth = (Array.isArray(transactions) ? transactions : []).some(tx => tx && tx.unitId === unit.id && tx.type === 'BORÇLANDIRMA' && tx.periodMonth === m && tx.periodYear === currentYear);
-          if (!hasManualForThisMonth) {
-            if (runningCredit >= duesValue) {
-              runningCredit -= duesValue;
-            } else {
-              // Kredi yetmiyorsa borca yaz (kalan krediyi de sfırla, çünkü bir kısmı ödendi)
-              if (runningCredit > 0) {
-                totalDebtAccrued += (duesValue - runningCredit);
-                runningCredit = 0;
-              } else {
-                totalDebtAccrued += duesValue;
-              }
-            }
+          const hasSpecificPayment = unitTransactions.some(tx =>
+            tx.type === 'GELİR' &&
+            tx.periodMonth === m &&
+            tx.periodYear === currentYear
+          );
+
+          if (hasSpecificPayment) {
+            paidDuesTotal += duesValue;
+          } else {
+            unpaidDuesTotal += duesValue;
           }
         }
       }
-      return { ...unit, credit: runningCredit > 0 ? runningCredit : 0, debt: totalDebtAccrued > 0 ? totalDebtAccrued : 0 };
+
+      // Kredi = Toplam Nakit Gelir - (Manuel Borçlandırmalar + Aidat Tahsilatı ile Ödenen Miktar)
+      const finalCredit = totalIncome - (totalManualDebt + paidDuesTotal);
+
+      return {
+        ...unit,
+        credit: finalCredit > 0 ? finalCredit : 0,
+        debt: unpaidDuesTotal + (finalCredit < 0 ? -finalCredit : 0)
+      };
     });
   }, [units, transactions, buildingInfo]);
 
 
   const balance: BalanceSummary = useMemo(() => {
     const txArr = Array.isArray(transactions) ? transactions : [];
-    const totalIncome = txArr.filter(tx => tx?.type === 'GELİR').reduce((sum, tx) => sum + (tx?.amount || 0), 0);
+    // Mevcut Bakiye hesaplanırken (KREDİ) mahsuplarını gelir olarak sayma (çünkü nakit girişi değil)
+    const totalIncome = txArr
+      .filter(tx => tx?.type === 'GELİR' && !(tx?.description || '').includes('(KREDİ)'))
+      .reduce((sum, tx) => sum + (tx?.amount || 0), 0);
     const totalExpense = txArr.filter(tx => tx?.type === 'GİDER').reduce((sum, tx) => sum + (tx?.amount || 0), 0);
     const mevcut = totalIncome - totalExpense;
     const alacak = Array.isArray(unitsWithBalances) ? unitsWithBalances.reduce((sum, u) => sum + (u?.debt || 0), 0) : 0;
@@ -709,14 +755,15 @@ const App: React.FC = () => {
       createdAt: new Date().toISOString()
     };
 
-    const updatedMessages = [...messages, newMsg];
-    setMessages(updatedMessages);
+    // Not: setMessages() çağırmıyoruz çünkü subscribeMessages otomatik güncelleyecek
 
-    if (isAuthenticated && !isLoading) {
+    if (isAuthenticated) {
       try {
-        await db.saveMessages(updatedMessages);
+        await db.pushMessage(newMsg);
+        console.log('✓ Mesaj başarıyla gönderildi');
       } catch (err) {
         console.error('Mesaj gönderme hatası:', err);
+        alert('Mesaj gönderilemedi. Lütfen internetinizi kontrol edin.');
       }
     }
   };

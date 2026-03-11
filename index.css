@@ -1,0 +1,16 @@
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+  }
+}
+
+.animate-card-in {
+  opacity: 0;
+  animation: slideInRight 0.5s ease-out forwards;
+}

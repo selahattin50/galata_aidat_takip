@@ -2,6 +2,7 @@
 import React from 'react';
 import { Database, Shield, Power, Mail } from 'lucide-react';
 import { BuildingInfo } from '../types.ts';
+import logo from '../src/assets/logo.png';
 
 interface HeaderProps {
   info: BuildingInfo;
@@ -27,13 +28,12 @@ const Header: React.FC<HeaderProps> = ({ info, onLogout, onMessagesClick, unread
   };
 
   return (
-    <div className="sticky top-0 z-[100] -mx-4 px-6 pt-8 pb-1 flex flex-col items-center relative animate-in fade-in duration-700 bg-[#030712]/80 backdrop-blur-xl border-b border-white/5 shadow-2xl">
-
-      <div className="flex flex-col items-center mt-2">
-        <h1 className="text-lg font-black text-white uppercase tracking-wider leading-none mb-1">
+    <div className="sticky top-0 z-[100] -mx-4 px-6 pt-10 pb-4 flex flex-col items-center relative animate-in fade-in duration-700 bg-[#030712]/80 backdrop-blur-xl border-b border-white/5 shadow-2xl">
+      <div className="flex flex-col items-center">
+        <h1 className="text-lg font-medium text-white uppercase tracking-[0.2em] leading-none mb-1">
           {info.name || 'GALATA APARTMANI'}
         </h1>
-        <h2 className="text-xs font-bold text-blue-400 uppercase tracking-widest leading-none mt-[10px]">
+        <h2 className="text-[10px] font-medium text-blue-400 uppercase tracking-[0.1em] leading-none mt-[8px] opacity-60">
           {info.managerName || 'YÖNETİCİ TANIMSIZ'}
         </h2>
       </div>

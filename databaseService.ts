@@ -104,6 +104,18 @@ class DatabaseService {
     }
   }
 
+  // Herhangi bir path'ten veri okuma
+  async getDataDirect(path: string): Promise<any> {
+    try {
+      const dataRef = ref(database, path);
+      const snapshot = await get(dataRef);
+      return snapshot.exists() ? snapshot.val() : null;
+    } catch (error) {
+      console.error('Database getDataDirect error:', error);
+      throw error;
+    }
+  }
+
   // Veri güncelleme
   async updateData(key: string, updates: any): Promise<void> {
     try {
@@ -278,33 +290,62 @@ class DatabaseService {
     return data || [];
   }
 
-  // Mesajları kaydet
+  // Mesajları kaydet (Toplu yazma - genellikle gerekmez ama kalsın)
   async saveMessages(messages: AppMessage[]): Promise<void> {
     const messagesObj: Record<string, any> = {};
     messages.forEach(m => {
-      if (m && m.id) {
-        messagesObj[m.id] = m;
-      }
+      if (m && m.id) messagesObj[m.id] = m;
     });
-    await this.saveData('messages', messagesObj);
+    await this.saveDataDirect('_globalMessages', messagesObj);
+  }
+
+  // Tek mesaj gönder (Push - Global Pano)
+  async pushMessage(message: AppMessage): Promise<void> {
+    const msgRef = ref(database, `_globalMessages/${message.id}`);
+    await set(msgRef, message);
   }
 
   // Mesajları al
   async getMessages(): Promise<AppMessage[]> {
-    const data = await this.getData('messages');
+    const data = await this.getDataDirect('_globalMessages');
     if (!data) return [];
     const messages = Object.values(data).filter(item => item !== null && item !== undefined) as AppMessage[];
-    // Tarihe göre sırala (en eski en üstte veya en yeni en üstte)
     return messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }
 
-  // Tek mesaj sil
+  // Mesajları dinle (Real-time - Tüm kullanıcılar için)
+  subscribeMessages(callback: (messages: AppMessage[]) => void): () => void {
+    const msgRef = ref(database, '_globalMessages');
+    const listener = onValue(msgRef, (snapshot) => {
+      const data = snapshot.exists() ? snapshot.val() : null;
+      if (!data) {
+        callback([]);
+        return;
+      }
+      const list = Object.values(data).filter(item => item !== null && item !== undefined) as AppMessage[];
+      callback(list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
+    });
+    return () => off(msgRef, 'value', listener);
+  }
+
+  // Tek mesaj sil (Yönetici yetkisi uygulama tarafında kontrol ediliyor)
   async deleteMessage(id: string): Promise<void> {
     if (!id) return;
     try {
-      await this.deleteData('messages/' + id);
+      await this.deleteDataDirect('_globalMessages/' + id);
     } catch (error) {
       console.error('Mesaj silme hatası:', error);
+      throw error;
+    }
+  }
+
+  // Direkt path ile veri kaydetme
+  async saveDataDirect(path: string, data: any): Promise<void> {
+    try {
+      const dataRef = ref(database, path);
+      await set(dataRef, data);
+    } catch (error) {
+      console.error('Database saveDataDirect error:', error);
       throw error;
     }
   }

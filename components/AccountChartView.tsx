@@ -27,7 +27,7 @@ const AccountChartView: React.FC<AccountChartViewProps> = ({ units, info, onClos
     setIsProcessing(true);
     try {
       const canvas = await html2canvas(printRef.current, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         backgroundColor: '#ffffff'
       });
@@ -45,18 +45,20 @@ const AccountChartView: React.FC<AccountChartViewProps> = ({ units, info, onClos
   };
 
   const sortedUnits = [...units].sort((a, b) => parseInt(a.no) - parseInt(b.no));
+  const months = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"];
+  const currentMonthName = months[new Date().getMonth()];
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pt-6 pb-24 px-1 relative">
       <div className="flex items-center justify-center mb-6 relative px-2">
-        <button 
+        <button
           onClick={onClose}
           className="absolute left-0 bg-white/5 p-3 rounded-xl hover:bg-white/10 active:scale-90 transition-all border border-white/5"
         >
           <ArrowLeft size={20} className="text-zinc-400" />
         </button>
         <h3 className="text-xs font-black uppercase tracking-[0.2em] text-green-500 text-center">HESAP ÇİZELGESİ</h3>
-        <button 
+        <button
           onClick={handleDownloadPdf}
           disabled={isProcessing}
           className="absolute right-0 bg-blue-600 text-white p-3 rounded-xl shadow-lg active:scale-95 transition-all flex items-center space-x-2 disabled:opacity-50"
@@ -66,42 +68,55 @@ const AccountChartView: React.FC<AccountChartViewProps> = ({ units, info, onClos
       </div>
 
       <div className="bg-white text-black p-4 md:p-8 rounded-sm shadow-2xl overflow-x-auto min-w-full">
-        <div ref={printRef} className="bg-white p-2 min-w-[600px]">
-          <div className="text-center mb-6">
-            <h1 className="text-xl font-bold uppercase mb-4 tracking-wider">APARTMAN HESAP DURUM ÇİZELGESİ</h1>
-            <div className="border border-black p-2 flex justify-between items-start text-left">
-              <div className="space-y-1">
-                <p className="font-bold text-sm">{info.name}</p>
-                <p className="font-bold text-sm">Galata Apartmanı</p>
-              </div>
-              <div className="text-right">
-                <p className="font-bold text-sm">Genel Gider</p>
+        {/* BU BÖLÜM PDF OLARAK KAYDEDİLEN ALANDIR - HTML2CANVAS İÇİN INLINE STYLE ŞARTTIR */}
+        <div ref={printRef} style={{ backgroundColor: '#ffffff', padding: '20px', minWidth: '1200px', color: '#000', fontFamily: 'sans-serif' }}>
+          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <h1 style={{ fontSize: '48px', fontWeight: '900', color: '#000', margin: '0', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+              {currentMonthName} AYI APARTMAN HESAP DURUM ÇİZELGESİ
+            </h1>
+            <div style={{ marginTop: '20px', border: '4px solid #000', padding: '20px', backgroundColor: '#fff' }}>
+              <div style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                <p style={{ fontSize: '32px', fontWeight: '900', margin: '0', color: '#000' }}>{info.name.toUpperCase()} YÖNETİMİ</p>
               </div>
             </div>
           </div>
-          <table className="w-full border-collapse border border-black text-[12px]">
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '4px solid #000' }}>
             <thead>
-              <tr className="bg-white">
-                <th className="border border-black p-1 text-center w-12 font-bold">NO</th>
-                <th className="border border-black p-1 text-left font-bold">İKAMET EDEN</th>
-                <th className="border border-black p-1 text-right font-bold w-40">KREDİ BAKİYESİ</th>
-                <th className="border border-black p-1 text-right font-bold w-40">BORÇ BAKİYESİ</th>
+              <tr style={{ backgroundColor: '#f8f8f8', borderBottom: '3px solid #000' }}>
+                <th style={{ borderRight: '1px solid #000', padding: '15px', textAlign: 'center', width: '80px', fontSize: '26px', fontWeight: '900', color: '#000', whiteSpace: 'nowrap' }}>NO</th>
+                <th style={{ borderRight: '1px solid #000', padding: '15px', textAlign: 'left', fontSize: '26px', fontWeight: '900', color: '#000', whiteSpace: 'nowrap' }}>İKAMET EDEN</th>
+                <th style={{ borderRight: '1px solid #000', padding: '15px', textAlign: 'right', width: '300px', fontSize: '26px', fontWeight: '900', color: '#000', whiteSpace: 'nowrap' }}>KREDİ BAKİYESİ</th>
+                <th style={{ padding: '15px', textAlign: 'right', width: '300px', fontSize: '26px', fontWeight: '900', color: '#000', whiteSpace: 'nowrap' }}>BORÇ BAKİYESİ</th>
               </tr>
             </thead>
             <tbody>
-              {sortedUnits.map((unit) => (
-                <tr key={unit.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="border border-black p-1.5 text-center font-bold">{unit.no}</td>
-                  <td className="border border-black p-1.5 text-left font-medium">{unit.ownerName}</td>
-                  <td className="border border-black p-1.5 text-right font-medium">{formatCurrency(unit.credit)}</td>
-                  <td className="border border-black p-1.5 text-right font-medium">{formatCurrency(unit.debt)}</td>
+              {sortedUnits.map((unit, index) => (
+                <tr key={unit.id} style={{
+                  borderBottom: '1px solid #ccc',
+                  backgroundColor: index % 2 === 0 ? '#ffffff' : '#f2f3ff'
+                }}>
+                  <td style={{ borderRight: '1px solid #000', padding: '10px', textAlign: 'center', fontSize: '24px', fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>{unit.no}</td>
+                  <td style={{ borderRight: '1px solid #000', padding: '10px', textAlign: 'left', fontSize: '24px', fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>
+                    {unit.ownerName} <span style={{ fontSize: '16px', fontWeight: 'normal', color: '#666' }}>({unit.status || 'Malik'})</span>
+                  </td>
+                  <td style={{ borderRight: '1px solid #000', padding: '10px', textAlign: 'right', fontSize: '24px', fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>
+                    {formatCurrency(unit.credit)}
+                  </td>
+                  <td style={{ padding: '10px', textAlign: 'right', fontSize: '24px', fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>
+                    {formatCurrency(unit.debt)}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="mt-8 flex justify-end">
-            <div className="text-center w-48">
-              <p className="text-[10px] font-bold uppercase border-t border-black pt-1">YÖNETİM ONAYI</p>
+
+          <div style={{ marginTop: '70px', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ textAlign: 'center', width: '400px' }}>
+              <div style={{ borderTop: '5px solid #000', paddingTop: '20px' }}>
+                <p style={{ fontSize: '26px', fontWeight: '900', margin: '0', color: '#000' }}>YÖNETİM ONAYI</p>
+                <p style={{ fontSize: '18px', margin: '0', fontStyle: 'italic', color: '#000' }}>Kaşe / İmza</p>
+              </div>
             </div>
           </div>
         </div>

@@ -70,51 +70,51 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, onClose }) => 
               const activeName = toTitleCase(unit.tenantName || unit.ownerName);
               
               return (
-                <div key={unit.id} className="glass-panel rounded-[16px] py-2 px-4 flex items-center border border-white/5 hover:bg-white/10 transition-all group min-h-[62px]">
-                  <div className="w-10 h-10 rounded-xl bg-red-500/5 border border-red-500/10 flex items-center justify-center shrink-0 mr-3 shadow-inner">
-                    <span className="text-[17px] font-black text-red-500/80 group-hover:text-red-500 leading-none">{unit.no}</span>
+                <div key={unit.id} className="glass-panel rounded-[16px] py-1.5 px-3 flex items-center border border-white/5 hover:bg-white/10 transition-all group min-h-[58px]">
+                  <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 mr-3 shadow-inner">
+                    <span className="text-[20px] font-black text-white leading-none">{unit.no}</span>
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <span className="text-[12px] font-bold text-white/90 block truncate leading-tight uppercase tracking-tight">
                       {activeName}
                     </span>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <span className={`text-[7px] font-black uppercase tracking-tighter leading-none ${unit.tenantName ? 'text-orange-500' : 'text-blue-500'}`}>
+                    <div className="flex items-center space-x-2 mt-0.5 whitespace-nowrap overflow-hidden">
+                      <span className={`text-[7px] font-black uppercase tracking-tighter leading-none shrink-0 ${unit.tenantName ? 'text-orange-500' : 'text-blue-500'}`}>
                         {unit.tenantName ? 'KİRACI' : 'MALİK'}
                       </span>
-                      <div className="flex items-center space-x-1">
-                        <Phone size={8} className="text-green-500" />
-                        <span className="text-[10px] font-bold tracking-tight text-green-500">
+                      <div className="flex items-center space-x-1 shrink-0">
+                        <span className="text-[11px] font-bold tracking-tight text-green-500">
                           {unit.tenantName && unit.tenantPhone 
                             ? unit.tenantPhone 
-                            : (unit.phone || <span className="text-white/20 text-[8px] font-black uppercase">TEL YOK</span>)
+                            : (unit.phone || <span className="text-white/20 text-[8px] font-black uppercase tracking-wider">TEL YOK</span>)
                           }
                         </span>
+                        <Phone size={8} className="text-green-500" />
                       </div>
                     </div>
                   </div>
 
-                  <div className="ml-2 flex items-center space-x-2">
-                    <div className="text-right flex flex-col items-end">
-                      <span className="text-red-500 font-black text-[15px] tracking-tighter leading-none">₺{formatCurrency(unit.debt)}</span>
-                      <span className="text-[7px] font-black text-white/10 uppercase tracking-widest mt-0.5 whitespace-nowrap">TOPLAM BORÇ</span>
+                    <div className="ml-2 flex items-center space-x-2">
+                      <div className="text-right flex flex-col items-end">
+                        <span className="text-red-500 font-black text-[15px] tracking-tighter leading-none">₺{formatCurrency(unit.debt)}</span>
+                        <span className="text-[7px] font-black text-white/10 uppercase tracking-widest mt-0.5 whitespace-nowrap">TOPLAM BORÇ</span>
+                      </div>
+                      <div className="flex items-center space-x-3 border-l border-white/5 pl-2.5">
+                        <button 
+                          onClick={() => handleWhatsApp(unit.tenantPhone || unit.phone, activeName, unit.debt)}
+                          className="p-1 rounded-lg bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg shadow-green-500/20 hover:shadow-green-500/40 active:scale-90 transition-all"
+                        >
+                          <MessageCircle size={14} />
+                        </button>
+                        <button 
+                          onClick={() => handleCall(unit.tenantPhone || unit.phone)}
+                          className="p-1 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 active:scale-90 transition-all"
+                        >
+                          <Phone size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-0.5 border-l border-white/5 pl-1.5">
-                      <button 
-                        onClick={() => handleWhatsApp(unit.tenantPhone || unit.phone, activeName, unit.debt)}
-                        className="p-1 rounded-lg bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg shadow-green-500/20 hover:shadow-green-500/40 active:scale-90 transition-all"
-                      >
-                        <MessageCircle size={14} />
-                      </button>
-                      <button 
-                        onClick={() => handleCall(unit.tenantPhone || unit.phone)}
-                        className="p-1 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 active:scale-90 transition-all"
-                      >
-                        <Phone size={14} />
-                      </button>
-                    </div>
-                  </div>
                 </div>
               );
             })

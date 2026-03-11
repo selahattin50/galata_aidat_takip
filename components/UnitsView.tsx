@@ -1,27 +1,30 @@
 
-import React, { useState } from 'react';
-import { ArrowLeft, Plus, X, Share2, Loader2, FileDown, Home, Check, Phone, MessageCircle } from 'lucide-react';
-import { Unit, BuildingInfo, FileEntry, Transaction } from '../types.ts';
+import React, { useState, useMemo } from 'react';
+import { Users, FileDown, Plus, Search, Home, Phone, User, Trash2, Edit3, Check, X, Building, ArrowLeft, Loader2, Share2, MessageCircle } from 'lucide-react';
+import { Unit, Transaction, BuildingInfo, FileEntry } from '../types';
+import UnitDetailView from './UnitDetailView';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { PDFService } from '../pdfService';
-import UnitDetailView from './UnitDetailView.tsx';
 
 interface UnitsViewProps {
   units: Unit[];
-  info: BuildingInfo;
   transactions: Transaction[];
-  onClose: () => void;
-  onAddUnit: (unit: Omit<Unit, 'id' | 'credit' | 'debt'>) => void;
+  info: BuildingInfo;
+  onAddUnit: (unit: Omit<Unit, 'id' | 'debt' | 'credit'>) => void;
   onEditUnit: (unit: Unit) => void;
+  onDeleteUnit: (id: string) => void;
   onAddFile: (name: string, category: FileEntry['category'], uri?: string, size?: number, fileName?: string) => void;
-  onResetFinancials?: () => void;
 }
 
-const UnitsView: React.FC<UnitsViewProps> = ({ units, info, transactions, onClose, onAddUnit, onEditUnit, onAddFile, onResetFinancials }) => {
+const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddUnit, onEditUnit, onDeleteUnit, onAddFile }) => {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
-  
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+
   const [formData, setFormData] = useState({
     no: '',
     ownerName: '',
@@ -30,22 +33,22 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, info, transactions, onClos
     tenantPhone: '',
     status: 'Malik' as 'Malik' | 'Kiracı'
   });
-  
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+
+  const filteredUnits = useMemo(() => {
+    return units.filter(unit =>
+      unit.no.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      unit.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (unit.tenantName && unit.tenantName.toLowerCase().includes(searchTerm.toLowerCase()))
+    ).sort((a, b) => {
+      const aNo = parseInt(a.no);
+      const bNo = parseInt(b.no);
+      if (isNaN(aNo) || isNaN(bNo)) return a.no.localeCompare(b.no);
+      return aNo - bNo;
+    });
+  }, [units, searchTerm]);
 
   const toTitleCase = (str: string) => {
-    if (!str) return '';
-    return str
-      .split(/(\s+)/)
-      .map(part => {
-        if (part.trim().length > 0) {
-          return part.charAt(0).toLocaleUpperCase('tr-TR') + part.slice(1).toLocaleLowerCase('tr-TR');
-        }
-        return part;
-      })
-      .join('');
+    return str.replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const formatCurrency = (val: number) => {
@@ -72,113 +75,125 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, info, transactions, onClos
 
   const generateUnitsPdf = async (mode: 'download' | 'share') => {
     setIsProcessingPdf(true);
-    
+
     try {
-      // PDF için özel HTML oluştur
+      const months = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"];
+      const currentMonthName = months[new Date().getMonth()];
+
       const pdfContent = document.createElement('div');
       pdfContent.style.backgroundColor = '#ffffff';
-      pdfContent.style.padding = '32px';
-      pdfContent.style.width = '210mm';
-      
-      // Başlık
+      pdfContent.style.padding = '20px';
+      pdfContent.style.width = '1200px';
+      pdfContent.style.fontFamily = 'sans-serif';
+      pdfContent.style.color = '#000';
+
       const header = document.createElement('div');
       header.style.textAlign = 'center';
-      header.style.marginBottom = '32px';
-      header.innerHTML = `<h1 style="font-size: 24px; font-weight: 900; color: #000; text-transform: uppercase; margin-bottom: 8px;">APARTMAN HESAP DURUM ÇİZELGESİ</h1>`;
-      pdfContent.appendChild(header);
-      
-      // Apartman bilgisi
-      const infoBox = document.createElement('div');
-      infoBox.style.border = '2px solid #000';
-      infoBox.style.marginBottom = '16px';
-      infoBox.innerHTML = `
-        <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 2px solid #000;">
-          <div style="padding: 12px; border-right: 2px solid #000;">
-            <p style="font-size: 16px; font-weight: 900; color: #000; margin: 0;">${info.name}</p>
-          </div>
-          <div style="padding: 12px;">
-            <p style="font-size: 16px; font-weight: 900; color: #000; margin: 0; text-align: right;">Genel Gider</p>
+      header.style.marginBottom = '30px';
+      header.innerHTML = `
+        <h1 style="font-size: 48px; font-weight: 900; color: #000; text-transform: uppercase; margin-bottom: 20px; white-space: nowrap;">
+          ${currentMonthName} AYI APARTMAN HESAP DURUM ÇİZELGESİ
+        </h1>
+        
+        <div style="border: 4px solid #000; padding: 20px; margin-bottom: 20px; background-color: #fff;">
+          <div style="text-align: center; white-space: nowrap;">
+            <p style="font-size: 32px; font-weight: 900; margin: 0; color: #000;">${info.name.toUpperCase()} YÖNETİMİ</p>
           </div>
         </div>
       `;
-      pdfContent.appendChild(infoBox);
-      
-      // Tablo
+      pdfContent.appendChild(header);
+
       const table = document.createElement('table');
       table.style.width = '100%';
-      table.style.border = '2px solid #000';
+      table.style.border = '4px solid #000';
       table.style.borderCollapse = 'collapse';
-      
-      // Tablo başlığı
+
       const thead = document.createElement('thead');
       thead.innerHTML = `
-        <tr style="border-bottom: 2px solid #000; background: #fff;">
-          <th style="border-right: 2px solid #000; padding: 8px; text-align: center; font-weight: 900; color: #000; font-size: 14px;">NO</th>
-          <th style="border-right: 2px solid #000; padding: 8px; text-align: left; font-weight: 900; color: #000; font-size: 14px;">İKAMET EDEN</th>
-          <th style="border-right: 2px solid #000; padding: 8px; text-align: right; font-weight: 900; color: #000; font-size: 14px;">KREDİ BAKİYESİ</th>
-          <th style="padding: 8px; text-align: right; font-weight: 900; color: #000; font-size: 14px;">BORÇ BAKİYESİ</th>
+        <tr style="border-bottom: 3px solid #000; background-color: #f8f8f8;">
+          <th style="border-right: 1px solid #000; padding: 15px; text-align: center; width: 80px; font-size: 26px; font-weight: 900; color: #000; white-space: nowrap;">NO</th>
+          <th style="border-right: 1px solid #000; padding: 15px; text-align: left; font-size: 26px; font-weight: 900; color: #000; white-space: nowrap;">İKAMET EDEN</th>
+          <th style="border-right: 1px solid #000; padding: 15px; text-align: right; width: 300px; font-size: 26px; font-weight: 900; color: #000; white-space: nowrap;">KREDİ BAKİYESİ</th>
+          <th style="padding: 15px; text-align: right; width: 300px; font-size: 26px; font-weight: 900; color: #000; white-space: nowrap;">BORÇ BAKİYESİ</th>
         </tr>
       `;
       table.appendChild(thead);
-      
-      // Tablo içeriği
+
       const tbody = document.createElement('tbody');
-      units.sort((a,b) => parseInt(a.no) - parseInt(b.no)).forEach(unit => {
+      units.sort((a, b) => {
+        const aNo = parseInt(a.no);
+        const bNo = parseInt(b.no);
+        return (isNaN(aNo) || isNaN(bNo)) ? a.no.localeCompare(b.no) : aNo - bNo;
+      }).forEach((unit, index) => {
         const row = document.createElement('tr');
-        row.style.borderBottom = '1px solid #000';
+        row.style.borderBottom = '1px solid #ccc';
+        row.style.backgroundColor = index % 2 === 0 ? '#ffffff' : '#f2f3ff';
         row.innerHTML = `
-          <td style="border-right: 2px solid #000; padding: 8px; text-align: center; font-weight: 700; color: #000;">${unit.no}</td>
-          <td style="border-right: 2px solid #000; padding: 8px; text-align: left; color: #000;">${unit.tenantName || unit.ownerName} (${unit.tenantName ? 'Kiracı' : 'Malik'})</td>
-          <td style="border-right: 2px solid #000; padding: 8px; text-align: right; color: #000;">${formatCurrency(unit.credit)} TL</td>
-          <td style="padding: 8px; text-align: right; color: #000;">${formatCurrency(unit.debt)} TL</td>
+          <td style="border-right: 1px solid #000; padding: 10px; text-align: center; font-size: 22px; font-weight: bold; color: #000; white-space: nowrap;">${unit.no}</td>
+          <td style="border-right: 1px solid #000; padding: 10px; text-align: left; font-size: 22px; font-weight: bold; color: #000; white-space: nowrap;">
+            ${unit.tenantName || unit.ownerName} 
+            <span style="font-size: 16px; font-weight: normal; color: #666;">(${unit.tenantName ? 'Kiracı' : 'Malik'})</span>
+          </td>
+          <td style="border-right: 1px solid #000; padding: 10px; text-align: right; font-size: 22px; font-weight: bold; color: #000; white-space: nowrap;">${formatCurrency(unit.credit)}</td>
+          <td style="padding: 10px; text-align: right; font-size: 22px; font-weight: bold; color: #000; white-space: nowrap;">${formatCurrency(unit.debt)}</td>
         `;
         tbody.appendChild(row);
       });
       table.appendChild(tbody);
       pdfContent.appendChild(table);
-      
-      // Geçici olarak DOM'a ekle
+
+      const footer = document.createElement('div');
+      footer.style.marginTop = '60px';
+      footer.style.display = 'flex';
+      footer.style.justifyContent = 'flex-end';
+      footer.innerHTML = `
+        <div style="text-align: center; width: 350px;">
+          <div style="border-top: 4px solid #000; padding-top: 20px;">
+            <p style="font-size: 24px; font-weight: 900; margin: 0; color: #000;">YÖNETİM ONAYI</p>
+            <p style="font-size: 16px; margin: 0; font-style: italic; color: #000;">Kaşe / İmza</p>
+          </div>
+        </div>
+      `;
+      pdfContent.appendChild(footer);
+
       document.body.appendChild(pdfContent);
-      
       const canvas = await html2canvas(pdfContent, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false
       });
-      
-      // DOM'dan kaldır
       document.body.removeChild(pdfContent);
 
       const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      // Eğer içerik sayfadan büyükse, küçült
+
       if (imgHeight > pdfHeight) {
         const ratio = pdfHeight / imgHeight;
         const scaledWidth = imgWidth * ratio;
         const scaledHeight = pdfHeight;
         const xOffset = (pdfWidth - scaledWidth) / 2;
-        
         pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', xOffset, 0, scaledWidth, scaledHeight);
       } else {
         pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, imgWidth, imgHeight);
       }
-      
-      const fileName = `${info.name.replace(/\s+/g, '_')}_Bagimsiz_Bolumler_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '_')}.pdf`;
-      
+
+      const sanitizedBuildingName = info.name.replace(/[^a-zA-Z0-9]/g, '_');
+      const trMonths = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+      const currentMonthTr = trMonths[new Date().getMonth()];
+      const fileName = `${sanitizedBuildingName}_${currentMonthTr}_Ayi_Aidat_Cizelgesi.pdf`;
+
       const shouldShare = mode === 'share';
       const savedInfo = await PDFService.saveAndShareFromJsPDF(pdf, fileName, shouldShare);
-      
       onAddFile(fileName, 'Diğer', savedInfo.uri, savedInfo.size, savedInfo.fileName);
-      
+
       if (mode === 'download') {
         alert('PDF başarıyla indirildi ve Dosyalar bölümüne eklendi!');
       }
+
     } catch (error) {
       console.error('PDF oluşturma hatası:', error);
       alert('PDF oluşturulurken hata oluştu');
@@ -188,122 +203,235 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, info, transactions, onClos
   };
 
   if (selectedUnit) {
-    return <UnitDetailView 
-      unit={selectedUnit} 
-      info={info} 
-      transactions={transactions} 
-      onClose={() => setSelectedUnit(null)} 
+    return <UnitDetailView
+      unit={selectedUnit}
+      info={info}
+      transactions={transactions}
+      onClose={() => setSelectedUnit(null)}
       onUpdate={(u) => { onEditUnit(u); setSelectedUnit(u); }}
     />;
   }
 
   return (
     <div className="relative pt-0 pb-10">
-      {/* Sticky Header - PDF'de görünmez */}
-      <div className="sticky top-0 z-[100] -mx-4 px-4 pt-5 pb-3 bg-[#030712]/95 backdrop-blur-3xl border-b border-white/5">
-        <div className="flex items-center h-10 w-full relative">
-          <button onClick={onClose} className="bg-white/5 p-2 rounded-xl active:scale-90 transition-all border border-white/5 shrink-0">
-            <ArrowLeft size={20} className="text-zinc-400" />
-          </button>
-          
-          <div className="flex-1 flex items-center ml-3 overflow-hidden">
-            <Home size={16} className="text-zinc-400 mr-2 shrink-0" />
-            <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-white/90 truncate">BAĞIMSIZ BÖLÜMLER</h4>
+      <div className="sticky top-0 z-10 bg-[#030712]/80 backdrop-blur-xl border-b border-white/5 px-4 pt-1 pb-4 shadow-2xl">
+        <div className="flex items-center justify-between mb-4 mt-2">
+          <div className="flex items-center space-x-3 flex-shrink-0">
+            <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/5 shadow-inner">
+              <Users className="text-white" size={24} />
+            </div>
+            <h1 className="text-[15px] font-black text-white uppercase tracking-[0.1em] leading-none">BAĞIMSIZ BÖLÜMLER</h1>
           </div>
 
-          <div className="flex items-center space-x-1.5 shrink-0 ml-2">
-            <button 
-              onClick={() => generateUnitsPdf('share')} 
+          <div className="flex items-center space-x-2 flex-shrink-0">
+            <button
+              onClick={() => generateUnitsPdf('share')}
               disabled={isProcessingPdf}
-              className="bg-white/5 p-2 rounded-xl active:scale-90 transition-all text-green-400 border border-white/5 disabled:opacity-50"
+              className="w-10 h-10 bg-white/5 text-zinc-400 rounded-xl flex items-center justify-center active:scale-95 transition-all border border-white/10 shadow-lg hover:bg-white/10"
+              title="Paylaş"
             >
-              <MessageCircle size={20} />
+              <Share2 size={20} />
             </button>
-            <button onClick={() => setShowAddModal(true)} className="bg-white/5 p-2 rounded-xl active:scale-90 transition-all text-white border border-white/5">
-              <Plus size={20} />
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center active:scale-95 transition-all border border-blue-500/50 shadow-[0_0_20px_rgba(37,99,235,0.3)]"
+              title="Yeni Ekle"
+            >
+              <Plus size={24} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Ekran görünümü - Normal kart görünümü */}
-      <div className="space-y-2.5 mt-2 px-1">
-      {/* Ekran görünümü - PDF'de görünmez */}
-      <div className="space-y-2.5 mt-2 px-1">
-        {units.sort((a,b) => parseInt(a.no) - parseInt(b.no)).map((unit) => (
-          <div 
-            key={unit.id} 
-            onClick={() => setSelectedUnit(unit)}
-            className="bg-[#111827]/60 backdrop-blur-2xl rounded-[24px] py-3 px-5 flex items-center justify-between border border-white/5 hover:bg-white/10 active:bg-white/10 transition-all cursor-pointer shadow-xl"
-          >
-            <div className="flex items-center space-x-3 min-w-0">
-              <div className="flex flex-col items-start justify-center shrink-0">
-                <span className="text-2xl font-black text-white leading-none">{unit.no}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-sm font-bold text-white uppercase truncate block leading-tight">
-                  {unit.tenantName || unit.ownerName}
-                </span>
-                <div className="flex items-center space-x-2 mt-1">
-                  <span className={`text-[8px] font-black uppercase tracking-widest leading-none ${unit.tenantName ? 'text-orange-500' : 'text-blue-500'}`}>
-                    {unit.tenantName ? 'KİRACI' : 'MALİK'}
-                  </span>
-                  <div className="flex items-center space-x-1">
-                    <Phone size={7} className="text-green-500" />
-                    <span className="text-[10px] font-bold tracking-tight text-green-500">
-                      {unit.tenantName && unit.tenantPhone 
-                        ? unit.tenantPhone 
-                        : (unit.phone || <span className="text-white/20 text-[8px] font-black uppercase">TEL YOK</span>)
-                      }
+      <div className="px-3 py-4">
+        <div className="grid grid-cols-1 gap-2">
+          {filteredUnits.map((unit, index) => (
+            <div
+              key={unit.id}
+              onClick={() => setSelectedUnit(unit)}
+              className="group bg-[#1e293b]/40 border border-white/5 rounded-[22px] py-2.5 px-2 active:scale-[0.98] transition-all relative overflow-hidden ring-1 ring-white/5 hover:bg-[#1e293b]/60 shadow-xl animate-card-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 opacity-60" />
+              <div className="flex items-center justify-between relative z-10 pl-1.5">
+                <div className="flex items-center space-x-2 min-w-0">
+                  <div className="w-14 h-14 bg-[#030712] rounded-[18px] flex-shrink-0 flex items-center justify-center border border-white/5 shadow-inner">
+                    <span className="text-[20px] font-black text-white">{unit.no}</span>
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[12px] font-black text-white uppercase tracking-tight group-hover:text-blue-400 transition-colors leading-tight mb-1 truncate whitespace-nowrap">
+                      {unit.tenantName || unit.ownerName}
                     </span>
+                    <div className="flex items-center space-x-2">
+                      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest flex-shrink-0 ${unit.tenantName ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>
+                        {unit.tenantName ? 'Kiracı' : 'Malik'}
+                      </span>
+                      <span className="text-[12px] text-green-500 font-bold font-mono tracking-tighter truncate">{unit.tenantPhone || unit.phone}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0 pl-2">
+                  <div
+                    className="text-[14px] font-black tracking-tighter"
+                    style={{ color: unit.debt - unit.credit > 0 ? '#ef4444' : '#22c55e' }}
+                  >
+                    ₺{formatCurrency(unit.debt - unit.credit).replace('₺', '')}
+                  </div>
+                  <div className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full mt-1 inline-block ${unit.debt - unit.credit > 0 ? 'text-white bg-red-500/20 border border-red-500/30' : 'text-white bg-green-500/20 border border-green-500/30'}`}>
+                    {unit.debt - unit.credit > 0 ? 'BORÇ' : 'ALACAK'}
                   </div>
                 </div>
               </div>
             </div>
-            <div className="text-right flex flex-col items-end">
-              <span className="text-sm font-black text-white leading-none">₺{formatCurrency(unit.credit)}</span>
-              <span className="text-sm font-black text-red-500 mt-1 leading-none">₺{formatCurrency(unit.debt)}</span>
-            </div>
+          ))}
+        </div>
+
+        {filteredUnits.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 opacity-20">
+            <Users size={48} className="mb-4" />
+            <p className="text-[10px] font-black uppercase tracking-[0.3em]">Sonuç Bulunamadı</p>
           </div>
-        ))}
-      </div>
+        )}
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex items-center justify-center px-6 animate-in fade-in duration-300">
-          <div className="bg-[#1e293b] w-full max-sm rounded-[32px] p-6 border border-white/10 shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xs font-black uppercase tracking-widest text-white">YENİ DAİRE EKLE</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-white/40"><X size={24} /></button>
+        <div className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-2xl px-4 flex items-center justify-center animate-in fade-in duration-300">
+          <div className="w-full max-w-sm">
+            <div className="flex items-center justify-between mb-8 px-2">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-blue-600/10 rounded-2xl flex items-center justify-center border border-blue-600/20">
+                  <Plus className="text-blue-500" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-[15px] font-black text-white uppercase tracking-widest leading-none">YENİ DAİRE</h3>
+                  <p className="text-[9px] text-zinc-500 font-bold mt-1.5 uppercase tracking-[0.2em]">Kayıt oluşturun</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/5 text-zinc-400 active:scale-90 transition-all"
+              >
+                <X size={20} />
+              </button>
             </div>
+
             <form onSubmit={handleAddSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[9px] font-black text-white/40 uppercase block mb-1">Daire No</label>
-                  <input type="text" value={formData.no} onChange={(e) => setFormData({...formData, no: e.target.value})} className="bg-white/5 w-full h-11 rounded-xl px-3 text-sm font-bold text-white outline-none border border-white/10" required />
+                <div className="col-span-1">
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-2 block px-1">DAİRE NO</label>
+                  <div className="relative">
+                    <Home className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+                    <input
+                      type="text"
+                      required
+                      placeholder="No"
+                      value={formData.no}
+                      onChange={(e) => setFormData({ ...formData, no: e.target.value })}
+                      className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-white text-[14px] font-black focus:outline-none focus:border-blue-500/50 transition-all"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-[9px] font-black text-white/40 uppercase block mb-1">Durum</label>
-                  <div className="grid grid-cols-2 gap-1">
-                    <button type="button" onClick={() => setFormData({...formData, status: 'Malik'})} className={`h-11 rounded-xl text-[8px] font-black border ${formData.status === 'Malik' ? 'bg-blue-600 border-blue-400' : 'bg-white/5 border-white/5 text-white/40'}`}>MALİK</button>
-                    <button type="button" onClick={() => setFormData({...formData, status: 'Kiracı'})} className={`h-11 rounded-xl text-[8px] font-black border ${formData.status === 'Kiracı' ? 'bg-orange-600 border-orange-400' : 'bg-white/5 border-white/5 text-white/40'}`}>KİRACI</button>
+
+                <div className="col-span-1">
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-2 block px-1">DURUM</label>
+                  <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 h-14">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, status: 'Malik' })}
+                      className={`flex-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${formData.status === 'Malik' ? 'bg-blue-600 text-white shadow-lg' : 'text-zinc-500'}`}
+                    >
+                      Malik
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, status: 'Kiracı' })}
+                      className={`flex-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${formData.status === 'Kiracı' ? 'bg-amber-500 text-white shadow-lg' : 'text-zinc-500'}`}
+                    >
+                      Kiracı
+                    </button>
                   </div>
                 </div>
               </div>
+
               <div>
-                <label className="text-[9px] font-black text-white/40 uppercase block mb-1">Malik Adı Soyadı</label>
-                <input type="text" value={formData.ownerName} onChange={(e) => setFormData({...formData, ownerName: toTitleCase(e.target.value)})} className="bg-white/5 w-full h-11 rounded-xl px-3 text-sm font-bold text-white outline-none border border-white/10" required />
+                <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-2 block px-1">MALİK ADI SOYADI</label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Tam İsim..."
+                    value={formData.ownerName}
+                    onChange={(e) => setFormData({ ...formData, ownerName: e.target.value })}
+                    className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-white text-[13px] font-bold focus:outline-none focus:border-blue-500/50 transition-all placeholder:text-zinc-700"
+                  />
+                </div>
               </div>
+
+              <div>
+                <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-2 block px-1">MALİK TELEFON</label>
+                <div className="relative">
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+                  <input
+                    type="tel"
+                    placeholder="05..."
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-white text-[13px] font-bold focus:outline-none focus:border-blue-500/50 transition-all placeholder:text-zinc-700"
+                  />
+                </div>
+              </div>
+
               {formData.status === 'Kiracı' && (
-                <>
+                <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                   <div>
-                    <label className="text-[9px] font-black text-white/40 uppercase block mb-1">Kiracı Adı Soyadı</label>
-                    <input type="text" value={formData.tenantName} onChange={(e) => setFormData({...formData, tenantName: toTitleCase(e.target.value)})} className="bg-white/5 w-full h-11 rounded-xl px-3 text-sm font-bold text-white outline-none border border-white/10" />
+                    <label className="text-[9px] font-black text-amber-500/70 uppercase tracking-widest mb-2 block px-1">KİRACI ADI SOYADI</label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-500/30" size={18} />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Kiracı İsmi..."
+                        value={formData.tenantName}
+                        onChange={(e) => setFormData({ ...formData, tenantName: e.target.value })}
+                        className="w-full h-14 bg-amber-500/5 border border-amber-500/10 rounded-2xl pl-12 pr-4 text-white text-[13px] font-bold focus:outline-none focus:border-amber-500/50 transition-all placeholder:text-amber-500/20"
+                      />
+                    </div>
                   </div>
-                </>
+                  <div>
+                    <label className="text-[9px] font-black text-amber-500/70 uppercase tracking-widest mb-2 block px-1">KİRACI TELEFON</label>
+                    <div className="relative">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-500/30" size={18} />
+                      <input
+                        type="tel"
+                        placeholder="05..."
+                        value={formData.tenantPhone}
+                        onChange={(e) => setFormData({ ...formData, tenantPhone: e.target.value })}
+                        className="w-full h-14 bg-amber-500/5 border border-amber-500/10 rounded-2xl pl-12 pr-4 text-white text-[13px] font-bold focus:outline-none focus:border-amber-500/50 transition-all placeholder:text-amber-500/20"
+                      />
+                    </div>
+                  </div>
+                </div>
               )}
-              <button type="submit" disabled={isSaving} className="w-full h-14 bg-blue-600 text-white rounded-[20px] font-black text-[11px] uppercase tracking-widest">
-                {isSaving ? <Loader2 className="animate-spin mx-auto" /> : saveSuccess ? 'BAŞARILI' : 'KAYDET'}
+
+              <button
+                type="submit"
+                disabled={isSaving}
+                className={`w-full h-14 rounded-2xl flex items-center justify-center space-x-3 transition-all active:scale-[0.98] shadow-2xl mt-8 ${saveSuccess ? 'bg-green-600' : 'bg-blue-600'}`}
+              >
+                {isSaving ? (
+                  <Loader2 className="animate-spin text-white" size={24} />
+                ) : saveSuccess ? (
+                  <>
+                    <Check className="text-white" size={24} />
+                    <span className="text-white text-[12px] font-black uppercase tracking-[0.2em]">BAŞARILI</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="text-white" size={24} />
+                    <span className="text-white text-[12px] font-black uppercase tracking-[0.2em]">KAYDET VE EKLE</span>
+                  </>
+                )}
               </button>
             </form>
           </div>

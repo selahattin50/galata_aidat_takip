@@ -16,7 +16,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ balance }) => {
   const currentToplam = currentMevcut + currentAlacak;
 
   const chartData = [
-    { name: 'Tahsilat', value: balance.monthlyCollected || 0, color: '#22c55e' },
+    { name: 'Aidat Tahsilatı', value: balance.monthlyCollected || 0, color: '#22c55e' },
     { name: 'Alacak', value: balance.monthlyRemainingDebt || 0, color: '#ef4444' },
   ].filter(d => d.value > 0);
 

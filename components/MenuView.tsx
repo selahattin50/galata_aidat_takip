@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { 
-  HandCoins, UserPlus, RotateCcw, TrendingUp, TrendingDown, 
-  ArrowLeftRight, Building2, History, UserCheck, CalendarDays, 
+import {
+  HandCoins, UserPlus, RotateCcw, TrendingUp, TrendingDown,
+  ArrowLeftRight, Building2, History, UserCheck, CalendarDays,
   BarChart3, ShieldCheck, Settings, Folder, UserCircle, ChevronRight,
   LayoutDashboard, PieChart, LogOut, ArrowLeft
 } from 'lucide-react';
@@ -32,7 +32,7 @@ const MenuView: React.FC<MenuViewProps> = ({ onActionClick, onLogout, onClose })
     {
       title: "FİNANSAL İŞLEMLER",
       actions: [
-        { id: 'tahsilat', label: "Tahsilat Girişi", icon: <HandCoins size={20} />, color: "text-green-500", targetSubView: 'tahsilat' },
+        { id: 'tahsilat', label: "Tahsilat", icon: <HandCoins size={20} />, color: "text-green-500", targetSubView: 'tahsilat' },
         { id: 'borclandir', label: "Borçlandırma", icon: <UserPlus size={20} />, color: "text-orange-500", targetSubView: 'borclandir' },
         { id: 'gelir', label: "Diğer Gelirler", icon: <TrendingUp size={20} />, color: "text-emerald-500", targetSubView: 'gelir' },
         { id: 'gider', label: "Gider Kaydı", icon: <TrendingDown size={20} />, color: "text-red-500", targetSubView: 'gider' },
@@ -76,7 +76,7 @@ const MenuView: React.FC<MenuViewProps> = ({ onActionClick, onLogout, onClose })
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pt-6 pb-32">
       <div className="flex flex-col items-center mb-8 px-4 text-center relative">
-        <button 
+        <button
           onClick={onClose}
           className="absolute left-4 top-0 bg-white/5 p-3 rounded-xl active:scale-90 transition-all border border-white/5 hover:bg-white/10"
         >
@@ -85,8 +85,8 @@ const MenuView: React.FC<MenuViewProps> = ({ onActionClick, onLogout, onClose })
         <div className="w-16 h-16 bg-white/5 rounded-3xl border border-white/10 flex items-center justify-center mb-4 shadow-2xl">
           <LayoutDashboard size={32} className="text-green-500" strokeWidth={1.5} />
         </div>
-        <h2 className="text-xl font-black italic tracking-tighter text-white uppercase">Uygulama Menüsü</h2>
-        <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.4em] mt-1">Galata Apartmanı Dijital Panel</p>
+        <h2 className="text-xl font-light tracking-[0.2em] text-white uppercase">Uygulama Menüsü</h2>
+        <p className="text-[9px] font-medium text-white/10 uppercase tracking-[0.4em] mt-1">Galata Apartmanı Dijital Panel</p>
       </div>
 
       <div className="space-y-6 px-2">
@@ -129,7 +129,7 @@ const MenuView: React.FC<MenuViewProps> = ({ onActionClick, onLogout, onClose })
 
       <div className="mt-12 text-center opacity-10 flex flex-col items-center">
         <div className="w-12 h-0.5 bg-white mb-4 rounded-full"></div>
-        <p className="text-[8px] font-black uppercase tracking-[0.5em]">GALATA v2.4.0</p>
+        <p className="text-[8px] font-black uppercase tracking-[0.5em]">GALATA v2.4.0 DEBUG</p>
       </div>
     </div>
   );

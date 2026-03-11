@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { 
-  HandCoins, UserPlus, RotateCcw, TrendingUp, TrendingDown, 
-  ArrowLeftRight, Building2, History, UserCheck, ChevronRight 
+import {
+  HandCoins, UserPlus, RotateCcw, TrendingUp, TrendingDown,
+  ArrowLeftRight, Building2, History, UserCheck, ChevronRight
 } from 'lucide-react';
 
 interface ActionItem {
@@ -33,9 +33,9 @@ const ActionGrid: React.FC<ActionGridProps> = ({ variant = 'grid', onActionClick
     return (
       <div className="grid grid-cols-3 gap-2 pb-2">
         {actions.map((action, idx) => (
-          <button 
-            key={idx} 
-            onClick={() => onActionClick?.(action.label)} 
+          <button
+            key={idx}
+            onClick={() => onActionClick?.(action.label)}
             className="flex flex-col items-center justify-center glass-panel rounded-[24px] p-3 h-[88px] active:bg-green-600/20 active:border-green-500/30 active:scale-95 transition-all border border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.3)] group"
           >
             <div className="text-[#22c55e] group-hover:text-green-400 group-hover:scale-110 transition-all duration-300 mb-2">
@@ -53,9 +53,9 @@ const ActionGrid: React.FC<ActionGridProps> = ({ variant = 'grid', onActionClick
   return (
     <div className="flex flex-col space-y-2 pb-4">
       {actions.map((action, idx) => (
-        <button 
-          key={idx} 
-          onClick={() => onActionClick?.(action.label)} 
+        <button
+          key={idx}
+          onClick={() => onActionClick?.(action.label)}
           className="flex items-center glass-panel rounded-2xl p-4 w-full active:bg-green-600/10 active:scale-[0.98] transition-all hover:bg-white/5 border border-white/5 shadow-lg group"
         >
           <div className="bg-green-500/10 p-2.5 rounded-xl mr-4 text-[#22c55e] group-hover:bg-green-500/20 transition-all">

@@ -15,7 +15,7 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('Hepsi');
-  
+
   const [fileName, setFileName] = useState('');
   const [fileCategory, setFileCategory] = useState<FileEntry['category']>('Fatura');
   const [fileDate, setFileDate] = useState(new Date().toISOString().split('T')[0]);
@@ -67,7 +67,7 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
     <div className="pt-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-32">
       <div className="flex items-center justify-center mb-6 relative px-2">
         <h3 className="text-xs font-black uppercase tracking-[0.2em] text-green-500 text-center">DİJİTAL ARŞİV</h3>
-        <button 
+        <button
           onClick={() => setShowAddModal(true)}
           className="absolute right-0 bg-blue-600 p-3 rounded-2xl shadow-xl shadow-blue-900/40 active:scale-95 transition-all"
         >
@@ -80,9 +80,9 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
           <div className="bg-white/5 p-2 rounded-xl mr-3">
             <Search size={16} className="text-white/40" />
           </div>
-          <input 
-            type="text" 
-            placeholder="Belge ara..." 
+          <input
+            type="text"
+            placeholder="Belge ara..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="bg-transparent border-none outline-none text-sm font-medium text-white/60 placeholder:text-white/10 flex-1"
@@ -94,11 +94,10 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
             <button
               key={cat}
               onClick={() => setFilterCategory(cat)}
-              className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
-                filterCategory === cat 
-                  ? 'bg-white text-black border-white' 
+              className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${filterCategory === cat
+                  ? 'bg-white text-black border-white'
                   : 'bg-white/5 text-white/40 border-white/5 hover:bg-white/10'
-              }`}
+                }`}
             >
               {cat}
             </button>
@@ -114,9 +113,10 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
           </div>
         ) : (
           filteredFiles.map((file) => (
-            <div 
-              key={file.id} 
-              className="glass-panel rounded-[28px] p-4 flex items-center border border-white/5 hover:bg-white/5 transition-all group"
+            <div
+              key={file.id}
+              onClick={() => handleOpenFile(file)}
+              className="glass-panel rounded-[28px] p-4 flex items-center border border-white/5 hover:bg-white/5 transition-all group cursor-pointer active:scale-[0.98]"
             >
               <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center shrink-0 mr-4 shadow-inner">
                 {getFileIcon(file.extension)}
@@ -124,11 +124,10 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-2 mb-0.5">
-                  <span className={`text-[8px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded ${
-                    file.category === 'Fatura' ? 'bg-red-500/20 text-red-400' :
-                    file.category === 'Sözleşme' ? 'bg-blue-500/20 text-blue-400' :
-                    file.category === 'Karar' ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-white/40'
-                  }`}>
+                  <span className={`text-[8px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded ${file.category === 'Fatura' ? 'bg-red-500/20 text-red-400' :
+                      file.category === 'Sözleşme' ? 'bg-blue-500/20 text-blue-400' :
+                        file.category === 'Karar' ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-white/40'
+                    }`}>
                     {file.category}
                   </span>
                   <span className="text-[8px] font-bold text-white/20 uppercase">{file.date}</span>
@@ -141,7 +140,7 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
 
               <div className="ml-4 flex items-center space-x-2">
                 {file.uri && (
-                  <button 
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleShareFile(file);
@@ -152,7 +151,7 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
                     <Share2 size={16} className="text-green-400" />
                   </button>
                 )}
-                <button 
+                <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteFile(file.id);
@@ -181,9 +180,9 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
             <form onSubmit={handleAddSubmit} className="space-y-6">
               <div>
                 <label className="text-[10px] font-black text-white/50 uppercase tracking-[0.15em] block mb-2 ml-1">BELGE ADI</label>
-                <input 
+                <input
                   autoFocus
-                  type="text" 
+                  type="text"
                   value={fileName}
                   onChange={(e) => setFileName(e.target.value)}
                   placeholder="Örn: Asansör Bakım Sözleşmesi"
@@ -194,7 +193,7 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
 
               <div>
                 <label className="text-[10px] font-black text-white/50 uppercase tracking-[0.15em] block mb-2 ml-1">KATEGORİ</label>
-                <select 
+                <select
                   value={fileCategory}
                   onChange={(e) => setFileCategory(e.target.value as any)}
                   className="bg-white/5 w-full h-14 rounded-2xl px-5 text-sm font-black text-white outline-none border border-white/10 focus:border-blue-500/50 focus:bg-white/10 transition-all appearance-none"
@@ -205,15 +204,15 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
 
               <div>
                 <label className="text-[10px] font-black text-white/50 uppercase tracking-[0.15em] block mb-2 ml-1">BELGE TARİHİ</label>
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   value={fileDate}
                   onChange={(e) => setFileDate(e.target.value)}
                   className="bg-white/5 w-full h-[52px] rounded-2xl px-5 text-[15px] font-black text-white outline-none border border-white/10 focus:border-blue-500/50 focus:bg-white/10 transition-all"
                 />
               </div>
 
-              <button 
+              <button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-500 text-white h-16 rounded-[28px] font-black text-xs uppercase tracking-[0.2em] active:scale-95 transition-all mt-4 shadow-xl"
               >

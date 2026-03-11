@@ -14,7 +14,7 @@ interface UnitDetailViewProps {
 const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transactions, onClose, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ ...unit });
-  
+
   const cardRef = useRef<HTMLDivElement>(null);
   const months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
   const currentYear = new Date().getFullYear();
@@ -40,7 +40,7 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-    
+
     // Gelecek aylar
     if (mIdx > currentMonth) {
       return 'future';
@@ -51,37 +51,33 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
       return 'exempt';
     }
 
-    // Toplam gelir ve borçlandırmaları hesapla
-    const totalIncome = transactions
-      .filter(tx => tx.unitId === unit.id && tx.type === 'GELİR')
-      .reduce((sum, tx) => sum + tx.amount, 0);
-    
     const totalManualDebt = transactions
       .filter(tx => tx.unitId === unit.id && tx.type === 'BORÇLANDIRMA')
       .reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
-    let runningCredit = totalIncome - totalManualDebt;
+    // Sadece regularIncome'dan aidat düşülür (DEVR, KRED, BAK, AKTAR hariç)
+    const regularIncome = transactions
+      .filter(tx => {
+        if (tx.unitId !== unit.id || tx.type !== 'GELİR') return false;
+        const d = (tx.description || '').toLocaleUpperCase('tr-TR');
+        return !(d.includes('DEVR') || d.includes('KRED') || d.includes('BAK') || d.includes('AKTAR'));
+      })
+      .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+    let runningCredit = regularIncome - totalManualDebt;
     const duesValue = info.duesAmount || 750;
 
     // Her ay için sırayla kontrol et
     for (let m = 0; m <= 11; m++) {
-      const hasManualForThisMonth = transactions.some(tx => 
-        tx.unitId === unit.id && 
-        tx.type === 'BORÇLANDIRMA' && 
-        tx.periodMonth === m && 
+      const hasSpecificPayment = transactions.some(tx =>
+        tx.unitId === unit.id &&
+        tx.type === 'GELİR' &&
+        tx.periodMonth === m &&
         tx.periodYear === currentYear
       );
-      
-      let isPaidThisMonth = false;
-      if (!hasManualForThisMonth) {
-        if (runningCredit >= duesValue) {
-          runningCredit -= duesValue;
-          isPaidThisMonth = true;
-        }
-      }
 
       if (m === mIdx) {
-        return isPaidThisMonth ? 'paid' : 'unpaid';
+        return hasSpecificPayment ? 'paid' : 'unpaid';
       }
     }
 
@@ -90,8 +86,8 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
 
   const handleQuickUpdate = () => {
     const updatedForm = {
-        ...editForm,
-        status: editForm.tenantName ? 'Kiracı' : 'Malik'
+      ...editForm,
+      status: editForm.tenantName ? 'Kiracı' : 'Malik'
     };
     onUpdate(updatedForm);
     setIsEditing(false);
@@ -124,7 +120,7 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3" ref={cardRef}>
-        
+
         {/* ANA BİLGİ VE DÜZENLEME ALANI */}
         <section className="space-y-3">
           {isEditing ? (
@@ -132,56 +128,56 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
               {/* Malik Giriş Alanı */}
               <div className="bg-[#1e293b]/60 backdrop-blur-xl rounded-[24px] p-4 border border-blue-500/20 shadow-xl">
                 <div className="flex items-center space-x-2 mb-3">
-                    <User size={14} className="text-blue-400" />
-                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">MALİK BİLGİLERİ</span>
+                  <User size={14} className="text-blue-400" />
+                  <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">MALİK BİLGİLERİ</span>
                 </div>
                 <div className="space-y-2.5">
-                    <div className="bg-black/20 p-2.5 rounded-xl border border-white/5">
-                        <label className="text-[8px] font-black text-white/30 uppercase block mb-1">Ad Soyad</label>
-                        <input 
-                            className="bg-transparent text-sm font-black text-white w-full outline-none"
-                            value={editForm.ownerName}
-                            placeholder="Malik Adı Soyadı"
-                            onChange={(e) => setEditForm({...editForm, ownerName: toTitleCase(e.target.value)})}
-                        />
-                    </div>
-                    <div className="bg-black/20 p-2.5 rounded-xl border border-white/5">
-                        <label className="text-[8px] font-black text-white/30 uppercase block mb-1">Telefon</label>
-                        <input 
-                            className="bg-transparent text-sm font-bold text-green-400 w-full outline-none"
-                            value={editForm.phone}
-                            placeholder="Telefon (05xx...)"
-                            onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
-                        />
-                    </div>
+                  <div className="bg-black/20 p-2.5 rounded-xl border border-white/5">
+                    <label className="text-[8px] font-black text-white/30 uppercase block mb-1">Ad Soyad</label>
+                    <input
+                      className="bg-transparent text-sm font-black text-white w-full outline-none"
+                      value={editForm.ownerName}
+                      placeholder="Malik Adı Soyadı"
+                      onChange={(e) => setEditForm({ ...editForm, ownerName: toTitleCase(e.target.value) })}
+                    />
+                  </div>
+                  <div className="bg-black/20 p-2.5 rounded-xl border border-white/5">
+                    <label className="text-[8px] font-black text-white/30 uppercase block mb-1">Telefon</label>
+                    <input
+                      className="bg-transparent text-sm font-bold text-green-400 w-full outline-none"
+                      value={editForm.phone}
+                      placeholder="Telefon (05xx...)"
+                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Kiracı Giriş Alanı */}
               <div className="bg-[#1e293b]/40 backdrop-blur-xl rounded-[24px] p-4 border border-orange-500/20 shadow-xl">
                 <div className="flex items-center space-x-2 mb-3">
-                    <UserCheck size={14} className="text-orange-400" />
-                    <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest">KİRACI BİLGİLERİ</span>
+                  <UserCheck size={14} className="text-orange-400" />
+                  <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest">KİRACI BİLGİLERİ</span>
                 </div>
                 <div className="space-y-2.5">
-                    <div className="bg-black/20 p-2.5 rounded-xl border border-white/5">
-                        <label className="text-[8px] font-black text-white/30 uppercase block mb-1">Ad Soyad</label>
-                        <input 
-                            className="bg-transparent text-sm font-black text-white w-full outline-none"
-                            value={editForm.tenantName || ''}
-                            placeholder="Boş bırakılırsa Kiracı Yok sayılır"
-                            onChange={(e) => setEditForm({...editForm, tenantName: toTitleCase(e.target.value)})}
-                        />
-                    </div>
-                    <div className="bg-black/20 p-2.5 rounded-xl border border-white/5">
-                        <label className="text-[8px] font-black text-white/30 uppercase block mb-1">Telefon</label>
-                        <input 
-                            className="bg-transparent text-sm font-bold text-green-400 w-full outline-none"
-                            value={editForm.tenantPhone || ''}
-                            placeholder="Kiracı Telefonu"
-                            onChange={(e) => setEditForm({...editForm, tenantPhone: e.target.value})}
-                        />
-                    </div>
+                  <div className="bg-black/20 p-2.5 rounded-xl border border-white/5">
+                    <label className="text-[8px] font-black text-white/30 uppercase block mb-1">Ad Soyad</label>
+                    <input
+                      className="bg-transparent text-sm font-black text-white w-full outline-none"
+                      value={editForm.tenantName || ''}
+                      placeholder="Boş bırakılırsa Kiracı Yok sayılır"
+                      onChange={(e) => setEditForm({ ...editForm, tenantName: toTitleCase(e.target.value) })}
+                    />
+                  </div>
+                  <div className="bg-black/20 p-2.5 rounded-xl border border-white/5">
+                    <label className="text-[8px] font-black text-white/30 uppercase block mb-1">Telefon</label>
+                    <input
+                      className="bg-transparent text-sm font-bold text-green-400 w-full outline-none"
+                      value={editForm.tenantPhone || ''}
+                      placeholder="Kiracı Telefonu"
+                      onChange={(e) => setEditForm({ ...editForm, tenantPhone: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -285,7 +281,7 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
             {months.map((m, idx) => {
               const status = getMonthStatus(idx);
               let bgColor = 'bg-[#1e293b] border-white/5 opacity-40';
-              
+
               if (status === 'paid') {
                 bgColor = 'bg-green-700/60 border-green-500/40';
               } else if (status === 'unpaid') {
@@ -293,7 +289,7 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
               } else if (status === 'exempt') {
                 bgColor = 'bg-blue-600/40 border-blue-400/20';
               }
-              
+
               return (
                 <div key={m} className={`h-8 flex items-center justify-center rounded-[6px] border transition-all ${bgColor}`}>
                   <span className="text-[9px] font-black text-white leading-none">{idx + 1}</span>

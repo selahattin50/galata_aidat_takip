@@ -6,8 +6,11 @@ import { db } from '../databaseService';
 import { auth } from '../firebaseConfig';
 import UserManagementView from './UserManagementView.tsx';
 
-class SettingsErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: any }> {
-  constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
+class SettingsErrorBoundary extends React.Component<any, any> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
   static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
   componentDidCatch(error: any, errorInfo: any) { console.error('Settings Crash:', error, errorInfo); }
   render() {
@@ -22,7 +25,7 @@ class SettingsErrorBoundary extends React.Component<{ children: React.ReactNode 
         </div>
       );
     }
-    return (this.props as any).children as any;
+    return (this.props as any).children;
   }
 }
 
@@ -253,10 +256,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
             {auth.currentUser?.email === 'selahattin50@gmail.com' && (
               <button
                 onClick={() => setShowAdminPanel(true)}
-                className="w-full mt-4 bg-emerald-900/10 border border-emerald-500/20 rounded-2xl py-3 flex items-center justify-center space-x-2 active:scale-95 transition-all"
+                className="w-full mt-8 bg-white/5 border border-emerald-500/30 rounded-2xl py-3 flex items-center justify-center space-x-2 active:scale-95 transition-all hover:bg-emerald-500/10 hover:border-emerald-500/50 shadow-lg shadow-emerald-500/5"
               >
-                <ShieldCheck size={16} className="text-emerald-400" />
-                <span className="font-black text-[11px] tracking-[0.2em] uppercase text-emerald-400">ADMIN PANELİ</span>
+                <ShieldCheck size={14} className="text-emerald-400" />
+                <span className="font-black text-[10px] tracking-[0.2em] uppercase text-emerald-400">ADMIN PANELİ</span>
               </button>
             )}
           </section>

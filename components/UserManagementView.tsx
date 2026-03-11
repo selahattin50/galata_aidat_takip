@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Users, Mail, Phone, Calendar, Trash2, Loader2, ShieldCheck, ChevronRight, Search } from 'lucide-react';
 import { db } from '../databaseService';
+import { auth } from '../firebaseConfig';
 
 interface User {
+  uid?: string;
   email: string;
   name: string;
   phone: string;
@@ -16,6 +18,24 @@ interface UserManagementViewProps {
 const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedUserToDelete, setSelectedUserToDelete] = useState<User | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [bannedUsers, setBannedUsers] = useState<{ email: string, bannedAt: string }[]>([]);
+  const [migrationSource, setMigrationSource] = useState('');
+  const [migrationTarget, setMigrationTarget] = useState('');
+  const [isMigrating, setIsMigrating] = useState(false);
+
+  // Güvenlik Kontrolü: Sadece ana yönetici girebilir
+  if (auth.currentUser?.email !== 'selahattin50@gmail.com') {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-black text-red-500 font-black uppercase tracking-widest p-10 text-center">
+        BU SAYFAYA ERİŞİM YETKİNİZ YOKTUR!
+      </div>
+    );
+  }
 
   useEffect(() => {
     loadUsers();
@@ -24,45 +44,232 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
   const loadUsers = async () => {
     try {
       setIsLoading(true);
-      const usersData = await db.getData('users');
+      setErrorMessage(null);
+      setDebugInfo('Tarama başlatılıyor...');
 
-      if (usersData) {
-        const usersList: User[] = Object.keys(usersData).map(key => ({
-          email: usersData[key].email,
-          name: usersData[key].name,
-          phone: usersData[key].phone,
-          createdAt: usersData[key].createdAt
-        }));
+      let finalUsers: User[] = [];
+      let lastError = null;
 
-        // Sort: selahattin50@gmail.com first, then by createdAt ascending
-        usersList.sort((a, b) => {
+      // 1. Önce _userProfiles tablosunu dene
+      setDebugInfo('Adım 1: _userProfiles taranıyor...');
+      try {
+        const usersData = await db.getDataDirect('_userProfiles');
+        if (usersData) {
+          const profileList = Object.keys(usersData).map(uid => ({
+            uid: uid,
+            email: usersData[uid].email,
+            name: usersData[uid].name,
+            phone: usersData[uid].phone,
+            createdAt: usersData[uid].createdAt
+          }));
+          finalUsers = [...finalUsers, ...profileList];
+          setDebugInfo(`_userProfiles: ${profileList.length} kullanıcı bulundu.`);
+        } else {
+          setDebugInfo('_userProfiles: Veri bulunamadı.');
+        }
+      } catch (err: any) {
+        console.warn('Failed to read _userProfiles:', err);
+        lastError = err;
+        setDebugInfo(`_userProfiles: Hata (${err.message?.substring(0, 30)}...)`);
+      }
+
+      // 2. Eğer ilk yol başarısızsa veya boşsa, 'users' kök dizinini dene
+      setDebugInfo(prev => prev + '\nAdım 2: users kök dizini taranıyor...');
+      try {
+        const rootUsers = await db.getDataDirect('users');
+        if (rootUsers) {
+          const uids = Object.keys(rootUsers);
+          let count = 0;
+          for (const uid of uids) {
+            // Eğer bu UID zaten finalUsers'da yoksa ekle
+            if (!finalUsers.find(u => u.uid === uid)) {
+              const profile = rootUsers[uid].building_info || {};
+              finalUsers.push({
+                uid: uid,
+                email: rootUsers[uid].email || (profile.managerName ? `${profile.managerName} (Bina: ${profile.name || '?'})` : `UID: ${uid.substring(0, 6)}...`),
+                name: profile.name || profile.managerName || 'İsimsiz Kullanıcı',
+                phone: '',
+                createdAt: ''
+              });
+              count++;
+            }
+          }
+          setDebugInfo(prev => prev + `\nusers: ${count} yeni veri eklendi.`);
+        } else {
+          setDebugInfo(prev => prev + '\nusers: Veri bulunamadı.');
+        }
+      } catch (err: any) {
+        console.warn('Failed to read users root:', err);
+        if (!lastError) lastError = err;
+        setDebugInfo(prev => prev + `\nusers root: Hata (${err.message?.substring(0, 30)}...)`);
+      }
+
+      if (finalUsers.length > 0) {
+        // Sort: selahattin50@gmail.com first
+        // Tekrar edenleri temizle (email bazlı)
+        const uniqueUsers = Array.from(new Map(finalUsers.map(u => [u.email, u])).values());
+
+        uniqueUsers.sort((a, b) => {
           if (a.email === 'selahattin50@gmail.com') return -1;
           if (b.email === 'selahattin50@gmail.com') return 1;
-          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return timeA - timeB;
+          return 0;
         });
-
-        setUsers(usersList);
+        setUsers(uniqueUsers);
+        setDebugInfo(prev => prev + `\nToplam ${uniqueUsers.length} benzersiz kullanıcı yüklendi.`);
+      } else if (lastError && lastError.message?.toLowerCase().includes('permission denied')) {
+        setErrorMessage('Firebase Güvenlik Kuralları Engelliyor (Permission Denied). Lütfen admin yetkilerinizi Firebase Console üzerinden kontrol edin.');
+      } else {
+        setDebugInfo(prev => prev + '\nKayıtlı kullanıcı verisi bulunamadı.');
       }
-    } catch (error) {
-      console.error('Kullanıcılar yüklenemedi:', error);
+    } catch (error: any) {
+      console.error('Genel yükleme hatası:', error);
+      setErrorMessage(`Hata: ${error.message || 'Bilinmeyen hata'}`);
     } finally {
       setIsLoading(false);
     }
+
+    // Yasaklı kullanıcıları da getir
+    loadBannedUsers();
   };
 
-  const handleDeleteUser = async (email: string) => {
-    if (window.confirm(`${email} kullanıcısını silmek istediğinizden emin misiniz?`)) {
+  const loadBannedUsers = async () => {
+    try {
+      const bannedData = await db.getDataDirect('_bannedUsers');
+      if (bannedData) {
+        const list = Object.keys(bannedData).map(key => ({
+          email: bannedData[key].email,
+          bannedAt: bannedData[key].bannedAt
+        }));
+        setBannedUsers(list);
+      } else {
+        setBannedUsers([]);
+      }
+    } catch (error) {
+      console.warn('Yasaklı listesi yüklenemedi:', error);
+    }
+  };
+
+  const handleUnbanUser = async (email: string) => {
+    if (window.confirm(`${email} üzerindeki banı kaldırmak istediğinize emin misiniz?`)) {
       try {
         const emailKey = email.replace(/[.@]/g, '_');
-        await db.deleteData(`users/${emailKey}`);
-        setUsers(users.filter(u => u.email !== email));
-        alert('Kullanıcı silindi');
+        await db.deleteDataDirect(`_bannedUsers/${emailKey}`);
+        setBannedUsers(bannedUsers.filter(u => u.email !== email));
+        alert('Ban başarıyla kaldırıldı. Kullanıcı artık tekrar kayıt olabilir.');
       } catch (error) {
-        console.error('Kullanıcı silinemedi:', error);
-        alert('Silme işlemi başarısız oldu');
+        console.error('Ban kaldırılamadı:', error);
+        alert('Hata: Ban kaldırılamadı.');
       }
+    }
+  };
+
+  const confirmDelete = async (type: 'delete' | 'ban') => {
+    if (!selectedUserToDelete) return;
+    const user = selectedUserToDelete;
+
+    try {
+      setIsDeleting(true);
+
+      // 1. Profil bilgisini sil
+      if (user.uid) {
+        await db.deleteDataDirect(`_userProfiles/${user.uid}`);
+      } else {
+        const emailKey = user.email.replace(/[.@]/g, '_');
+        await db.deleteDataDirect(`_userProfiles/${emailKey}`);
+      }
+
+      // 2. Eğer BAN seçildiyse yasaklı listesine ekle
+      if (type === 'ban') {
+        const emailKey = user.email.replace(/[.@]/g, '_');
+        await db.saveData(`_bannedUsers/${emailKey}`, {
+          email: user.email,
+          bannedAt: new Date().toISOString(),
+          reason: 'Yönetici tarafından yasaklandı'
+        });
+      }
+
+      setUsers(users.filter(u => u.email !== user.email));
+      setShowDeleteModal(false);
+      alert(type === 'ban' ? 'Kullanıcı yasaklandı ve silindi.' : 'Kullanıcı silindi.');
+    } catch (error) {
+      console.error('İşlem başarısız:', error);
+      alert('İşlem sırasında bir hata oluştu.');
+    } finally {
+      setIsDeleting(false);
+      setSelectedUserToDelete(null);
+    }
+  };
+
+  const handleDeleteUser = (user: User) => {
+    if (user.email === 'selahattin50@gmail.com') {
+      alert('Ana yönetici silinemez!');
+      return;
+    }
+    setSelectedUserToDelete(user);
+    setShowDeleteModal(true);
+  };
+
+  const handleMigrate = async () => {
+    if (!migrationSource || !migrationTarget) {
+      alert('Lütfen kaynak ve hedef bilgilerini eksiksiz girin.');
+      return;
+    }
+
+    if (migrationSource === migrationTarget) {
+      alert('Kaynak ve hedef aynı olamaz.');
+      return;
+    }
+
+    const confirmed = window.confirm(`${migrationSource} verilerini ${migrationTarget} hesabına aktarmak istediğinize emin misiniz? Bu işlem mevcut verilerin üzerine yazabilir.`);
+    if (!confirmed) return;
+
+    try {
+      setIsMigrating(true);
+      setDebugInfo(`Aktarım başlatıldı: ${migrationSource} -> ${migrationTarget}`);
+
+      // 1. Kaynak ve hedef UID'lerini bul
+      let sourceUid = '';
+      let targetUid = '';
+
+      // Kullanıcı listesinden bulmayı dene
+      const sUser = users.find(u => u.email === migrationSource || u.uid === migrationSource);
+      const tUser = users.find(u => u.email === migrationTarget || u.uid === migrationTarget);
+
+      sourceUid = sUser?.uid || migrationSource;
+      targetUid = tUser?.uid || migrationTarget;
+
+      // 2. Verileri çek
+      setDebugInfo(prev => prev + `\nKaynak veri okunuyor (${sourceUid})...`);
+      const sourceData = await db.getDataDirect(sourceUid);
+
+      if (!sourceData) {
+        throw new Error('Kaynak hesapta aktarılacak veri bulunamadı.');
+      }
+
+      // 3. Hedef hesaba yaz (building_info hariç? Genelde hepsi aktarılır)
+      // building_info'yu korumak isteyebiliriz ama migration genelde tam aktarımdır.
+      setDebugInfo(prev => prev + `\nVeriler hedefe yazılıyor (${targetUid})...`);
+      
+      // Bazı kritik alanları korumak isteyebiliriz (email gibi)
+      if (sourceData.building_info && tUser?.email) {
+        // sourceData.building_info.managerEmail = tUser.email; // Opsiyonel
+      }
+
+      await db.saveDataDirect(targetUid, sourceData);
+
+      // 4. Eğer kanyak UID biliniyorsa ve email değilse (geçici ID ise) eskiyi silmek isteyebiliriz?
+      // Şimdilik sadece kopyalıyoruz, güvenli tarafta kalalım.
+
+      alert('Veri aktarımı başarıyla tamamlandı.');
+      setDebugInfo(prev => prev + '\nAktarım BAŞARILI.');
+      setMigrationSource('');
+      setMigrationTarget('');
+    } catch (error: any) {
+      console.error('Migration error:', error);
+      alert(`Aktarım hatası: ${error.message}`);
+      setDebugInfo(prev => prev + `\nHATA: ${error.message}`);
+    } finally {
+      setIsMigrating(false);
     }
   };
 
@@ -104,17 +311,37 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
             </h4>
             <div className="space-y-3">
               <div>
-                <label className="text-[10px] font-black opacity-40 uppercase block mb-1">KAYNAK (EMAIL/USERNAME)</label>
-                <input type="text" className="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-indigo-500/50 transition-all placeholder-white/20" placeholder="admin" />
-                <p className="text-[10px] text-indigo-400/80 italic mt-1.5">* Sahipsiz veriler için 'Bilinmiyor' yazın.</p>
+                <label className="text-[10px] font-black opacity-40 uppercase block mb-1">KAYNAK (EMAIL/USERNAME/UID)</label>
+                <input 
+                  type="text" 
+                  value={migrationSource}
+                  onChange={(e) => setMigrationSource(e.target.value)}
+                  className="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-indigo-500/50 transition-all placeholder-white/20" 
+                  placeholder="Eski hesap e-postası veya UID" 
+                />
+                <p className="text-[10px] text-indigo-400/80 italic mt-1.5">* Sahipsiz veriler için UID veya 'Bilinmiyor' yazın.</p>
               </div>
               <div>
-                <label className="text-[10px] font-black opacity-40 uppercase block mb-1">HEDEF (EMAIL)</label>
-                <input type="text" className="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-indigo-500/50 transition-all placeholder-white/20" placeholder="selahattin50@gmail.com" />
+                <label className="text-[10px] font-black opacity-40 uppercase block mb-1">HEDEF (EMAIL/UID)</label>
+                <input 
+                  type="text" 
+                  value={migrationTarget}
+                  onChange={(e) => setMigrationTarget(e.target.value)}
+                  className="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-indigo-500/50 transition-all placeholder-white/20" 
+                  placeholder="Yeni hesap e-postası veya UID" 
+                />
               </div>
-              <button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 font-bold text-sm shadow-xl active:scale-95 transition-all flex items-center justify-center space-x-2 mt-4">
-                <ChevronRight size={16} />
-                <span>Verileri Aktar</span>
+              <button 
+                onClick={handleMigrate}
+                disabled={isMigrating}
+                className={`w-full ${isMigrating ? 'bg-indigo-900/50' : 'bg-indigo-600 hover:bg-indigo-500'} text-white rounded-xl py-3 font-bold text-sm shadow-xl active:scale-95 transition-all flex items-center justify-center space-x-2 mt-4`}
+              >
+                {isMigrating ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <ChevronRight size={16} />
+                )}
+                <span>{isMigrating ? 'Veriler Aktarılıyor...' : 'Verileri Aktar'}</span>
               </button>
             </div>
           </div>
@@ -126,14 +353,37 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
               Veri Tarayıcı
             </h4>
             <p className="text-[12px] text-white/60 mb-4 font-medium">Bulut veritabanındaki tüm verileri tarar.</p>
-            <button className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-3 font-bold text-sm shadow-xl active:scale-95 transition-all">
-              Bulut Verilerini Tara
+            <button
+              onClick={() => {
+                const confirmed = window.confirm('Bulut veritabanındaki tüm dalları taramak istiyor musunuz? Bu işlem yetki durumuna bağlıdır.');
+                if (confirmed) loadUsers();
+              }}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-3 font-bold text-sm shadow-xl active:scale-95 transition-all"
+            >
+              Bulut Verilerini Tara (Yenile)
             </button>
           </div>
 
         </div>
 
         <h3 className="text-[11px] font-black uppercase tracking-wider text-white/50 mb-3 px-1">KAYITLI KULLANICILAR</h3>
+
+        {errorMessage && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5 mb-6">
+            <p className="text-xs font-black text-red-400 text-center uppercase tracking-widest mb-3">{errorMessage}</p>
+            <div className="bg-black/20 rounded-xl p-3 space-y-2">
+              <p className="text-[10px] text-white/60 font-bold uppercase tracking-tight">• Firebase Console adresine gidin.</p>
+              <p className="text-[10px] text-white/60 font-bold uppercase tracking-tight">• Realtime Database {'>'} Rules sekmesini açın.</p>
+              <p className="text-[10px] text-white/60 font-bold uppercase tracking-tight underline">• 'selahattin50@gmail.com' için OKUMA yetkisi verin.</p>
+            </div>
+          </div>
+        )}
+
+        {debugInfo && !errorMessage && (
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-4">
+            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest whitespace-pre-wrap">{debugInfo}</p>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-10">
@@ -164,7 +414,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
                   </div>
 
                   <button
-                    onClick={() => handleDeleteUser(user.email)}
+                    onClick={() => handleDeleteUser(user)}
                     className="bg-red-600/10 hover:bg-red-600/20 p-2.5 rounded-xl border border-red-500/20 active:scale-90 transition-all"
                   >
                     <Trash2 size={16} className="text-red-400" />
@@ -184,6 +434,88 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Yasaklı Kullanıcılar Bölümü */}
+        {bannedUsers.length > 0 && (
+          <div className="mt-10">
+            <h3 className="text-[11px] font-black uppercase tracking-wider text-red-500/50 mb-3 px-1">YASAKLI (BANLI) LİSTESİ</h3>
+            <div className="space-y-3">
+              {bannedUsers.map((user) => (
+                <div key={user.email} className="bg-red-950/10 border border-red-500/10 rounded-3xl p-4 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center border border-red-500/10">
+                      <ShieldCheck size={20} className="text-red-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white uppercase tracking-tight">{user.email}</p>
+                      <p className="text-[9px] font-black text-red-400/40 uppercase tracking-widest mt-0.5">YASAKLANDI: {formatDate(user.bannedAt)}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleUnbanUser(user.email)}
+                    className="h-10 px-4 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-500 rounded-xl text-[10px] font-black border border-emerald-500/20 transition-all uppercase tracking-widest"
+                  >
+                    BANI KALDIR
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Silme Seçenekleri Modalı */}
+        {showDeleteModal && selectedUserToDelete && (
+          <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex items-center justify-center px-6 animate-in fade-in duration-300">
+            <div className="bg-[#1e293b] w-full max-w-sm rounded-[32px] p-6 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-300">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+                  <Trash2 size={28} className="text-red-400" />
+                </div>
+                <h4 className="text-sm font-black text-white uppercase tracking-tight mb-2">KULLANICIYI SİL</h4>
+                <p className="text-[11px] text-white/40 font-bold uppercase tracking-widest leading-relaxed">
+                  {selectedUserToDelete.email} için silme yöntemini seçin
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => confirmDelete('delete')}
+                  disabled={isDeleting}
+                  className="w-full bg-white/5 hover:bg-white/10 text-white rounded-2xl py-4 font-black text-[10px] uppercase tracking-[0.2em] border border-white/5 transition-all text-left px-5 flex items-center justify-between group"
+                >
+                  <div className="flex flex-col">
+                    <span>SADECE BİLGİLERİ SİL</span>
+                    <span className="text-[8px] opacity-40 font-bold mt-1">TEKRAR KAYIT OLABİLİR</span>
+                  </div>
+                  <ChevronRight size={16} className="text-white/20 group-hover:text-white/60 transition-colors" />
+                </button>
+
+                <button
+                  onClick={() => confirmDelete('ban')}
+                  disabled={isDeleting}
+                  className="w-full bg-red-600/10 hover:bg-red-600/20 text-red-500 rounded-2xl py-4 font-black text-[10px] uppercase tracking-[0.2em] border border-red-500/20 transition-all text-left px-5 flex items-center justify-between group"
+                >
+                  <div className="flex flex-col">
+                    <span>TAMAMEN BANLA VE SİL</span>
+                    <span className="text-[8px] opacity-40 font-bold mt-1">BİR DAHA KAYIT OLAMAZ</span>
+                  </div>
+                  <ChevronRight size={16} className="text-red-500/40 group-hover:text-red-500/60 transition-colors" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setSelectedUserToDelete(null);
+                  }}
+                  disabled={isDeleting}
+                  className="w-full h-12 text-[10px] font-black text-white/20 uppercase tracking-widest hover:text-white/40 transition-colors mt-2"
+                >
+                  İPTAL
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

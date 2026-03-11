@@ -16,7 +16,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password || !name) {
       alert('Lütfen tüm zorunlu alanları doldurun');
       return;
@@ -32,29 +32,43 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
       return;
     }
 
+    // 0. Yasaklı kontrolü
+    try {
+      const { db } = await import('../databaseService');
+      const emailKey = email.trim().toLocaleLowerCase('tr-TR').replace(/[.@]/g, '_');
+      const bannedData = await db.getDataDirect(`_bannedUsers/${emailKey}`);
+
+      if (bannedData) {
+        alert('Bu e-posta adresi sistemden kalıcı olarak yasaklanmıştır!');
+        return;
+      }
+    } catch (err) {
+      console.warn('Ban kontrolü yapılamadı, devam ediliyor...');
+    }
+
     // Firebase Authentication ile kayıt
     try {
       const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
       const { auth } = await import('../firebaseConfig');
-      
+
       console.log('Firebase Authentication ile kayıt başlatılıyor...');
-      
+
       // Kullanıcı oluştur
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      
+
       console.log('Kullanıcı oluşturuldu:', userCredential.user.uid);
-      
+
       // Kullanıcı profilini güncelle (isim ekle)
       await updateProfile(userCredential.user, {
         displayName: name
       });
-      
+
       console.log('Profil güncellendi');
-      
+
       // Ek bilgileri Realtime Database'e kaydet
       const { ref, set } = await import('firebase/database');
       const { database } = await import('../firebaseConfig');
-      
+
       const userDataRef = ref(database, `_userProfiles/${userCredential.user.uid}`);
       await set(userDataRef, {
         name: name,
@@ -62,18 +76,18 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
         email: email,
         createdAt: new Date().toISOString()
       });
-      
+
       console.log('Kullanıcı profili kaydedildi');
-      
+
       alert(`Hesabınız başarıyla oluşturuldu!\n\nE-posta: ${email}\nAd: ${name}\n\nŞimdi giriş yapabilirsiniz.`);
       onBackToLogin();
     } catch (error: any) {
       console.error('Kayıt hatası:', error);
       console.error('Hata kodu:', error.code);
       console.error('Hata mesajı:', error.message);
-      
+
       let errorMessage = 'Kayıt sırasında hata oluştu!';
-      
+
       // Firebase Authentication hatalarını kontrol et
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'Bu e-posta adresi zaten kullanılıyor!';
@@ -86,7 +100,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
       } else if (error.message) {
         errorMessage = `Hata: ${error.message}`;
       }
-      
+
       alert(errorMessage);
     }
   };
@@ -96,11 +110,12 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
       <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Logo & Title */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-[32px] bg-gradient-to-br from-blue-500 to-purple-600 mb-6 shadow-2xl shadow-blue-900/50">
-            <Building size={48} className="text-white" />
+          <div className="inline-flex items-center justify-center w-32 h-32 rounded-[40px] bg-white/5 border border-white/10 mb-6 shadow-2xl relative group p-3">
+            <div className="absolute inset-0 bg-blue-500/10 rounded-[40px] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
+            <img src="/assets/logo.png" alt="Galata Logo" className="w-full h-full object-contain relative z-10" />
           </div>
-          <h1 className="text-3xl font-black text-white mb-2 tracking-tight">HESAP OLUŞTUR</h1>
-          <p className="text-sm text-white/40 font-bold uppercase tracking-widest">Galata Yönetim Sistemi</p>
+          <h1 className="text-3xl font-light text-white mb-2 tracking-[0.2em] uppercase">HESAP OLUŞTUR</h1>
+          <p className="text-xs text-white/20 font-medium uppercase tracking-[0.3em]">Galata Yönetim Sistemi</p>
         </div>
 
         {/* Register Form */}
