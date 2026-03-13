@@ -163,13 +163,16 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                     let desc = txToPrint.description.split('[')[0].trim()
                       .replace(/^MAKBUZ\s+/i, '')
                       .replace(/\s+(MALİK|KİRACI)\s*$/i, '')
+                      .replace(/\b(MALİK|KİRACI)\b/gi, '')
+                      .replace(/\bSERBEST\s+TAHSİLAT\b/gi, '')
+                      .replace(/\s+/g, ' ')
                       .trim();
 
                     if (desc.includes('(TAHSİLATI)') || desc.includes('TAHSİLATI') || desc.match(/\(EFT[\/\s]*HAVALE\)/i)) {
                       desc = desc.replace(/\(TAHSİLATİ\)/gi, 'EFT/HAVALE')
                         .replace(/\(TAHSİLATI\)/gi, 'EFT/HAVALE')
                         .replace(/TAHSİLATI/gi, 'EFT/HAVALE')
-                        .replace(/\(EFT[\/\s]*HAVALE\)/gi, 'EFT/HAVALE') + " YOLU İLE TAHSİL EDİLMİŞTİR";
+                        .replace(/\(EFT[\/\s]*HAVALE\)/gi, 'EFT/HAVALE') + " İLE TAHSİL EDİLMİŞTİR";
                     } else if (desc.includes('(KREDİ)') || desc.includes('KREDİ BAKİYESİNDEN')) {
                       desc = desc.replace(/\(KREDİ\)/gi, 'KREDİ BAKİYESİNDEN')
                         .replace(/KREDİ BAKİYESİNDEN/gi, 'KREDİ BAKİYESİNDEN') + " TAHSİL EDİLMİŞTİR";
@@ -188,16 +191,16 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                   <p className="text-[40px] font-black text-blue-600 uppercase leading-none m-0">{txToPrint.type}</p>
                 </div>
                 <div className="text-right flex flex-col items-end">
-                  <p className="text-[14px] font-black text-slate-400 uppercase mb-[-14px] tracking-widest">TUTAR</p>
-                  <div className="flex items-baseline justify-end space-x-4 mb-4">
-                    <span className="text-[36px] font-black text-slate-900 leading-none">₺</span>
-                    <span className="text-[54px] font-black text-slate-950 leading-none tracking-tighter">{formatCurrency(txToPrint.amount)}</span>
+                  <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest -mt-2">TUTAR</p>
+                  <div className="flex items-baseline justify-end space-x-2 mb-6 -mt-2">
+                    <span className="text-[40px] font-black text-slate-950 leading-none tracking-tight">₺</span>
+                    <span className="text-[42px] font-black text-slate-950 leading-none tracking-tight">{formatCurrency(txToPrint.amount)}</span>
                   </div>
-                  <div className="relative w-[150px] h-[150px] flex items-center justify-center mt-[11px]">
+                  <div className="relative w-[150px] h-[150px] flex items-center justify-center mt-[-14px]">
                     <div className="absolute inset-0 border-[5px] border-green-600 rounded-full"></div>
                     <div className="absolute inset-[10px] border-[2px] border-green-600 rounded-full"></div>
                     <svg viewBox="0 0 150 150" className="absolute inset-0 w-full h-full">
-                      <defs><path id="txPathTop" d="M 30,75 A 45,45 0 0,1 120,75" /><path id="txPathBottom" d="M 25,75 A 50,50 0 0,0 125,75" /></defs>
+                      <defs><path id="txPathTop" d="M 30,75 A 45,45 0 0,1 120,75" /><path id="txPathBottom" d="M 20,75 A 55,55 0 0,0 130,75" /></defs>
                       <text className="fill-green-600 text-[18px] font-black uppercase tracking-[0.2em]"><textPath xlinkHref="#txPathTop" startOffset="50%" textAnchor="middle">GALATA</textPath></text>
                       <text dy="4" className="fill-green-600 text-[18px] font-black uppercase tracking-[0.05em]"><textPath xlinkHref="#txPathBottom" startOffset="50%" textAnchor="middle">APARTMANI</textPath></text>
                     </svg>

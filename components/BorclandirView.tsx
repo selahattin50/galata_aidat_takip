@@ -126,7 +126,7 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shadow-inner bg-red-600 text-white shrink-0">{unit.no}</div>
                        <div className="flex flex-col text-left min-w-0">
                           <span className="text-[12px] font-bold uppercase truncate tracking-tight text-white">{unit.ownerName}</span>
-                          <span className="text-[7px] font-black uppercase tracking-widest text-white/20">Bakiye: ₺{(unit.credit - unit.debt).toLocaleString('tr-TR')}</span>
+                          <span className="text-[7px] font-black uppercase tracking-widest text-white/20">Bakiye: ₺{(unit.credit > 0 ? unit.credit : unit.debt).toLocaleString('tr-TR')}</span>
                        </div>
                     </div>
                   </button>

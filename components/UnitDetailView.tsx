@@ -242,6 +242,17 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
           </div>
         </section>
 
+        <section className="grid grid-cols-2 gap-3">
+          <div className="bg-green-500/10 rounded-[20px] p-4 border border-green-500/30 shadow-2xl">
+            <h3 className="text-[9px] font-black text-green-500/70 tracking-[0.15em] uppercase mb-2">Kredi Bakiyesi</h3>
+            <p className="text-[22px] font-black text-green-500 leading-none">₺{formatCurrency(unit.credit)}</p>
+          </div>
+          <div className="bg-red-500/10 rounded-[20px] p-4 border border-red-500/30 shadow-2xl">
+            <h3 className="text-[9px] font-black text-red-400/70 tracking-[0.15em] uppercase mb-2">Aidat Borcu</h3>
+            <p className="text-[22px] font-black text-red-400 leading-none">₺{formatCurrency(unit.debt)}</p>
+          </div>
+        </section>
+
         {/* Hesap Özeti - Tablo */}
         <section>
           <div className="flex items-center justify-between mb-2 px-1">

@@ -270,15 +270,20 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
                     </div>
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0 pl-2">
-                  <div
-                    className="text-[14px] font-black tracking-tighter"
-                    style={{ color: unit.debt - unit.credit > 0 ? '#ef4444' : '#22c55e' }}
-                  >
-                    ₺{formatCurrency(unit.debt - unit.credit).replace('₺', '')}
-                  </div>
-                  <div className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full mt-1 inline-block ${unit.debt - unit.credit > 0 ? 'text-white bg-red-500/20 border border-red-500/30' : 'text-white bg-green-500/20 border border-green-500/30'}`}>
-                    {unit.debt - unit.credit > 0 ? 'BORÇ' : 'ALACAK'}
+                <div className="text-right flex-shrink-0 pl-2 min-w-[92px]">
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="px-2 py-1 rounded-xl border border-green-500/30 bg-green-500/10 min-w-[88px]">
+                      <div className="text-[7px] font-black uppercase tracking-widest text-green-500/70">Alacak</div>
+                      <div className="text-[13px] font-black tracking-tighter text-green-500">
+                        ₺{formatCurrency(unit.credit).replace('₺', '')}
+                      </div>
+                    </div>
+                    <div className="px-2 py-1 rounded-xl border border-red-500/30 bg-red-500/10 min-w-[88px]">
+                      <div className="text-[7px] font-black uppercase tracking-widest text-red-400/70">Borç</div>
+                      <div className="text-[13px] font-black tracking-tighter text-red-400">
+                        ₺{formatCurrency(unit.debt).replace('₺', '')}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -8,7 +8,7 @@ interface TahsilatViewProps {
   info: BuildingInfo;
   transactions: Transaction[];
   onClose: () => void;
-  onSave: (amount: number, description: string, vault: 'genel' | 'demirbas', date: string, unitId: string, month: number, year: number) => void;
+  onSave: (amount: number, description: string, vault: 'genel' | 'demirbas', date: string, unitId: string, month?: number, year?: number) => void;
 }
 
 const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, onClose, onSave }) => {
@@ -52,20 +52,21 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
   };
 
   const handleProcess = async (debtItem?: any) => {
-    let finalAmount = debtItem ? debtItem.amount : parseFloat(amount);
-    const dateObj = new Date(selectedDate);
-    let finalMonth = debtItem ? debtItem.month : dateObj.getMonth();
-    let finalYear = debtItem ? debtItem.year : dateObj.getFullYear();
+    const finalAmount = debtItem ? debtItem.amount : parseFloat(amount);
     const payerLabel = selectedPayerType === 'Kiracı' ? 'KİRACI' : 'MALİK';
     const methodLabel = paymentMethod === 'EFT/Havale' ? '(TAHSİLATI)' : (paymentMethod === 'Elden Ödeme' ? '(ELDEN)' : '(KREDİ)');
+    const isManualAmountCollection = !debtItem;
 
     if (!selectedUnitId || isNaN(finalAmount) || finalAmount <= 0) return;
     setIsSaving(true);
     await new Promise(r => setTimeout(r, 600));
 
-    const description = debtItem
-      ? `${months[debtItem.month]} AYI AİDAT ${methodLabel}${selectedPayerType === 'Kiracı' ? ' KİRACI' : ''}`
-      : `${months[finalMonth]} AYI AİDAT ${methodLabel}${selectedPayerType === 'Kiracı' ? ' KİRACI' : ''}`;
+    const description = isManualAmountCollection
+      ? `${payerLabel} SERBEST TAHSİLAT ${methodLabel}`
+      : `${months[debtItem.month]} AYI AİDAT ${methodLabel}${selectedPayerType === 'Kiracı' ? ' KİRACI' : ''}`;
+
+    const finalMonth = debtItem ? debtItem.month : undefined;
+    const finalYear = debtItem ? debtItem.year : undefined;
 
     onSave(finalAmount, description, 'genel', selectedDate, selectedUnitId, finalMonth, finalYear);
     setIsSaving(false);
@@ -140,19 +141,21 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
             {showUnitGrid && (
               <div className="flex flex-col space-y-1 p-1 bg-[#0b101b] max-h-[300px] overflow-y-auto no-scrollbar border-t border-white/10">
                 {selectableUnits.map((unit) => {
-                  const bakiye = (unit.credit - unit.debt);
                   return (
                     <button key={unit.id} onClick={() => handleUnitSelect(unit)} className={`w-full py-3.5 px-4 flex items-center transition-all ${selectedUnitId === unit.id ? 'bg-white/5' : 'hover:bg-white/5'}`}>
                       <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-sm font-black text-white shadow-xl shrink-0 mr-4">
                         {unit.no}
                       </div>
-                      <div className="flex flex-col text-left min-w-0">
-                        <span className="text-[14px] font-black text-white uppercase tracking-tight truncate leading-tight">
-                          {unit.tenantName || unit.ownerName || `${unit.no}. DAİRE`}
-                        </span>
-                        <div className="flex items-center space-x-1 mt-0.5 opacity-40">
-                          <span className="text-[9px] font-black uppercase tracking-widest">BAKİYE:</span>
-                          <span className={`text-[9px] font-black ${bakiye < 0 ? 'text-red-500' : 'text-green-500'}`}>₺{formatCurrency(bakiye)}</span>
+                      <div className="flex items-center justify-between w-full gap-3 min-w-0">
+                        <div className="flex flex-col text-left min-w-0">
+                          <span className="text-[14px] font-black text-white uppercase tracking-tight truncate leading-tight">
+                            {unit.tenantName || unit.ownerName || `${unit.no}. DAİRE`}
+                          </span>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-white/30">BAKİYE:</span>
+                            <span className="text-[9px] font-black text-green-500">ALACAK ₺{formatCurrency(unit.credit)}</span>
+                            <span className="text-[9px] font-black text-red-500">BORÇ ₺{formatCurrency(unit.debt)}</span>
+                          </div>
                         </div>
                       </div>
                     </button>
