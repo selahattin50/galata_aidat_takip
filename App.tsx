@@ -1,6 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { dispatchAppBackButton } from './appBackButton';
 import Header from './components/Header.tsx';
 import SummaryCard from './components/SummaryCard.tsx';
 import ActionGrid from './components/ActionGrid.tsx';
@@ -36,8 +39,12 @@ const STORAGE_KEYS = {
   AUTH: 'galata_v16_auth'
 };
 
+const RECEIVABLES_INFO_NOTIFICATION_ID = 190010;
+const RECEIVABLES_REMINDER_NOTIFICATION_ID = 190011;
+const RECEIVABLES_REMINDER_CHANNEL_ID = 'receivables-reminders';
+
 const DEFAULT_BUILDING_INFO: BuildingInfo = {
-  name: "YENİ APARTMAN YÖNETİMİ",
+  name: "YENİ YÖNETİM",
   address: "Adres bilgisi giriniz",
   role: "Yönetici",
   managerName: "Yönetici Adı",
@@ -45,7 +52,11 @@ const DEFAULT_BUILDING_INFO: BuildingInfo = {
   duesAmount: 0,
   isManagerExempt: false,
   managerUnitId: '',
-  isAutoDuesEnabled: true
+  isAutoDuesEnabled: true,
+  isBulkMessageEnabled: true,
+  bulkMessageInfoDay: 1,
+  bulkMessageReminderDay: 19,
+  bulkMessageStartDay: 19
 };
 
 const INITIAL_UNITS: Unit[] = [];
@@ -375,11 +386,23 @@ const App: React.FC = () => {
   useEffect(() => {
     console.log('🔧 Geri tuşu listener kurulumu başlatılıyor...');
 
+    if (Capacitor.getPlatform() === 'android') {
+      CapacitorApp.toggleBackButtonHandler({ enabled: true }).catch(err => {
+        console.error('Geri tuşu native handler etkinleştirilemedi:', err);
+      });
+    }
+
     const handleBackButton = (event: any) => {
       const currentTab = activeTabRef.current;
       const currentSubView = activeSubViewRef.current;
 
       console.log('🔙 Geri tuşuna basıldı - activeTab:', currentTab, 'activeSubView:', currentSubView);
+
+      if (dispatchAppBackButton()) {
+        console.log('✓ Geri tuşu aktif alt ekran tarafından işlendi');
+        event?.preventDefault?.();
+        return;
+      }
 
       // Eğer subview açıksa, subview'i kapat
       if (currentSubView) {
@@ -430,6 +453,139 @@ const App: React.FC = () => {
     }
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    if (!isAuthenticated || !Capacitor.isNativePlatform()) {
+      return;
+    }
+
+    const isBulkMessageEnabled = buildingInfo?.isBulkMessageEnabled !== false;
+    const bulkMessageInfoDay = Math.min(28, Math.max(1, Number(buildingInfo?.bulkMessageInfoDay) || 1));
+    const bulkMessageReminderDay = Math.max(
+      bulkMessageInfoDay,
+      Math.min(28, Math.max(1, Number(buildingInfo?.bulkMessageReminderDay ?? buildingInfo?.bulkMessageStartDay) || 19))
+    );
+
+    const openReceivablesReminder = () => {
+      setActiveTab('home');
+      setActiveSubView('receivables');
+    };
+
+    let notificationListener: { remove: () => Promise<void> } | null = null;
+
+    const setupReceivablesReminder = async () => {
+      try {
+        await LocalNotifications.cancel({
+          notifications: [
+            { id: RECEIVABLES_INFO_NOTIFICATION_ID },
+            { id: RECEIVABLES_REMINDER_NOTIFICATION_ID }
+          ],
+        });
+
+        if (!isBulkMessageEnabled) {
+          return;
+        }
+
+        const permissionStatus = await LocalNotifications.checkPermissions();
+        const displayPermission =
+          permissionStatus.display === 'granted'
+            ? permissionStatus
+            : await LocalNotifications.requestPermissions();
+
+        if (displayPermission.display !== 'granted') {
+          console.warn('Bildirim izni verilmedi, alacak listesi hatırlatması kurulamadı.');
+          return;
+        }
+
+        await LocalNotifications.createChannel({
+          id: RECEIVABLES_REMINDER_CHANNEL_ID,
+          name: 'Aidat Hatirlatmalari',
+          description: 'Aylik alacak listesi hatirlatmalari',
+          importance: 5,
+          visibility: 1,
+        });
+
+        await LocalNotifications.cancel({
+          notifications: [
+            { id: RECEIVABLES_INFO_NOTIFICATION_ID },
+            { id: RECEIVABLES_REMINDER_NOTIFICATION_ID }
+          ],
+        });
+
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              id: RECEIVABLES_INFO_NOTIFICATION_ID,
+              title: 'Aidat Bilgilendirme Mesaji',
+              body: 'Aidat olusturuldu bilgisini gondermek icin dokun. Alacak Listesi acilacak.',
+              channelId: RECEIVABLES_REMINDER_CHANNEL_ID,
+              schedule: {
+                on: {
+                  day: bulkMessageInfoDay,
+                  hour: 10,
+                  minute: 0,
+                },
+                repeats: true,
+                allowWhileIdle: true,
+              },
+              extra: {
+                targetSubView: 'receivables',
+                receivablesMode: 'info',
+              },
+            },
+            {
+              id: RECEIVABLES_REMINDER_NOTIFICATION_ID,
+              title: 'Alacak Listesi Hatirlatmasi',
+              body: 'Borclulara mesaj gondermek icin dokun. Alacak Listesi acilacak.',
+              channelId: RECEIVABLES_REMINDER_CHANNEL_ID,
+              schedule: {
+                on: {
+                  day: bulkMessageReminderDay,
+                  hour: 11,
+                  minute: 0,
+                },
+                repeats: true,
+                allowWhileIdle: true,
+              },
+              extra: {
+                targetSubView: 'receivables',
+                receivablesMode: 'reminder',
+              },
+            },
+          ],
+        });
+
+        notificationListener = await LocalNotifications.addListener(
+          'localNotificationActionPerformed',
+          (notificationAction) => {
+            if (
+              notificationAction.notification.id === RECEIVABLES_INFO_NOTIFICATION_ID ||
+              notificationAction.notification.id === RECEIVABLES_REMINDER_NOTIFICATION_ID ||
+              notificationAction.notification.extra?.targetSubView === 'receivables'
+            ) {
+              openReceivablesReminder();
+            }
+          }
+        );
+      } catch (error) {
+        console.error('Alacak listesi hatirlatmasi ayarlanamadi:', error);
+      }
+    };
+
+    setupReceivablesReminder();
+
+    return () => {
+      if (notificationListener) {
+        notificationListener.remove();
+      }
+    };
+  }, [
+    isAuthenticated,
+    buildingInfo?.isBulkMessageEnabled,
+    buildingInfo?.bulkMessageInfoDay,
+    buildingInfo?.bulkMessageReminderDay,
+    buildingInfo?.bulkMessageStartDay
+  ]);
+
 
   const unitsWithBalances = useMemo(() => {
     if (!Array.isArray(units)) return INITIAL_UNITS;
@@ -450,7 +606,7 @@ const App: React.FC = () => {
         .reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
       const totalManualDebt = unitTransactions.filter(tx => tx.type === 'BORÇLANDIRMA').reduce((sum, tx) => sum + (tx.amount || 0), 0);
-      const duesValue = Number(buildingInfo?.duesAmount) || 750;
+      const duesValue = Number(buildingInfo?.duesAmount ?? 0);
 
       let paidDuesTotal = 0;
       let unpaidDuesTotal = 0;
@@ -800,7 +956,7 @@ const App: React.FC = () => {
                             try { await db.deleteTransaction(id); } catch (err) { console.error('✗ Silme esnasında hata:', err); }
                           }
                         }} onUpdateTransaction={tx => setTransactions(p => p.map(x => x.id === tx.id ? tx : x))} /> :
-                          activeSubView === 'receivables' ? <ReceivablesView units={unitsWithBalances} onClose={() => setActiveSubView(null)} /> :
+                          activeSubView === 'receivables' ? <ReceivablesView units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} /> :
                             activeSubView === 'aidat-cizelge' ? <AidatCizelgeView units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddDues={() => { }} /> :
                               activeSubView === 'monthly-report' ? <MonthlyReportView transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
                                 activeSubView === 'yearly-report' ? <YearlyReportView transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :

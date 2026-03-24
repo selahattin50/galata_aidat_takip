@@ -36,7 +36,8 @@ const AccountChartView: React.FC<AccountChartViewProps> = ({ units, info, onClos
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`${info.name}_Hesap_Durum_Cizelgesi.pdf`);
+      const fileName = `${info.name.replace(/[^a-zA-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim()} Hesap Durum Cizelgesi.pdf`;
+      pdf.save(fileName);
     } catch (error) {
       console.error("PDF generation failed", error);
     } finally {

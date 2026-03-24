@@ -5,6 +5,7 @@ import { Transaction, Unit, FileEntry } from '../types';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { PDFService } from '../pdfService';
+import { useAndroidBackHandler } from '../appBackButton';
 
 interface MonthlyReportViewProps {
   transactions: Transaction[];
@@ -24,6 +25,24 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
   const [showVaultPicker, setShowVaultPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
+  useAndroidBackHandler(() => {
+    if (showVaultPicker) {
+      setShowVaultPicker(false);
+      return true;
+    }
+
+    if (showYearPicker) {
+      setShowYearPicker(false);
+      return true;
+    }
+
+    if (showDatePicker) {
+      setShowDatePicker(false);
+      return true;
+    }
+
+    return false;
+  });
 
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -38,6 +57,11 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
     }), { totalDebt: 0, totalCredit: 0 });
   }, [units]);
 
+  function isCreditBalanceIncome(tx: Transaction) {
+    if (tx.type !== 'GELİR') return false;
+    return /KRED[İI]/i.test(tx.description);
+  }
+
   const previousDevir = useMemo(() => {
     const transactionsSum = transactions.reduce((sum, tx) => {
       const parts = tx.date.split('.');
@@ -48,6 +72,7 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
       if (txYear < selectedYear || (txYear === selectedYear && txMonth < selectedMonth)) {
         const txVaultType = tx.description.toLowerCase().includes('[demirbas]') ? 'demirbas' : 'genel';
         if (txVaultType === selectedVault) {
+          if (tx.type === 'GELİR' && isCreditBalanceIncome(tx)) return sum;
           if (tx.type === 'GELİR') return sum + tx.amount;
           if (tx.type === 'GİDER') return sum - tx.amount;
         }
@@ -67,7 +92,13 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
       return txMonth === selectedMonth && txYear === selectedYear && txVaultType === selectedVault;
     });
   }, [transactions, selectedMonth, selectedYear, selectedVault]);
+  /*
 
+    if (tx.type !== 'GELİR') return false;
+    return /KRED[İI]/i.test(tx.description);
+  };
+
+  */
   const reportData = useMemo(() => {
     const incomeGroups: Record<string, { total: number, count: number, minDate: string }> = {};
     const expenseGroups: Record<string, { total: number, count: number, minDate: string }> = {};
@@ -84,10 +115,17 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
       const isoDate = tx.date.split('.').reverse().join('-');
 
       if (tx.type === 'GELİR') {
-        if (!incomeGroups[label]) incomeGroups[label] = { total: 0, count: 0, minDate: isoDate };
-        incomeGroups[label].total += tx.amount;
-        incomeGroups[label].count += 1;
-        if (isoDate < incomeGroups[label].minDate) incomeGroups[label].minDate = isoDate;
+        if (isCreditBalanceIncome(tx)) return;
+
+        const rawDescription = tx.description.toUpperCase();
+        const isSerbestIncome = /SERBEST\s+TAHS[İI]LAT/i.test(rawDescription);
+        const isDuesIncome = tx.periodMonth !== undefined || tx.periodYear !== undefined || /A[İI]DAT/i.test(rawDescription);
+        const incomeLabel = isSerbestIncome ? 'AY SERBEST GELIRI' : (isDuesIncome ? 'AY ICI AIDAT GELIRI' : label);
+
+        if (!incomeGroups[incomeLabel]) incomeGroups[incomeLabel] = { total: 0, count: 0, minDate: isoDate };
+        incomeGroups[incomeLabel].total += tx.amount;
+        incomeGroups[incomeLabel].count += 1;
+        if (isoDate < incomeGroups[incomeLabel].minDate) incomeGroups[incomeLabel].minDate = isoDate;
       } else if (tx.type === 'GİDER') {
         if (!expenseGroups[label]) expenseGroups[label] = { total: 0, count: 0, minDate: isoDate };
         expenseGroups[label].total += tx.amount;
@@ -114,7 +152,49 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
     };
   }, [filteredTransactions, previousDevir]);
 
-  const monthActualIncome = filteredTransactions.filter(tx => tx.type === 'GELİR').reduce((sum, tx) => sum + tx.amount, 0);
+  const displayIncomeItems = useMemo(() => {
+    let duesTotal = 0;
+    let freeTotal = 0;
+    const otherIncomeGroups: Record<string, number> = {};
+
+    filteredTransactions.forEach(tx => {
+      if (tx.type !== 'GELİR' || isCreditBalanceIncome(tx)) return;
+
+      const rawDescription = tx.description.toUpperCase();
+      const cleanLabel = tx.description
+        .replace(/\s*\(?MAL[Iİ]K\)?/gi, '')
+        .replace(/\s*\(?K[Iİ]RACI\)?/gi, '')
+        .replace(/EFT\/HAVALE/gi, '')
+        .replace(/TAHS[Iİ]LATI/gi, '')
+        .replace(/\(\s*\)/g, '')
+        .split('[')[0].trim().toUpperCase();
+
+      if (/SERBEST\s+TAHS[Iİ]LAT/i.test(rawDescription)) {
+        freeTotal += tx.amount;
+        return;
+      }
+
+      if (tx.periodMonth !== undefined || tx.periodYear !== undefined || /A[Iİ]DAT/i.test(rawDescription)) {
+        duesTotal += tx.amount;
+        return;
+      }
+
+      const fallbackLabel = cleanLabel || 'DIGER GELIR';
+      otherIncomeGroups[fallbackLabel] = (otherIncomeGroups[fallbackLabel] || 0) + tx.amount;
+    });
+
+    const items: { label: string; total: number }[] = [];
+    if (duesTotal > 0) items.push({ label: 'AY ICI AIDAT GELIRI', total: duesTotal });
+    if (freeTotal > 0) items.push({ label: 'AY SERBEST GELIRI', total: freeTotal });
+
+    Object.entries(otherIncomeGroups).forEach(([label, total]) => {
+      items.push({ label, total });
+    });
+
+    return items;
+  }, [filteredTransactions]);
+
+  const monthActualIncome = displayIncomeItems.reduce((sum, item) => sum + item.total, 0);
   const totalIncomeWithDevir = monthActualIncome + previousDevir;
   const totalExpense = filteredTransactions.filter(tx => tx.type === 'GİDER').reduce((sum, tx) => sum + tx.amount, 0);
   const cashTotal = totalIncomeWithDevir - totalExpense;
@@ -148,8 +228,7 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
         pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, imgWidth, imgHeight);
       }
 
-      const sanitizedBuildingName = buildingName.replace(/[^a-zA-Z0-9]/g, '_');
-      const fileName = `${sanitizedBuildingName}_${months[selectedMonth]}_Ayi_Bilancosu_${selectedYear}.pdf`;
+      const fileName = `${months[selectedMonth]} Ayi Gelir Gider ${selectedYear}.pdf`;
 
       const shouldShare = mode === 'share';
       const savedInfo = await PDFService.saveAndShareFromJsPDF(pdf, fileName, shouldShare);
@@ -289,10 +368,10 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
             <div>
               <h3 className="text-[13px] font-black text-white mb-2 pb-1 border-b border-white/20 tracking-wide uppercase">Gelir Kalemleri</h3>
               <div className="space-y-3 min-h-[200px]">
-                {reportData.incomes.filter(inc => !inc.label.includes('DEVİR')).length === 0 ? (
+                {displayIncomeItems.length === 0 ? (
                   <div className="h-full flex items-center justify-center opacity-20 py-10"><span className="text-[8px] font-black uppercase italic">Kayıt Yok</span></div>
                 ) : (
-                  reportData.incomes.filter(inc => !inc.label.includes('DEVİR')).map((inc, i) => (
+                  displayIncomeItems.map((inc, i) => (
                     <div key={i} className="flex justify-between items-baseline">
                       <span className="text-[10px] font-bold text-white/60 italic lowercase pr-1 leading-tight">{inc.label}</span>
                       <span className="text-[11px] font-black text-white shrink-0">{formatCurrency(inc.total)}</span>
@@ -343,20 +422,20 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
               {months[selectedMonth].toUpperCase()} AYI APARTMAN HESAP DURUM ÇİZELGESİ
             </h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', backgroundColor: '#000', border: '2px solid #000' }}>
-            <div style={{ backgroundColor: '#fff', padding: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', backgroundColor: '#000', border: '2px solid #000' }}>
+            <div style={{ backgroundColor: '#fff', padding: '16px 12px' }}>
               <h3 style={{ fontSize: '20px', fontWeight: '900', color: '#ef4444', borderBottom: '2px solid #ef4444', marginBottom: '15px', paddingBottom: '5px' }}>GİDERLER</h3>
               {reportData.expenses.map((ex, i) => (
-                <div key={i} style={{ display: 'flex', justifySelf: 'space-between', marginBottom: '10px', fontSize: '22px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
-                  <span style={{ fontWeight: 'bold' }}>{ex.label}</span><span style={{ fontWeight: '900' }}>{formatCurrency(ex.total)}</span>
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '8px', fontSize: '18px', borderBottom: '1px solid #eee', paddingBottom: '4px' }}>
+                  <span style={{ fontWeight: 'bold', flex: '1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ex.label}</span><span style={{ fontWeight: '900', whiteSpace: 'nowrap' }}>{formatCurrency(ex.total)}</span>
                 </div>
               ))}
               <div style={{ marginTop: 'auto', paddingTop: '20px', textAlign: 'right' }}><span style={{ fontSize: '28px', fontWeight: '900', color: '#ef4444' }}>{formatCurrency(totalExpense)}</span></div>
             </div>
-            <div style={{ backgroundColor: '#fff', padding: '20px' }}>
+            <div style={{ backgroundColor: '#fff', padding: '16px 12px' }}>
               <h3 style={{ fontSize: '20px', fontWeight: '900', color: '#22c55e', borderBottom: '2px solid #22c55e', marginBottom: '15px', paddingBottom: '5px' }}>GELİRLER</h3>
-              {reportData.incomes.map((inc, i) => (
-                <div key={i} style={{ display: 'flex', justifySelf: 'space-between', marginBottom: '10px', fontSize: '22px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+              {[...(previousDevir !== 0 ? [{ label: 'ÖNCEKİ DÖNEMDEN DEVİR', total: previousDevir }] : []), ...displayIncomeItems].map((inc, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '8px', fontSize: '18px', borderBottom: '1px solid #eee', paddingBottom: '4px' }}>
                   <span style={{ fontWeight: 'bold', color: inc.label.includes('DEVİR') ? '#2563eb' : '#000' }}>{inc.label}</span><span style={{ fontWeight: '900', color: inc.label.includes('DEVİR') ? '#2563eb' : '#000' }}>{formatCurrency(inc.total)}</span>
                 </div>
               ))}

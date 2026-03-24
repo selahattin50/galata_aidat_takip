@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Users, Mail, Phone, Calendar, Trash2, Loader2, ShieldCheck, ChevronRight, Search } from 'lucide-react';
+import { ArrowLeft, Users, Mail, Phone, Calendar, Trash2, Loader2, ShieldCheck, ChevronRight, Search, X } from 'lucide-react';
 import { db } from '../databaseService';
 import { auth } from '../firebaseConfig';
+import { useAndroidBackHandler } from '../appBackButton';
 
 interface User {
   uid?: string;
+  sourcePath?: string;
   email: string;
   name: string;
   phone: string;
@@ -15,11 +17,25 @@ interface UserManagementViewProps {
   onClose: () => void;
 }
 
+interface ScanCategorySummary {
+  key: string;
+  label: string;
+  total: number;
+  perSource: { label: string; count: number }[];
+}
+
+interface CloudScanSummary {
+  totalRecords: number;
+  scannedSources: number;
+  categories: ScanCategorySummary[];
+}
+
 const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [cloudScanSummary, setCloudScanSummary] = useState<CloudScanSummary | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedUserToDelete, setSelectedUserToDelete] = useState<User | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -27,6 +43,16 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
   const [migrationSource, setMigrationSource] = useState('');
   const [migrationTarget, setMigrationTarget] = useState('');
   const [isMigrating, setIsMigrating] = useState(false);
+  useAndroidBackHandler(() => {
+    if (showDeleteModal) {
+      setShowDeleteModal(false);
+      setSelectedUserToDelete(null);
+      return true;
+    }
+
+    onClose();
+    return true;
+  });
 
   // Güvenlik Kontrolü: Sadece ana yönetici girebilir
   if (auth.currentUser?.email !== 'selahattin50@gmail.com') {
@@ -41,14 +67,69 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
     loadUsers();
   }, []);
 
+  const countEntries = (value: any): number => {
+    if (!value) return 0;
+    if (Array.isArray(value)) {
+      return value.filter(item => item !== null && item !== undefined).length;
+    }
+    if (typeof value === 'object') {
+      return Object.values(value).filter(item => item !== null && item !== undefined).length;
+    }
+    return 1;
+  };
+
+  const getSourceLabel = (sourcePath: string, data: any, fallbackId: string) => {
+    const profile = data?.building_info || {};
+    const siteName = profile?.name || profile?.managerName;
+    const email = data?.email;
+
+    if (sourcePath.includes('/sites/')) {
+      return siteName || `Alt Site: ${fallbackId}`;
+    }
+
+    return email || siteName || `Kullanici: ${fallbackId}`;
+  };
+
   const loadUsers = async () => {
     try {
       setIsLoading(true);
       setErrorMessage(null);
+      setCloudScanSummary(null);
       setDebugInfo('Tarama başlatılıyor...');
 
       let finalUsers: User[] = [];
       let lastError = null;
+      const categoryMap = new Map<string, ScanCategorySummary>([
+        ['building_info', { key: 'building_info', label: 'PROFIL BILGISI', total: 0, perSource: [] }],
+        ['units', { key: 'units', label: 'BAGIMSIZ BOLUMLER', total: 0, perSource: [] }],
+        ['transactions', { key: 'transactions', label: 'ISLEM HAREKETLERI', total: 0, perSource: [] }],
+        ['board_members', { key: 'board_members', label: 'YONETIM KURULU', total: 0, perSource: [] }],
+        ['files', { key: 'files', label: 'DOSYALAR', total: 0, perSource: [] }],
+        ['messages', { key: 'messages', label: 'MESAJLAR', total: 0, perSource: [] }],
+      ]);
+      let scannedSources = 0;
+
+      const addCategoryCount = (key: string, count: number, sourceLabel: string) => {
+        if (count <= 0) return;
+        const category = categoryMap.get(key);
+        if (!category) return;
+        category.total += count;
+        category.perSource.push({ label: sourceLabel, count });
+      };
+
+      const scanSessionData = (sessionData: any, sourcePath: string, fallbackId: string) => {
+        if (!sessionData || typeof sessionData !== 'object') return;
+
+        scannedSources += 1;
+        const sourceLabel = getSourceLabel(sourcePath, sessionData, fallbackId);
+
+        addCategoryCount('building_info', sessionData.building_info ? 1 : 0, sourceLabel);
+        addCategoryCount('units', countEntries(sessionData.units), sourceLabel);
+        addCategoryCount('transactions', countEntries(sessionData.transactions), sourceLabel);
+        addCategoryCount('board_members', countEntries(sessionData.board_members), sourceLabel);
+        addCategoryCount('files', countEntries(sessionData.files), sourceLabel);
+        addCategoryCount('messages', countEntries(sessionData.messages), sourceLabel);
+      };
 
       // 1. Önce _userProfiles tablosunu dene
       setDebugInfo('Adım 1: _userProfiles taranıyor...');
@@ -57,6 +138,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
         if (usersData) {
           const profileList = Object.keys(usersData).map(uid => ({
             uid: uid,
+            sourcePath: `_userProfiles/${uid}`,
             email: usersData[uid].email,
             name: usersData[uid].name,
             phone: usersData[uid].phone,
@@ -80,24 +162,56 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
         if (rootUsers) {
           const uids = Object.keys(rootUsers);
           let count = 0;
+          let nestedSiteCount = 0;
           for (const uid of uids) {
+            const rootUserData = rootUsers[uid];
+            scanSessionData(rootUserData, `users/${uid}`, uid);
             // Eğer bu UID zaten finalUsers'da yoksa ekle
-            if (!finalUsers.find(u => u.uid === uid)) {
-              const profile = rootUsers[uid].building_info || {};
+            if (!finalUsers.find(u => u.sourcePath === `users/${uid}`)) {
+              const profile = rootUserData?.building_info || {};
               finalUsers.push({
                 uid: uid,
-                email: rootUsers[uid].email || (profile.managerName ? `${profile.managerName} (Bina: ${profile.name || '?'})` : `UID: ${uid.substring(0, 6)}...`),
+                sourcePath: `users/${uid}`,
+                email: rootUserData?.email || (profile.managerName ? `${profile.managerName} (Bina: ${profile.name || '?'})` : `UID: ${uid.substring(0, 6)}...`),
                 name: profile.name || profile.managerName || 'İsimsiz Kullanıcı',
                 phone: '',
                 createdAt: ''
               });
               count++;
             }
+            const sites = rootUserData?.sites;
+            if (sites && typeof sites === 'object') {
+              for (const siteId of Object.keys(sites)) {
+                const siteData = sites[siteId];
+                scanSessionData(siteData, `users/${uid}/sites/${siteId}`, siteId);
+                const profile = siteData?.building_info || {};
+                const sourcePath = `users/${uid}/sites/${siteId}`;
+                if (!finalUsers.find(u => u.sourcePath === sourcePath)) {
+                  finalUsers.push({
+                    uid: `${uid}:${siteId}`,
+                    sourcePath: sourcePath,
+                    email: rootUserData?.email || (profile.managerName ? `${profile.managerName} (Site: ${profile.name || siteId})` : `Site: ${siteId}`),
+                    name: profile.name || profile.managerName || `Site: ${siteId}`,
+                    phone: '',
+                    createdAt: ''
+                  });
+                  nestedSiteCount++;
+                }
+              }
+            }
           }
-          setDebugInfo(prev => prev + `\nusers: ${count} yeni veri eklendi.`);
+          setDebugInfo(prev => prev + `\nusers: ${count} ana kayıt, ${nestedSiteCount} alt site eklendi.`);
         } else {
           setDebugInfo(prev => prev + '\nusers: Veri bulunamadı.');
         }
+          const categories = Array.from(categoryMap.values()).filter(category => category.total > 0);
+          const totalRecords = categories.reduce((sum, category) => sum + category.total, 0);
+          setCloudScanSummary({
+            totalRecords,
+            scannedSources,
+            categories
+          });
+          setDebugInfo(prev => prev + `\nBulut tarama ozeti hazir: ${scannedSources} kaynak, ${totalRecords} kayit.`);
       } catch (err: any) {
         console.warn('Failed to read users root:', err);
         if (!lastError) lastError = err;
@@ -107,7 +221,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
       if (finalUsers.length > 0) {
         // Sort: selahattin50@gmail.com first
         // Tekrar edenleri temizle (email bazlı)
-        const uniqueUsers = Array.from(new Map(finalUsers.map(u => [u.email, u])).values());
+        const uniqueUsers = Array.from(new Map(finalUsers.map(u => [u.sourcePath || u.uid || u.email, u])).values());
 
         uniqueUsers.sort((a, b) => {
           if (a.email === 'selahattin50@gmail.com') return -1;
@@ -171,7 +285,9 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
       setIsDeleting(true);
 
       // 1. Profil bilgisini sil
-      if (user.uid) {
+      if (user.sourcePath?.startsWith('users/')) {
+        await db.deleteDataDirect(user.sourcePath);
+      } else if (user.uid) {
         await db.deleteDataDirect(`_userProfiles/${user.uid}`);
       } else {
         const emailKey = user.email.replace(/[.@]/g, '_');
@@ -188,7 +304,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
         });
       }
 
-      setUsers(users.filter(u => u.email !== user.email));
+      setUsers(users.filter(u => (u.sourcePath || u.email) !== (user.sourcePath || user.email)));
       setShowDeleteModal(false);
       alert(type === 'ban' ? 'Kullanıcı yasaklandı ve silindi.' : 'Kullanıcı silindi.');
     } catch (error) {
@@ -358,10 +474,46 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
                 const confirmed = window.confirm('Bulut veritabanındaki tüm dalları taramak istiyor musunuz? Bu işlem yetki durumuna bağlıdır.');
                 if (confirmed) loadUsers();
               }}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-3 font-bold text-sm shadow-xl active:scale-95 transition-all"
+              disabled={isLoading}
+              className={`w-full ${isLoading ? 'bg-emerald-800/60 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500'} text-white rounded-xl py-3 font-bold text-sm shadow-xl active:scale-95 transition-all`}
             >
-              Bulut Verilerini Tara (Yenile)
+              {isLoading ? 'Bulut Verileri Taraniyor...' : 'Bulut Verilerini Tara (Yenile)'}
             </button>
+            {cloudScanSummary && !errorMessage && (
+              <div className="mt-5 rounded-[28px] bg-amber-100 border border-amber-200/90 p-4 shadow-inner">
+                <div className="mb-3 flex items-center justify-end">
+                  <button
+                    onClick={() => setCloudScanSummary(null)}
+                    className="rounded-full bg-amber-200/80 p-2 text-amber-900 transition-all active:scale-90"
+                    aria-label="Bulut raporunu kapat"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <div className="space-y-3 font-mono text-[11px] leading-7 text-slate-900 sm:text-xs">
+                  {cloudScanSummary.categories.map(category => (
+                    <div key={category.key}>
+                      <p className="uppercase tracking-[0.18em] text-slate-900">
+                        {category.label}: {category.total} kayit bulundu.
+                      </p>
+                      {category.perSource.map(source => (
+                        <p key={`${category.key}-${source.label}`} className="text-slate-700">
+                          - {source.label}: {source.count} kayit
+                        </p>
+                      ))}
+                    </div>
+                  ))}
+                  <div className="pt-2 border-t border-amber-300">
+                    <p className="uppercase tracking-[0.18em] text-slate-950">
+                      TOPLAM {cloudScanSummary.totalRecords} kayit tarandi.
+                    </p>
+                    <p className="text-slate-700">
+                      {cloudScanSummary.scannedSources} kaynak oturum incelendi.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
         </div>
@@ -379,12 +531,6 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
           </div>
         )}
 
-        {debugInfo && !errorMessage && (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-4">
-            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest whitespace-pre-wrap">{debugInfo}</p>
-          </div>
-        )}
-
         {isLoading ? (
           <div className="flex items-center justify-center py-10">
             <Loader2 size={40} className="animate-spin text-emerald-500" />
@@ -398,7 +544,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
           <div className="space-y-3">
             {users.map((user, index) => (
               <div
-                key={user.email}
+                key={user.sourcePath || user.uid || user.email}
                 className="bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-md rounded-3xl p-5 border border-white/5 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-500"
                 style={{ animationDelay: `${index * 50}ms` }}
               >

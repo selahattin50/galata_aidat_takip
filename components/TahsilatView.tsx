@@ -75,7 +75,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
 
   const getPendingDebts = (unit: Unit) => {
     const pendingList = [];
-    const duesValue = info.duesAmount || 750;
+    const duesValue = info.duesAmount ?? 0;
     for (let i = 0; i < 12; i++) {
       const hasPayment = transactions.some(tx =>
         tx.unitId === unit.id &&

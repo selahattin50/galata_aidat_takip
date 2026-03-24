@@ -5,6 +5,7 @@ import { Transaction, Unit, FileEntry } from '../types';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { PDFService } from '../pdfService';
+import { useAndroidBackHandler } from '../appBackButton';
 
 interface YearlyReportViewProps {
   transactions: Transaction[];
@@ -21,6 +22,19 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
   const [isYearPickerOpen, setIsYearPickerOpen] = useState(false);
   const [showVaultPicker, setShowVaultPicker] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  useAndroidBackHandler(() => {
+    if (showVaultPicker) {
+      setShowVaultPicker(false);
+      return true;
+    }
+
+    if (isYearPickerOpen) {
+      setIsYearPickerOpen(false);
+      return true;
+    }
+
+    return false;
+  });
 
   const reportRef = useRef<HTMLDivElement>(null);
   const years = [2024, 2025, 2026];
@@ -32,6 +46,11 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
     }), { totalDebt: 0, totalCredit: 0 });
   }, [units]);
 
+  function isCreditBalanceIncome(tx: Transaction) {
+    if (tx.type !== 'GELİR') return false;
+    return /KRED[İI]/i.test(tx.description);
+  }
+
   const previousDevir = useMemo(() => {
     const transactionsSum = transactions.reduce((sum, tx) => {
       const parts = tx.date.split('.');
@@ -40,6 +59,7 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
       if (txYear < selectedYear) {
         const txVaultType = tx.description.toLowerCase().includes('[demirbas]') ? 'demirbas' : 'genel';
         if (txVaultType === selectedVault) {
+          if (tx.type === 'GELİR' && isCreditBalanceIncome(tx)) return sum;
           if (tx.type === 'GELİR') return sum + tx.amount;
           if (tx.type === 'GİDER') return sum - tx.amount;
         }
@@ -58,6 +78,48 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
       return txYear === selectedYear && txVaultType === selectedVault;
     });
   }, [transactions, selectedYear, selectedVault]);
+
+  const displayIncomeItems = useMemo(() => {
+    let duesTotal = 0;
+    let freeTotal = 0;
+    const otherIncomeGroups: Record<string, number> = {};
+
+    yearlyTransactions.forEach(tx => {
+      if (tx.type !== 'GELİR' || isCreditBalanceIncome(tx)) return;
+
+      const rawDescription = tx.description.toUpperCase();
+      const cleanLabel = tx.description
+        .replace(/\s*\(?MAL[Iİ]K\)?/gi, '')
+        .replace(/\s*\(?K[Iİ]RACI\)?/gi, '')
+        .replace(/EFT\/HAVALE/gi, '')
+        .replace(/TAHS[Iİ]LATI/gi, '')
+        .replace(/\(\s*\)/g, '')
+        .split('[')[0].trim().toUpperCase();
+
+      if (/SERBEST\s+TAHS[Iİ]LAT/i.test(rawDescription)) {
+        freeTotal += tx.amount;
+        return;
+      }
+
+      if (tx.periodMonth !== undefined || tx.periodYear !== undefined || /A[Iİ]DAT/i.test(rawDescription)) {
+        duesTotal += tx.amount;
+        return;
+      }
+
+      const fallbackLabel = cleanLabel || 'DIGER GELIR';
+      otherIncomeGroups[fallbackLabel] = (otherIncomeGroups[fallbackLabel] || 0) + tx.amount;
+    });
+
+    const items: { label: string; total: number }[] = [];
+    if (duesTotal > 0) items.push({ label: 'YIL ICI AIDAT GELIRI', total: duesTotal });
+    if (freeTotal > 0) items.push({ label: 'YIL SERBEST GELIRI', total: freeTotal });
+
+    Object.entries(otherIncomeGroups).forEach(([label, total]) => {
+      items.push({ label, total });
+    });
+
+    return items;
+  }, [yearlyTransactions]);
 
   const reportData = useMemo(() => {
     const incomeGroups: Record<string, { total: number, minDate: string }> = {};
@@ -103,7 +165,8 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
 
   const totalIncome = yearlyTransactions.filter(tx => tx.type === 'GELİR').reduce((sum, tx) => sum + tx.amount, 0) + previousDevir;
   const totalExpense = yearlyTransactions.filter(tx => tx.type === 'GİDER').reduce((sum, tx) => sum + tx.amount, 0);
-  const cashTotal = totalIncome - totalExpense;
+  const totalIncomeForDisplay = displayIncomeItems.reduce((sum, item) => sum + item.total, 0) + previousDevir;
+  const cashTotal = totalIncomeForDisplay - totalExpense;
 
   const formatCurrency = (val: number) => {
     return "₺" + new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
@@ -134,8 +197,7 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
         pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, imgWidth, imgHeight);
       }
 
-      const sanitizedBuildingName = buildingName.replace(/[^a-zA-Z0-9]/g, '_');
-      const fileName = `${sanitizedBuildingName}_${selectedYear}_Yili_Bilancosu.pdf`;
+      const fileName = `${selectedYear} Yili Gelir Gider.pdf`;
 
       const shouldShare = mode === 'share';
       const savedInfo = await PDFService.saveAndShareFromJsPDF(pdf, fileName, shouldShare);
@@ -256,10 +318,10 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
             <div>
               <h3 className="text-[13px] font-black text-white mb-2 pb-1 border-b border-white/20 tracking-wide uppercase">Gelir Kalemleri</h3>
               <div className="space-y-3 min-h-[200px]">
-                {reportData.incomes.filter(inc => !inc.label.includes('DEVİR')).length === 0 ? (
+                {displayIncomeItems.length === 0 ? (
                   <div className="h-full flex items-center justify-center opacity-20 py-10"><span className="text-[8px] font-black uppercase italic">Kayıt Yok</span></div>
                 ) : (
-                  reportData.incomes.filter(inc => !inc.label.includes('DEVİR')).map((inc, i) => (
+                  displayIncomeItems.map((inc, i) => (
                     <div key={i} className="flex justify-between items-baseline">
                       <span className="text-[10px] font-bold text-white/60 italic lowercase pr-1 leading-tight">{inc.label}</span>
                       <span className="text-[11px] font-black text-white shrink-0">{formatCurrency(inc.total)}</span>
@@ -267,7 +329,7 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
                   ))
                 )}
               </div>
-              <div className="mt-6 text-right"><span className="text-[16px] font-black text-white tracking-tighter">{formatCurrency(totalIncome - previousDevir)}</span></div>
+              <div className="mt-6 text-right"><span className="text-[16px] font-black text-white tracking-tighter">{formatCurrency(totalIncomeForDisplay - previousDevir)}</span></div>
             </div>
           </div>
         </div>
@@ -279,7 +341,7 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
           </div>
           <div className="bg-[#1e293b] rounded-xl h-10 px-4 flex items-center justify-between border border-white/5 shadow-md">
             <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">YILLIK GELİR TOPLAMI</span>
-            <span className="text-[12px] font-black text-white">{formatCurrency(totalIncome).replace('₺', '')}</span>
+            <span className="text-[12px] font-black text-white">{formatCurrency(totalIncomeForDisplay).replace('₺', '')}</span>
           </div>
           <div className="bg-[#1e293b] rounded-xl h-10 px-4 flex items-center justify-between border border-white/5 shadow-md">
             <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">YILLIK GİDER TOPLAMI</span>
@@ -310,24 +372,24 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
               {selectedYear} YILI APARTMAN HESAP DURUM ÇİZELGESİ
             </h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', backgroundColor: '#000', border: '2px solid #000' }}>
-            <div style={{ backgroundColor: '#fff', padding: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', backgroundColor: '#000', border: '2px solid #000' }}>
+            <div style={{ backgroundColor: '#fff', padding: '16px 12px' }}>
               <h3 style={{ fontSize: '20px', fontWeight: '900', color: '#ef4444', borderBottom: '2px solid #ef4444', marginBottom: '15px', paddingBottom: '5px' }}>GİDERLER</h3>
               {reportData.expenses.map((ex, i) => (
-                <div key={i} style={{ display: 'flex', justifySelf: 'space-between', marginBottom: '10px', fontSize: '22px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
-                  <span style={{ fontWeight: 'bold' }}>{ex.label}</span><span style={{ fontWeight: '900' }}>{formatCurrency(ex.total)}</span>
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '8px', fontSize: '18px', borderBottom: '1px solid #eee', paddingBottom: '4px' }}>
+                  <span style={{ fontWeight: 'bold', flex: '1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ex.label}</span><span style={{ fontWeight: '900', whiteSpace: 'nowrap' }}>{formatCurrency(ex.total)}</span>
                 </div>
               ))}
               <div style={{ marginTop: 'auto', paddingTop: '20px', textAlign: 'right' }}><span style={{ fontSize: '28px', fontWeight: '900', color: '#ef4444' }}>{formatCurrency(totalExpense)}</span></div>
             </div>
-            <div style={{ backgroundColor: '#fff', padding: '20px' }}>
+            <div style={{ backgroundColor: '#fff', padding: '16px 12px' }}>
               <h3 style={{ fontSize: '20px', fontWeight: '900', color: '#22c55e', borderBottom: '2px solid #22c55e', marginBottom: '15px', paddingBottom: '5px' }}>GELİRLER</h3>
-              {reportData.incomes.map((inc, i) => (
-                <div key={i} style={{ display: 'flex', justifySelf: 'space-between', marginBottom: '10px', fontSize: '22px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+              {[...(previousDevir !== 0 ? [{ label: 'ÖNCEKİ DÖNEMDEN DEVİR', total: previousDevir }] : []), ...displayIncomeItems].map((inc, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '8px', fontSize: '18px', borderBottom: '1px solid #eee', paddingBottom: '4px' }}>
                   <span style={{ fontWeight: 'bold', color: inc.label.includes('DEVİR') ? '#2563eb' : '#000' }}>{inc.label}</span><span style={{ fontWeight: '900', color: inc.label.includes('DEVİR') ? '#2563eb' : '#000' }}>{formatCurrency(inc.total)}</span>
                 </div>
               ))}
-              <div style={{ marginTop: 'auto', paddingTop: '20px', textAlign: 'right' }}><span style={{ fontSize: '28px', fontWeight: '900', color: '#22c55e' }}>{formatCurrency(totalIncome)}</span></div>
+              <div style={{ marginTop: 'auto', paddingTop: '20px', textAlign: 'right' }}><span style={{ fontSize: '28px', fontWeight: '900', color: '#22c55e' }}>{formatCurrency(totalIncomeForDisplay)}</span></div>
             </div>
           </div>
           <div style={{ marginTop: '30px', padding: '20px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', display: 'flex', justifySelf: 'space-between', alignItems: 'center' }}>

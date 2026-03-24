@@ -33,7 +33,7 @@ const Header: React.FC<HeaderProps> = ({ info, onLogout, onMessagesClick, unread
         <h1 className="text-lg font-medium text-white uppercase tracking-[0.2em] leading-none mb-1">
           {info.name || 'GALATA APARTMANI'}
         </h1>
-        <h2 className="text-[10px] font-medium text-blue-400 uppercase tracking-[0.1em] leading-none mt-[8px] opacity-60">
+        <h2 className="text-[15px] font-medium text-blue-400 uppercase tracking-[0.1em] leading-none mt-[18px] opacity-60">
           {info.managerName || 'YÖNETİCİ TANIMSIZ'}
         </h2>
       </div>

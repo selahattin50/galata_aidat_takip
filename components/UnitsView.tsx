@@ -6,6 +6,7 @@ import UnitDetailView from './UnitDetailView';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { PDFService } from '../pdfService';
+import { useAndroidBackHandler } from '../appBackButton';
 
 interface UnitsViewProps {
   units: Unit[];
@@ -24,6 +25,20 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+
+  useAndroidBackHandler(() => {
+    if (showAddModal) {
+      setShowAddModal(false);
+      return true;
+    }
+
+    if (selectedUnit) {
+      setSelectedUnit(null);
+      return true;
+    }
+
+    return false;
+  });
 
   const [formData, setFormData] = useState({
     no: '',
@@ -51,16 +66,26 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
     return str.replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  const normalizeUnitNo = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    if (/^\d+$/.test(trimmed)) {
+      return trimmed.replace(/^0+/, '');
+    }
+    return trimmed;
+  };
+
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
   };
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.no || !formData.ownerName) return;
+    const normalizedNo = normalizeUnitNo(formData.no);
+    if (!normalizedNo || !formData.ownerName) return;
     setIsSaving(true);
     onAddUnit({
-      no: formData.no,
+      no: normalizedNo,
       ownerName: toTitleCase(formData.ownerName),
       tenantName: formData.status === 'Kiracı' ? toTitleCase(formData.tenantName) : '',
       phone: formData.phone,
@@ -181,10 +206,10 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
         pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, imgWidth, imgHeight);
       }
 
-      const sanitizedBuildingName = info.name.replace(/[^a-zA-Z0-9]/g, '_');
+      const sanitizedBuildingName = info.name.replace(/[^a-zA-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
       const trMonths = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
       const currentMonthTr = trMonths[new Date().getMonth()];
-      const fileName = `${sanitizedBuildingName}_${currentMonthTr}_Ayi_Aidat_Cizelgesi.pdf`;
+      const fileName = `${sanitizedBuildingName} ${currentMonthTr} Ayi Aidat Cizelgesi.pdf`;
 
       const shouldShare = mode === 'share';
       const savedInfo = await PDFService.saveAndShareFromJsPDF(pdf, fileName, shouldShare);
@@ -249,38 +274,36 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
             <div
               key={unit.id}
               onClick={() => setSelectedUnit(unit)}
-              className="group bg-[#1e293b]/40 border border-white/5 rounded-[22px] py-2.5 px-2 active:scale-[0.98] transition-all relative overflow-hidden ring-1 ring-white/5 hover:bg-[#1e293b]/60 shadow-xl animate-card-in"
+              className="group bg-[#1e293b]/40 border border-white/5 rounded-[22px] py-1.5 px-2 active:scale-[0.98] transition-all relative overflow-hidden ring-1 ring-white/5 hover:bg-[#1e293b]/60 shadow-xl animate-card-in"
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 opacity-60" />
-              <div className="flex items-center justify-between relative z-10 pl-1.5">
-                <div className="flex items-center space-x-2 min-w-0">
-                  <div className="w-14 h-14 bg-[#030712] rounded-[18px] flex-shrink-0 flex items-center justify-center border border-white/5 shadow-inner">
-                    <span className="text-[20px] font-black text-white">{unit.no}</span>
+              <div className="flex items-center relative z-10 pl-1.5">
+                <div className="flex items-center space-x-2 min-w-0 flex-1 pr-1">
+                  <div className="w-12 h-12 bg-[#030712] rounded-[16px] flex-shrink-0 flex items-center justify-center border border-white/5 shadow-inner">
+                    <span className="text-[18px] font-black text-white">{unit.no}</span>
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <span className="text-[12px] font-black text-white uppercase tracking-tight group-hover:text-blue-400 transition-colors leading-tight mb-1 truncate whitespace-nowrap">
+                    <span className="text-[11px] font-black text-white uppercase tracking-tight group-hover:text-blue-400 transition-colors leading-tight mb-0.5 truncate whitespace-nowrap">
                       {unit.tenantName || unit.ownerName}
                     </span>
-                    <div className="flex items-center space-x-2">
+                     <div className="flex items-center space-x-1.5">
                       <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest flex-shrink-0 ${unit.tenantName ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>
                         {unit.tenantName ? 'Kiracı' : 'Malik'}
                       </span>
-                      <span className="text-[12px] text-green-500 font-bold font-mono tracking-tighter truncate">{unit.tenantPhone || unit.phone}</span>
+                      <span className="text-[12px] text-green-500 font-bold font-mono tracking-tighter">{unit.tenantPhone || unit.phone}</span>
                     </div>
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0 pl-2 min-w-[92px]">
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="px-2 py-1 rounded-xl border border-green-500/30 bg-green-500/10 min-w-[88px]">
-                      <div className="text-[7px] font-black uppercase tracking-widest text-green-500/70">Alacak</div>
-                      <div className="text-[13px] font-black tracking-tighter text-green-500">
+                <div className="text-right flex-shrink-0 pl-2 min-w-[74px]">
+                  <div className="flex flex-col items-end gap-1.5 leading-none">
+                    <div>
+                      <div className="text-[14px] font-black tracking-tighter text-green-500">
                         ₺{formatCurrency(unit.credit).replace('₺', '')}
                       </div>
                     </div>
-                    <div className="px-2 py-1 rounded-xl border border-red-500/30 bg-red-500/10 min-w-[88px]">
-                      <div className="text-[7px] font-black uppercase tracking-widest text-red-400/70">Borç</div>
-                      <div className="text-[13px] font-black tracking-tighter text-red-400">
+                    <div>
+                      <div className="text-[14px] font-black tracking-tighter text-red-400">
                         ₺{formatCurrency(unit.debt).replace('₺', '')}
                       </div>
                     </div>
@@ -331,7 +354,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
                       required
                       placeholder="No"
                       value={formData.no}
-                      onChange={(e) => setFormData({ ...formData, no: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, no: normalizeUnitNo(e.target.value) })}
                       className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-white text-[14px] font-black focus:outline-none focus:border-blue-500/50 transition-all"
                     />
                   </div>

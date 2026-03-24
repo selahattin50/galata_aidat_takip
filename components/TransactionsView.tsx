@@ -1,6 +1,6 @@
 
-import React, { useState, useRef, useMemo } from 'react';
-import { ArrowLeft, Inbox, Calendar, ChevronDown, X, Edit3, Save, Printer, Share2, CloudLightning, ShieldCheck, Trash2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ArrowLeft, Inbox, Calendar, ChevronDown, X, Edit3, Save, Share2, CloudLightning, Trash2 } from 'lucide-react';
 import { Transaction, Unit, FileEntry } from '../types.ts';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -117,8 +117,8 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
       const pdf = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a5' });
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 148, undefined, 'FAST');
 
-      const sanitizedUnitNo = getUnitNo(tx.unitId).toString().replace(/[^a-zA-Z0-9]/g, '_');
-      const fileName = `Daire_${sanitizedUnitNo}_${tx.date}_Dekont.pdf`;
+      const sanitizedUnitNo = getUnitNo(tx.unitId).toString().replace(/[^a-zA-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+      const fileName = `Daire ${sanitizedUnitNo} ${tx.date} Dekont.pdf`;
 
       const unit = units.find(u => u.id === tx.unitId);
       let phoneNumber = '';
@@ -160,6 +160,17 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                 <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest">AÇIKLAMA</p>
                 <p className="text-[26px] font-bold text-slate-700 leading-tight uppercase">
                   {(() => {
+                    if (txToPrint.type === 'GİDER') {
+                      const expenseDesc = txToPrint.description.split('[')[0].trim()
+                        .replace(/^MAKBUZ\s+/i, '')
+                        .replace(/\s+(MALİK|KİRACI)\s*$/i, '')
+                        .replace(/\b(MALİK|KİRACI)\b/gi, '')
+                        .replace(/\bG[İI]DER[İI]?\b/gi, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+
+                      return `${expenseDesc} ÖDEMESİ YAPILMIŞTIR`.toUpperCase();
+                    }
                     let desc = txToPrint.description.split('[')[0].trim()
                       .replace(/^MAKBUZ\s+/i, '')
                       .replace(/\s+(MALİK|KİRACI)\s*$/i, '')
@@ -167,6 +178,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                       .replace(/\bSERBEST\s+TAHSİLAT\b/gi, '')
                       .replace(/\s+/g, ' ')
                       .trim();
+                    const isExpense = txToPrint.type === 'GİDER';
 
                     if (desc.includes('(TAHSİLATI)') || desc.includes('TAHSİLATI') || desc.match(/\(EFT[\/\s]*HAVALE\)/i)) {
                       desc = desc.replace(/\(TAHSİLATİ\)/gi, 'EFT/HAVALE')
@@ -180,7 +192,12 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                       desc = desc.replace(/\(ELDEN\)/gi, 'NAKİT').replace(/ELDEN/gi, 'NAKİT');
                       if (!desc.toUpperCase().includes('TAHSİL EDİLMİŞTİR')) desc += " TAHSİL EDİLMİŞTİR";
                     }
-                    return desc.toUpperCase();
+                    const finalizedDesc = desc.toUpperCase();
+                    return isExpense
+                      ? finalizedDesc
+                          .replace(/İLE TAHSİL EDİLMİŞTİR/g, 'İLE ÖDEME YAPILMIŞTIR')
+                          .replace(/TAHSİL EDİLMİŞTİR/g, 'ÖDEME YAPILMIŞTIR')
+                      : finalizedDesc;
                   })()}
                 </p>
               </div>
@@ -196,7 +213,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                     <span className="text-[40px] font-black text-slate-950 leading-none tracking-tight">₺</span>
                     <span className="text-[42px] font-black text-slate-950 leading-none tracking-tight">{formatCurrency(txToPrint.amount)}</span>
                   </div>
-                  <div className="relative w-[150px] h-[150px] flex items-center justify-center mt-[-14px]">
+                  <div className="relative w-[150px] h-[150px] flex items-center justify-center mt-[8px]">
                     <div className="absolute inset-0 border-[5px] border-green-600 rounded-full"></div>
                     <div className="absolute inset-[10px] border-[2px] border-green-600 rounded-full"></div>
                     <svg viewBox="0 0 150 150" className="absolute inset-0 w-full h-full">

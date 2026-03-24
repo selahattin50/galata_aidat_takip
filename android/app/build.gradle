@@ -24,8 +24,70 @@ android {
     }
     
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    applicationVariants.configureEach { variant ->
+        variant.outputs.configureEach {
+            def buildTypeName = variant.buildType.name?.toLowerCase()
+            outputFileName = buildTypeName == "release"
+                ? "Galata Aidat Takip Release.apk"
+                : "Galata Aidat Takip.apk"
+        }
+    }
+}
+
+tasks.register("renameReleaseBundle") {
+    dependsOn("bundleRelease")
+
+    doLast {
+        def bundleDir = file("$buildDir/outputs/bundle/release")
+        def sourceFile = new File(bundleDir, "app-release.aab")
+        def targetFile = new File(bundleDir, "Galata Aidat Takip.aab")
+
+        if (!sourceFile.exists()) {
+            return
+        }
+
+        if (targetFile.exists()) {
+            targetFile.delete()
+        }
+
+        sourceFile.renameTo(targetFile)
+    }
+}
+
+tasks.register("copyDebugApkToDesktop") {
+    dependsOn("assembleDebug")
+
+    doLast {
+        def debugDir = file("$buildDir/outputs/apk/debug")
+        def sourceFile = new File(debugDir, "Galata Aidat Takip.apk")
+        def desktopDir = new File(System.getProperty("user.home"), "Desktop")
+        def targetFile = new File(desktopDir, "Galata Aidat Takip.apk")
+
+        if (!sourceFile.exists()) {
+            throw new GradleException("Debug APK bulunamadi: ${sourceFile.absolutePath}")
+        }
+
+        if (!desktopDir.exists()) {
+            desktopDir.mkdirs()
+        }
+
+        copy {
+            from sourceFile
+            into desktopDir
+            rename { "Galata Aidat Takip.apk" }
+        }
+
+        logger.lifecycle("Debug APK masaustune kopyalandi: ${targetFile.absolutePath}")
+    }
+}
+
+afterEvaluate {
+    tasks.named("assembleDebug") {
+        finalizedBy("copyDebugApkToDesktop")
     }
 }
 

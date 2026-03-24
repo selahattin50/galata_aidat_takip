@@ -1,31 +1,44 @@
 
-import React, { useState } from 'react';
-import { Save, Loader2, X, Check, ChevronRight, UserCog, Building2, ShieldCheck, ToggleLeft, ToggleRight, ArrowLeft, TriangleAlert } from 'lucide-react';
+import React, { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
+import { Save, Loader2, X, Check, ChevronLeft, ChevronRight, UserCog, Building2, ShieldCheck, ToggleLeft, ToggleRight, ArrowLeft, TriangleAlert } from 'lucide-react';
 import { BuildingInfo, Unit } from '../types.ts';
 import { db } from '../databaseService';
 import { auth } from '../firebaseConfig';
 import UserManagementView from './UserManagementView.tsx';
+import { useAndroidBackHandler } from '../appBackButton';
 
-class SettingsErrorBoundary extends React.Component<any, any> {
-  constructor(props: any) {
+interface SettingsErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface SettingsErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class SettingsErrorBoundary extends Component<SettingsErrorBoundaryProps, SettingsErrorBoundaryState> {
+  declare props: SettingsErrorBoundaryProps;
+  declare state: SettingsErrorBoundaryState;
+
+  constructor(props: SettingsErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }
-  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
-  componentDidCatch(error: any, errorInfo: any) { console.error('Settings Crash:', error, errorInfo); }
+  static getDerivedStateFromError(error: Error): SettingsErrorBoundaryState { return { hasError: true, error }; }
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error('Settings Crash:', error, errorInfo); }
   render() {
-    if ((this.state as any).hasError) {
+    if (this.state.hasError) {
       return (
         <div className="p-8 pb-32 pt-24 text-red-500 bg-black min-h-screen z-[999] relative">
           <h1 className="font-black text-xl mb-4 text-white">Ayarlar Ekranı Çöktü :(</h1>
           <p className="font-bold text-sm bg-red-900/30 p-4 rounded-xl border border-red-500/50 break-all">
-            {((this.state as any).error)?.toString() || 'Bilinmeyen Hata'}
+            {this.state.error?.toString() || 'Bilinmeyen Hata'}
           </p>
           <button onClick={() => window.location.reload()} className="mt-8 bg-white/10 p-3 rounded-lg text-white font-bold w-full active:scale-95">Yenile</button>
         </div>
       );
     }
-    return (this.props as any).children;
+    return this.props.children;
   }
 }
 
@@ -39,19 +52,44 @@ interface SettingsViewProps {
 }
 
 const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuildingInfo, units, onResetMoney, onClose }) => {
+  const BULK_MESSAGE_EDITOR_KEY = 'galata_bulk_message_editor';
   const [st, setSt] = useState({
     name: buildingInfo?.name || '',
     address: buildingInfo?.address || '',
     managerName: buildingInfo?.managerName || '',
     taxNo: buildingInfo?.taxNo || '',
-    duesAmount: (buildingInfo?.duesAmount || 750).toString(),
+    duesAmount: (buildingInfo?.duesAmount ?? 0).toString(),
     managerUnitId: buildingInfo?.managerUnitId || '',
     isManagerExempt: buildingInfo?.isManagerExempt || false,
-    isAutoDuesEnabled: buildingInfo?.isAutoDuesEnabled || false
+    isAutoDuesEnabled: buildingInfo?.isAutoDuesEnabled || false,
+    isBulkMessageEnabled: buildingInfo?.isBulkMessageEnabled !== false,
+    bulkMessageInfoDay: (buildingInfo?.bulkMessageInfoDay || 1).toString(),
+    bulkMessageReminderDay: (buildingInfo?.bulkMessageReminderDay || buildingInfo?.bulkMessageStartDay || 19).toString()
   });
   const [showUnitModal, setShowUnitModal] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [bulkMessageEditor, setBulkMessageEditor] = useState<'info' | 'reminder'>(() => {
+    const savedEditor = localStorage.getItem(BULK_MESSAGE_EDITOR_KEY);
+    return savedEditor === 'reminder' ? 'reminder' : 'info';
+  });
+
+  useEffect(() => {
+    localStorage.setItem(BULK_MESSAGE_EDITOR_KEY, bulkMessageEditor);
+  }, [bulkMessageEditor]);
+  useAndroidBackHandler(() => {
+    if (showUnitModal) {
+      setShowUnitModal(false);
+      return true;
+    }
+
+    if (showAdminPanel) {
+      setShowAdminPanel(false);
+      return true;
+    }
+
+    return false;
+  });
 
   // handleLogout kullanabilmek için props veya global store gerek ama burda App'ten gelmiyor.
   // Bu yüzden login ekranına atmak için basit bir yöntem:
@@ -69,6 +107,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
   };
 
   const handleSave = async () => {
+    const normalizedBulkMessageInfoDay = Math.min(28, Math.max(1, parseInt(st.bulkMessageInfoDay, 10) || 1));
+    const normalizedBulkMessageReminderDay = Math.max(
+      normalizedBulkMessageInfoDay,
+      Math.min(28, Math.max(1, parseInt(st.bulkMessageReminderDay, 10) || 19))
+    );
     setIsSaving(true);
     await new Promise(r => setTimeout(r, 800));
     onUpdateBuildingInfo({
@@ -80,8 +123,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
       duesAmount: parseFloat(st.duesAmount) || 0,
       managerUnitId: st.managerUnitId,
       isManagerExempt: st.isManagerExempt,
-      isAutoDuesEnabled: st.isAutoDuesEnabled
+      isAutoDuesEnabled: st.isAutoDuesEnabled,
+      isBulkMessageEnabled: st.isBulkMessageEnabled,
+      bulkMessageInfoDay: normalizedBulkMessageInfoDay,
+      bulkMessageReminderDay: normalizedBulkMessageReminderDay,
+      bulkMessageStartDay: normalizedBulkMessageReminderDay
     });
+    setSt(prev => ({
+      ...prev,
+      bulkMessageInfoDay: normalizedBulkMessageInfoDay.toString(),
+      bulkMessageReminderDay: normalizedBulkMessageReminderDay.toString()
+    }));
     setIsSaving(false);
   };
 
@@ -125,7 +177,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
                   value={st.name}
                   onChange={e => setSt({ ...st, name: e.target.value })}
                   className="bg-transparent outline-none font-black text-lg w-full text-white"
-                  placeholder="Galata Apartmanı"
+                  placeholder="Yeni Yönetim"
                 />
               </div>
 
@@ -253,6 +305,88 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
                 </>
               )}
             </button>
+
+            <div className="space-y-4 rounded-[28px] border border-white/5 bg-black/20 p-4">
+              <div className="flex items-center justify-between bg-black/20 p-4 rounded-3xl border border-white/5">
+                <div className="flex flex-col">
+                  <p className="text-[12px] font-black uppercase tracking-wider text-white/90">Toplu Mesaj Oluşturma</p>
+                  <p className="text-[8px] font-bold text-white/30 uppercase mt-0.5">Açıkken bilgilendirme ve hatırlatma günlerine göre kart üretir</p>
+                </div>
+                <button
+                  onClick={() => setSt({ ...st, isBulkMessageEnabled: !st.isBulkMessageEnabled })}
+                  className={`transition-all ${st.isBulkMessageEnabled ? "text-blue-400" : "text-white/20"}`}
+                >
+                  {st.isBulkMessageEnabled ? <ToggleRight size={36} /> : <ToggleLeft size={36} />}
+                </button>
+              </div>
+
+              <div className={`space-y-3 bg-black/30 p-4 rounded-3xl border border-white/5 shadow-inner transition-all ${st.isBulkMessageEnabled ? 'opacity-100' : 'opacity-50'}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <label className="text-[9px] font-black opacity-30 uppercase block mb-1.5 ml-1">
+                      {bulkMessageEditor === 'info' ? 'M1 Tarihi' : 'M2 Tarihi'}
+                    </label>
+                    <div className="text-[8px] font-bold uppercase tracking-[0.18em] text-white/25 ml-1">
+                      {bulkMessageEditor === 'info' ? 'M1 = Aidat Olusturuldu' : 'M2 = Aidat Hatirlatma'}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center rounded-2xl border border-white/10 bg-white/5 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setBulkMessageEditor('info')}
+                      className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${bulkMessageEditor === 'info' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-white/40'}`}
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <div className="px-3 text-center">
+                      <div className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-200">
+                        {bulkMessageEditor === 'info' ? 'M1' : 'M2'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setBulkMessageEditor('reminder')}
+                      className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${bulkMessageEditor === 'reminder' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-white/40'}`}
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <input
+                    type="number"
+                    min="1"
+                    max="28"
+                    value={bulkMessageEditor === 'info' ? st.bulkMessageInfoDay : st.bulkMessageReminderDay}
+                    onChange={e => setSt({
+                      ...st,
+                      [bulkMessageEditor === 'info' ? 'bulkMessageInfoDay' : 'bulkMessageReminderDay']: e.target.value
+                    })}
+                    disabled={!st.isBulkMessageEnabled}
+                    className="bg-transparent outline-none font-black text-2xl w-full text-white disabled:text-white/40"
+                    placeholder={bulkMessageEditor === 'info' ? '1' : '19'}
+                  />
+                  <span className="shrink-0 rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-blue-300/80">
+                    {bulkMessageEditor === 'info' ? 'M1' : 'M2'}
+                  </span>
+                </div>
+
+                <p className="mt-2 text-[9px] font-bold text-white/35">
+                  {bulkMessageEditor === 'info'
+                    ? 'M1 gununde kart tipi "Aidat Olusturuldu" olur.'
+                    : 'M2 gununde kart tipi "Aidat Hatirlatma" olur.'}
+                </p>
+
+                <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.16em] text-white/20">
+                  Değişiklikten sonra üstteki ayarları kaydet butonuna basın.
+                </p>
+                <p className="mt-1 text-[8px] font-bold text-white/25">
+                  Buradaki M1-M2 secimi sadece hangi gunu duzenlediginizi belirler. Gonderilecek kart tipi tarihe gore otomatik secilir.
+                </p>
+              </div>
+            </div>
             {auth.currentUser?.email === 'selahattin50@gmail.com' && (
               <button
                 onClick={() => setShowAdminPanel(true)}

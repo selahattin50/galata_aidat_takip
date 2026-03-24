@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Lock, User, Eye, EyeOff, Loader2, Building2, ShieldCheck, Check, Info, Mail } from 'lucide-react';
+import { useAndroidBackHandler } from '../appBackButton';
 
 interface LoginViewProps {
   onLogin: (remember: boolean) => void;
@@ -30,6 +31,18 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
     // Eski şifre kaydı kalmışsa güvenlik için temizle
     localStorage.removeItem('galata_remembered_password');
   }, []);
+
+  useAndroidBackHandler(() => {
+    if (!showForgotPassword) {
+      return false;
+    }
+
+    setShowForgotPassword(false);
+    setResetEmail('');
+    setError('');
+    setResetMessage('');
+    return true;
+  });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

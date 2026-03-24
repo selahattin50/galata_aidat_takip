@@ -65,7 +65,7 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
       .reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
     let runningCredit = regularIncome - totalManualDebt;
-    const duesValue = info.duesAmount || 750;
+    const duesValue = info.duesAmount ?? 0;
 
     // Her ay için sırayla kontrol et
     for (let m = 0; m <= 11; m++) {

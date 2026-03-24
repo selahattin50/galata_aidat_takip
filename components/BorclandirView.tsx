@@ -48,7 +48,7 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
       ...prev,
       unitId: unit.id,
       debtorType: unit.tenantName ? 'Kiracı' : 'Malik',
-      amount: prev.amount || (info.duesAmount || 750).toString()
+      amount: prev.amount || (info.duesAmount ?? 0).toString()
     }));
     setShowUnitList(false);
   };

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Inbox, ChevronDown, ArrowLeft, TrendingUp, AlertCircle, CalendarDays } from 'lucide-react';
+import { Inbox, ChevronDown, ArrowLeft, CalendarDays } from 'lucide-react';
 import { Unit, BuildingInfo, Transaction } from '../types.ts';
 
 interface AidatCizelgeViewProps {
@@ -31,7 +31,7 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
       return 'exempt';
     }
 
-    const duesValue = info.duesAmount || 750;
+    const duesValue = info.duesAmount ?? 0;
     const currentYear = new Date().getFullYear();
 
     for (let m = 1; m <= 12; m++) {
@@ -56,21 +56,6 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
     }
 
     return 'none';
-  };
-
-  const stats = useMemo(() => {
-    const actualCollection = transactions.reduce((sum, tx) => {
-      if (tx.type === 'GELİR' && tx.periodYear === selectedYear) return sum + tx.amount;
-      return sum;
-    }, 0);
-
-    const totalPending = units.reduce((sum, u) => sum + u.debt, 0);
-
-    return { collected: actualCollection, pending: totalPending };
-  }, [units, transactions, selectedYear]);
-
-  const formatCurrency = (val: number) => {
-    return "₺" + new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 0 }).format(val);
   };
 
   return (
@@ -101,23 +86,6 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 px-1">
-          <div className="bg-[#0f172a] border border-green-500/20 rounded-[24px] p-3 flex flex-col items-center justify-center text-center shadow-lg">
-            <div className="flex items-center space-x-1.5 mb-1">
-              <TrendingUp size={12} className="text-green-500" />
-              <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.15em]">GERÇEK TAHSİLAT</span>
-            </div>
-            <p className="text-lg font-black text-white tracking-tight leading-none">{formatCurrency(stats.collected)}</p>
-          </div>
-
-          <div className="bg-[#0f172a] border border-red-500/20 rounded-[24px] p-3 flex flex-col items-center justify-center text-center shadow-lg">
-            <div className="flex items-center space-x-1.5 mb-1">
-              <AlertCircle size={12} className="text-red-500" />
-              <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.15em]">TOPLAM ALACAK</span>
-            </div>
-            <p className="text-lg font-black text-red-500 tracking-tight leading-none">{formatCurrency(stats.pending)}</p>
-          </div>
-        </div>
       </div>
 
       <div className="px-2 mt-4 space-y-2">

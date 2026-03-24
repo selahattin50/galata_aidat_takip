@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Home, ArrowLeft, Building2, Pencil, MapPin, User, Users, Check, Loader2 } from 'lucide-react';
 import { BuildingInfo, Unit } from '../types.ts';
 import { db } from '../databaseService';
+import { useAndroidBackHandler } from '../appBackButton';
 
 interface SessionsViewProps {
   info: BuildingInfo;
@@ -23,13 +24,26 @@ const SessionsView: React.FC<SessionsViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSiteName, setNewSiteName] = useState('');
+  useAndroidBackHandler(() => {
+    if (showCreateModal) {
+      setShowCreateModal(false);
+      return true;
+    }
+
+    if (isEditing) {
+      setIsEditing(false);
+      return true;
+    }
+
+    return false;
+  });
 
   const [formData, setFormData] = useState({
     name: info.name || '',
     managerName: info.managerName || '',
     address: info.address || '',
     taxNo: info.taxNo || '',
-    unitCount: units?.length || 0
+    unitCount: units?.length ? units.length.toString() : ''
   });
 
   const toTitleCase = (str: string) => {
@@ -46,6 +60,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
       alert("Lütfen zorunlu alanları (*) doldurunuz.");
       return;
     }
+    const normalizedUnitCount = parseInt(formData.unitCount, 10) || 0;
     setIsSubmitting(true);
 
     try {
@@ -62,8 +77,8 @@ const SessionsView: React.FC<SessionsViewProps> = ({
       await db.saveBuildingInfo(updatedInfo);
 
       // Daire sayısı değişmişse App.tsx'e bildir
-      if (formData.unitCount !== units.length) {
-        await onUpdateUnits(formData.unitCount);
+      if (normalizedUnitCount !== units.length) {
+        await onUpdateUnits(normalizedUnitCount);
       }
 
       onUpdateInfo(updatedInfo);
@@ -127,7 +142,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                 type="number"
                 placeholder="0"
                 value={formData.unitCount}
-                onChange={e => setFormData({ ...formData, unitCount: parseInt(e.target.value) || 0 })}
+                onChange={e => setFormData({ ...formData, unitCount: e.target.value })}
                 className="w-full h-14 bg-[#111827] border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-[14px] font-bold text-white outline-none focus:border-blue-500/50 transition-all placeholder:text-white/10"
               />
               <Users size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-blue-500/50 transition-colors" />

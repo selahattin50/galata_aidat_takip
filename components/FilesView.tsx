@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { FileText, FilePlus, Search, X, Trash2, File, ImageIcon, FileCode, ChevronRight, FolderOpen, Filter, ArrowLeft, ExternalLink, Share2 } from 'lucide-react';
 import { FileEntry } from '../types.ts';
+import { useAndroidBackHandler } from '../appBackButton';
 
 interface FilesViewProps {
   files: FileEntry[];
@@ -15,6 +16,15 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('Hepsi');
+
+  useAndroidBackHandler(() => {
+    if (!showAddModal) {
+      return false;
+    }
+
+    setShowAddModal(false);
+    return true;
+  });
 
   const [fileName, setFileName] = useState('');
   const [fileCategory, setFileCategory] = useState<FileEntry['category']>('Fatura');

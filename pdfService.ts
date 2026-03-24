@@ -1,11 +1,10 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
-import { Browser } from '@capacitor/browser';
 import { registerPlugin } from '@capacitor/core';
 
 export interface WhatsAppSharePlugin {
-  shareToWhatsApp(options: { phoneNumber: string; filePath: string }): Promise<void>;
+  shareToWhatsApp(options: { phoneNumber: string; filePath: string; mimeType?: string }): Promise<void>;
 }
 
 const WhatsAppShare = registerPlugin<WhatsAppSharePlugin>('WhatsAppShare');
@@ -163,6 +162,64 @@ export class PDFService {
   static async saveAndShareFromJsPDF(pdf: any, fileName: string, shouldShare: boolean = true, phoneNumber?: string): Promise<SavedPDFInfo> {
     const blob = pdf.output('blob');
     return await this.saveAndSharePDF(blob, fileName, shouldShare, phoneNumber);
+  }
+
+  static async saveAndShareImage(dataUrl: string, fileName: string, phoneNumber?: string): Promise<SavedPDFInfo> {
+    try {
+      const base64Data = dataUrl.split(',')[1];
+      const mimeType = dataUrl.match(/^data:(.*?);base64,/)?.[1] || 'image/png';
+      const approximateSize = Math.round((base64Data.length * 3) / 4);
+
+      if (Capacitor.isNativePlatform()) {
+        const savedFile = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Data,
+        });
+
+        if (phoneNumber && phoneNumber.length > 0) {
+          let formattedPhone = phoneNumber.replace(/\s+/g, '');
+          if (formattedPhone.startsWith('0')) {
+            formattedPhone = '90' + formattedPhone.substring(1);
+          }
+          if (!formattedPhone.startsWith('90') && !formattedPhone.startsWith('+')) {
+            formattedPhone = '90' + formattedPhone;
+          }
+
+          try {
+            await WhatsAppShare.shareToWhatsApp({
+              phoneNumber: formattedPhone.replace('+', ''),
+              filePath: savedFile.uri,
+              mimeType,
+            });
+          } catch (shareError) {
+            console.error('WhatsApp görsel paylaşma hatası, genel paylaşıma dönülüyor:', shareError);
+            await Share.share({
+              title: 'Hatırlatma Kartı',
+              text: fileName,
+              url: savedFile.uri,
+              dialogTitle: 'Kartı paylaş',
+            });
+          }
+        } else {
+          await Share.share({
+            title: 'Hatırlatma Kartı',
+            text: fileName,
+            url: savedFile.uri,
+            dialogTitle: 'Kartı paylaş',
+          });
+        }
+
+        return { uri: savedFile.uri, size: approximateSize, fileName };
+      }
+
+      const blob = await fetch(dataUrl).then(response => response.blob());
+      this.downloadInBrowser(blob, fileName);
+      return { uri: '', size: approximateSize, fileName };
+    } catch (error) {
+      console.error('Görsel kaydetme/paylaşma hatası:', error);
+      throw error;
+    }
   }
 
   /**

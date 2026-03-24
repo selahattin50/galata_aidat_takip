@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Building, Mail, Lock, User, Phone, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { useAndroidBackHandler } from '../appBackButton';
 
 interface RegisterViewProps {
   onBackToLogin: () => void;
@@ -13,6 +14,11 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
   const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useAndroidBackHandler(() => {
+    onBackToLogin();
+    return true;
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

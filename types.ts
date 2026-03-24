@@ -18,6 +18,10 @@ export interface BuildingInfo {
   managerUnitId?: string;
   isManagerExempt: boolean;
   isAutoDuesEnabled: boolean;
+  isBulkMessageEnabled?: boolean;
+  bulkMessageInfoDay?: number;
+  bulkMessageReminderDay?: number;
+  bulkMessageStartDay?: number;
 }
 
 export interface OwnerHistory {

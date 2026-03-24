@@ -27,6 +27,7 @@ class WhatsAppSharePlugin extends Plugin {
     public void shareToWhatsApp(PluginCall call) {
         String phoneNumber = call.getString("phoneNumber");
         String filePath = call.getString("filePath");
+        String mimeType = call.getString("mimeType", "application/pdf");
         
         if (phoneNumber == null || phoneNumber.isEmpty()) {
             call.reject("Phone number is required");
@@ -55,7 +56,7 @@ class WhatsAppSharePlugin extends Plugin {
             
             // WhatsApp intent oluştur
             Intent intent = new Intent(Intent.ACTION_SEND);
-            intent.setType("application/pdf");
+            intent.setType(mimeType);
             intent.setPackage("com.whatsapp");
             intent.putExtra(Intent.EXTRA_STREAM, fileUri);
             intent.putExtra("jid", phoneNumber + "@s.whatsapp.net");
