@@ -306,85 +306,84 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
               )}
             </button>
 
-            <div className="space-y-4 rounded-[28px] border border-white/5 bg-black/20 p-4">
-              <div className="flex items-center justify-between bg-black/20 p-4 rounded-3xl border border-white/5">
-                <div className="flex flex-col">
-                  <p className="text-[12px] font-black uppercase tracking-wider text-white/90">Toplu Mesaj Oluşturma</p>
-                  <p className="text-[8px] font-bold text-white/30 uppercase mt-0.5">Açıkken bilgilendirme ve hatırlatma günlerine göre kart üretir</p>
+            <div className="space-y-4 rounded-[40px] bg-[#0c1222] p-5 border border-white/5 shadow-2xl relative overflow-hidden">
+              {/* TOPLU MESAJ OLUŞTURMA BAŞLIĞI VE TOGGLE */}
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col space-y-0.5">
+                  <h2 className="text-sm font-black tracking-[0.15em] text-white">TOPLU MESAJ OLUŞTURMA</h2>
+                  <p className="text-[9px] font-bold text-zinc-500 max-w-[200px] uppercase tracking-wider leading-relaxed">
+                    AÇIKKEN BİLGİLENDİRME VE HATIRLATMA GÜNLERİNE GÖRE KART ÜRETİR
+                  </p>
                 </div>
-                <button
+                
+                {/* Custom Toggle Switch */}
+                <button 
                   onClick={() => setSt({ ...st, isBulkMessageEnabled: !st.isBulkMessageEnabled })}
-                  className={`transition-all ${st.isBulkMessageEnabled ? "text-blue-400" : "text-white/20"}`}
+                  className={`relative w-12 h-7 rounded-full border-2 transition-all duration-300 flex items-center px-1 ${
+                    st.isBulkMessageEnabled 
+                      ? "border-[#3b82f6] bg-[#3b82f6]/10" 
+                      : "border-zinc-700 bg-transparent"
+                  }`}
                 >
-                  {st.isBulkMessageEnabled ? <ToggleRight size={36} /> : <ToggleLeft size={36} />}
+                  <div className={`w-4 h-4 rounded-full transition-all duration-300 ${
+                    st.isBulkMessageEnabled 
+                      ? "translate-x-5 bg-[#3b82f6] shadow-[0_0_10px_rgba(59,130,246,0.8)]" 
+                      : "translate-x-0 bg-zinc-600"
+                  }`} />
                 </button>
               </div>
 
-              <div className={`space-y-3 bg-black/30 p-4 rounded-3xl border border-white/5 shadow-inner transition-all ${st.isBulkMessageEnabled ? 'opacity-100' : 'opacity-50'}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <label className="text-[9px] font-black opacity-30 uppercase block mb-1.5 ml-1">
-                      {bulkMessageEditor === 'info' ? 'M1 Tarihi' : 'M2 Tarihi'}
-                    </label>
-                    <div className="text-[8px] font-bold uppercase tracking-[0.18em] text-white/25 ml-1">
-                      {bulkMessageEditor === 'info' ? 'M1 = Aidat Olusturuldu' : 'M2 = Aidat Hatirlatma'}
-                    </div>
+              {/* M1 M2 SEÇME BÖLÜMÜ */}
+              <div className={`space-y-4 transition-all duration-500 ${st.isBulkMessageEnabled ? 'opacity-100' : 'opacity-30 pointer-events-none'}`}>
+                
+                <div className="flex items-center justify-around bg-[#111827] rounded-[30px] p-4 border border-white/5 shadow-inner">
+                  {/* M1 Butonu */}
+                  <button
+                    onClick={() => setBulkMessageEditor('info')}
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
+                      bulkMessageEditor === 'info'
+                        ? 'bg-[#7dd3fc] text-[#0f172a] shadow-[0_0_20px_rgba(125,211,252,0.4)] scale-110'
+                        : 'bg-[#1f2937] text-zinc-400'
+                    }`}
+                  >
+                    <span className="text-lg font-black italic">M 1</span>
+                  </button>
+
+                  {/* Orta Bilgi Kartı */}
+                  <div className="flex-1 max-w-[150px] mx-2 flex flex-col items-center justify-center p-3 border border-zinc-800 rounded-[25px] bg-black/20 min-h-[80px]">
+                    <span className="text-[8px] font-black text-center text-zinc-400 uppercase tracking-widest mb-1">
+                      {bulkMessageEditor === 'info' ? 'M1 AİDAT BİLGİLENDİRME' : 'M2 AİDAT HATIRLATMASI'}
+                    </span>
+                    <input
+                      type="number"
+                      value={bulkMessageEditor === 'info' ? st.bulkMessageInfoDay : st.bulkMessageReminderDay}
+                      onChange={e => setSt({
+                        ...st,
+                        [bulkMessageEditor === 'info' ? 'bulkMessageInfoDay' : 'bulkMessageReminderDay']: e.target.value
+                      })}
+                      className="bg-transparent text-center outline-none font-black text-3xl text-white w-full"
+                    />
                   </div>
 
-                  <div className="flex items-center rounded-2xl border border-white/10 bg-white/5 p-1">
-                    <button
-                      type="button"
-                      onClick={() => setBulkMessageEditor('info')}
-                      className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${bulkMessageEditor === 'info' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-white/40'}`}
-                    >
-                      <ChevronLeft size={16} />
-                    </button>
-                    <div className="px-3 text-center">
-                      <div className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-200">
-                        {bulkMessageEditor === 'info' ? 'M1' : 'M2'}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setBulkMessageEditor('reminder')}
-                      className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${bulkMessageEditor === 'reminder' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-white/40'}`}
-                    >
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
+                  {/* M2 Butonu */}
+                  <button
+                    onClick={() => setBulkMessageEditor('reminder')}
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
+                      bulkMessageEditor === 'reminder'
+                        ? 'bg-[#7dd3fc] text-[#0f172a] shadow-[0_0_20px_rgba(125,211,252,0.4)] scale-110'
+                        : 'bg-[#1f2937] text-zinc-400'
+                    }`}
+                  >
+                    <span className="text-lg font-black italic">M 2</span>
+                  </button>
                 </div>
 
-                <div className="flex items-center justify-between gap-3">
-                  <input
-                    type="number"
-                    min="1"
-                    max="28"
-                    value={bulkMessageEditor === 'info' ? st.bulkMessageInfoDay : st.bulkMessageReminderDay}
-                    onChange={e => setSt({
-                      ...st,
-                      [bulkMessageEditor === 'info' ? 'bulkMessageInfoDay' : 'bulkMessageReminderDay']: e.target.value
-                    })}
-                    disabled={!st.isBulkMessageEnabled}
-                    className="bg-transparent outline-none font-black text-2xl w-full text-white disabled:text-white/40"
-                    placeholder={bulkMessageEditor === 'info' ? '1' : '19'}
-                  />
-                  <span className="shrink-0 rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-blue-300/80">
-                    {bulkMessageEditor === 'info' ? 'M1' : 'M2'}
-                  </span>
+                {/* Alt Metinler */}
+                <div className="px-2">
+                  <p className="text-[10px] font-black text-white/70 leading-relaxed text-center">
+                    Degisiklikten sonra ustteki ayarlari kaydet butonuna basin.
+                  </p>
                 </div>
-
-                <p className="mt-2 text-[9px] font-bold text-white/35">
-                  {bulkMessageEditor === 'info'
-                    ? 'M1 gununde kart tipi "Aidat Olusturuldu" olur.'
-                    : 'M2 gununde kart tipi "Aidat Hatirlatma" olur.'}
-                </p>
-
-                <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.16em] text-white/20">
-                  Değişiklikten sonra üstteki ayarları kaydet butonuna basın.
-                </p>
-                <p className="mt-1 text-[8px] font-bold text-white/25">
-                  Buradaki M1-M2 secimi sadece hangi gunu duzenlediginizi belirler. Gonderilecek kart tipi tarihe gore otomatik secilir.
-                </p>
               </div>
             </div>
             {auth.currentUser?.email === 'selahattin50@gmail.com' && (
