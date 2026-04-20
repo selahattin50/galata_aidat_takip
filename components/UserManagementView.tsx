@@ -3,6 +3,7 @@ import { ArrowLeft, Users, Mail, Phone, Calendar, Trash2, Loader2, ShieldCheck, 
 import { db } from '../databaseService';
 import { auth } from '../firebaseConfig';
 import { useAndroidBackHandler } from '../appBackButton';
+import { PROTECTED_ADMIN_PROFILE, isProtectedAdminEmail } from '../adminProfile';
 
 interface User {
   uid?: string;
@@ -11,6 +12,8 @@ interface User {
   name: string;
   phone: string;
   createdAt: string;
+  role?: string;
+  buildingName?: string;
 }
 
 interface UserManagementViewProps {
@@ -43,6 +46,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
   const [migrationSource, setMigrationSource] = useState('');
   const [migrationTarget, setMigrationTarget] = useState('');
   const [isMigrating, setIsMigrating] = useState(false);
+  const isProtectedAdmin = (user?: Pick<User, 'email'> | null) => isProtectedAdminEmail(user?.email);
   useAndroidBackHandler(() => {
     if (showDeleteModal) {
       setShowDeleteModal(false);
@@ -81,7 +85,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
   const getSourceLabel = (sourcePath: string, data: any, fallbackId: string) => {
     const profile = data?.building_info || {};
     const siteName = profile?.name || profile?.managerName;
-    const email = data?.email;
+    const email = data?.email || (fallbackId === auth.currentUser?.uid ? auth.currentUser?.email : '');
 
     if (sourcePath.includes('/sites/')) {
       return siteName || `Alt Site: ${fallbackId}`;
@@ -90,11 +94,37 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
     return email || siteName || `Kullanici: ${fallbackId}`;
   };
 
-  const loadUsers = async () => {
+  const resolveUserRecord = (rawUserData: any, profile: any, fallbackId: string, sourcePath: string): User => {
+    const fallbackEmail = fallbackId === auth.currentUser?.uid ? (auth.currentUser?.email || '') : '';
+    const resolvedEmail = rawUserData?.email || fallbackEmail || `UID: ${fallbackId.substring(0, 6)}...`;
+    const resolvedName =
+      (isProtectedAdminEmail(resolvedEmail) ? PROTECTED_ADMIN_PROFILE.name : rawUserData?.name) ||
+      rawUserData?.displayName ||
+      profile?.managerName ||
+      resolvedEmail.split('@')[0] ||
+      'İsimsiz Kullanıcı';
+
+    return {
+      uid: fallbackId,
+      sourcePath,
+      email: resolvedEmail,
+      name: resolvedName,
+      phone: isProtectedAdminEmail(resolvedEmail) ? PROTECTED_ADMIN_PROFILE.phone : (rawUserData?.phone || ''),
+      createdAt: rawUserData?.createdAt || '',
+      role: rawUserData?.role || profile?.role || (isProtectedAdminEmail(resolvedEmail) ? PROTECTED_ADMIN_PROFILE.role : 'Yönetici'),
+      buildingName: profile?.name || ''
+    };
+  };
+
+  const loadUsers = async (options?: { showCloudSummary?: boolean }) => {
+    const showCloudSummary = options?.showCloudSummary === true;
+
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      setCloudScanSummary(null);
+      if (!showCloudSummary) {
+        setCloudScanSummary(null);
+      }
       setDebugInfo('Tarama başlatılıyor...');
 
       let finalUsers: User[] = [];
@@ -140,9 +170,11 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
             uid: uid,
             sourcePath: `_userProfiles/${uid}`,
             email: usersData[uid].email,
-            name: usersData[uid].name,
-            phone: usersData[uid].phone,
-            createdAt: usersData[uid].createdAt
+            name: isProtectedAdminEmail(usersData[uid].email) ? PROTECTED_ADMIN_PROFILE.name : usersData[uid].name,
+            phone: isProtectedAdminEmail(usersData[uid].email) ? PROTECTED_ADMIN_PROFILE.phone : usersData[uid].phone,
+            createdAt: usersData[uid].createdAt,
+            role: usersData[uid].role || (isProtectedAdminEmail(usersData[uid].email) ? PROTECTED_ADMIN_PROFILE.role : 'Yönetici'),
+            buildingName: usersData[uid].buildingName || ''
           }));
           finalUsers = [...finalUsers, ...profileList];
           setDebugInfo(`_userProfiles: ${profileList.length} kullanıcı bulundu.`);
@@ -169,14 +201,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
             // Eğer bu UID zaten finalUsers'da yoksa ekle
             if (!finalUsers.find(u => u.sourcePath === `users/${uid}`)) {
               const profile = rootUserData?.building_info || {};
-              finalUsers.push({
-                uid: uid,
-                sourcePath: `users/${uid}`,
-                email: rootUserData?.email || (profile.managerName ? `${profile.managerName} (Bina: ${profile.name || '?'})` : `UID: ${uid.substring(0, 6)}...`),
-                name: profile.name || profile.managerName || 'İsimsiz Kullanıcı',
-                phone: '',
-                createdAt: ''
-              });
+              finalUsers.push(resolveUserRecord(rootUserData, profile, uid, `users/${uid}`));
               count++;
             }
             const sites = rootUserData?.sites;
@@ -187,14 +212,18 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
                 const profile = siteData?.building_info || {};
                 const sourcePath = `users/${uid}/sites/${siteId}`;
                 if (!finalUsers.find(u => u.sourcePath === sourcePath)) {
-                  finalUsers.push({
-                    uid: `${uid}:${siteId}`,
-                    sourcePath: sourcePath,
-                    email: rootUserData?.email || (profile.managerName ? `${profile.managerName} (Site: ${profile.name || siteId})` : `Site: ${siteId}`),
-                    name: profile.name || profile.managerName || `Site: ${siteId}`,
-                    phone: '',
-                    createdAt: ''
-                  });
+                  finalUsers.push(resolveUserRecord(
+                    {
+                      email: siteData?.email || rootUserData?.email,
+                      name: siteData?.name || rootUserData?.name,
+                      phone: siteData?.phone || rootUserData?.phone,
+                      createdAt: siteData?.createdAt || rootUserData?.createdAt,
+                      role: siteData?.role || rootUserData?.role
+                    },
+                    profile,
+                    `${uid}:${siteId}`,
+                    sourcePath
+                  ));
                   nestedSiteCount++;
                 }
               }
@@ -206,11 +235,13 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
         }
           const categories = Array.from(categoryMap.values()).filter(category => category.total > 0);
           const totalRecords = categories.reduce((sum, category) => sum + category.total, 0);
-          setCloudScanSummary({
-            totalRecords,
-            scannedSources,
-            categories
-          });
+          if (showCloudSummary) {
+            setCloudScanSummary({
+              totalRecords,
+              scannedSources,
+              categories
+            });
+          }
           setDebugInfo(prev => prev + `\nBulut tarama ozeti hazir: ${scannedSources} kaynak, ${totalRecords} kayit.`);
       } catch (err: any) {
         console.warn('Failed to read users root:', err);
@@ -281,6 +312,23 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
     if (!selectedUserToDelete) return;
     const user = selectedUserToDelete;
 
+    if (isProtectedAdmin(user)) {
+      alert('Uygulama yöneticisi silinemez veya banlanamaz!');
+      setShowDeleteModal(false);
+      setSelectedUserToDelete(null);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      type === 'ban'
+        ? `${user.email} hesabını banlayıp silmek istediğinize emin misiniz?`
+        : `${user.email} hesabını silmek istediğinize emin misiniz?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     try {
       setIsDeleting(true);
 
@@ -297,7 +345,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
       // 2. Eğer BAN seçildiyse yasaklı listesine ekle
       if (type === 'ban') {
         const emailKey = user.email.replace(/[.@]/g, '_');
-        await db.saveData(`_bannedUsers/${emailKey}`, {
+        await db.saveDataDirect(`_bannedUsers/${emailKey}`, {
           email: user.email,
           bannedAt: new Date().toISOString(),
           reason: 'Yönetici tarafından yasaklandı'
@@ -317,8 +365,8 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
   };
 
   const handleDeleteUser = (user: User) => {
-    if (user.email === 'selahattin50@gmail.com') {
-      alert('Ana yönetici silinemez!');
+    if (isProtectedAdmin(user)) {
+      alert('Uygulama yöneticisi silinemez veya banlanamaz!');
       return;
     }
     setSelectedUserToDelete(user);
@@ -343,20 +391,40 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
       setIsMigrating(true);
       setDebugInfo(`Aktarım başlatıldı: ${migrationSource} -> ${migrationTarget}`);
 
-      // 1. Kaynak ve hedef UID'lerini bul
-      let sourceUid = '';
-      let targetUid = '';
+      const resolveMigrationPath = (rawValue: string, matchedUser?: User) => {
+        if (matchedUser?.sourcePath?.startsWith('users/')) {
+          return matchedUser.sourcePath;
+        }
+
+        if (matchedUser?.uid) {
+          return `users/${matchedUser.uid}`;
+        }
+
+        if (rawValue.includes('/')) {
+          return rawValue;
+        }
+
+        if (matchedUser?.sourcePath) {
+          return matchedUser.sourcePath;
+        }
+
+        if (rawValue.includes('@')) {
+          throw new Error(`"${rawValue}" için kullanıcı verisi bulunamadı. Önce bulut taraması yapın.`);
+        }
+
+        return `users/${rawValue}`;
+      };
 
       // Kullanıcı listesinden bulmayı dene
       const sUser = users.find(u => u.email === migrationSource || u.uid === migrationSource);
       const tUser = users.find(u => u.email === migrationTarget || u.uid === migrationTarget);
 
-      sourceUid = sUser?.uid || migrationSource;
-      targetUid = tUser?.uid || migrationTarget;
+      const sourcePath = resolveMigrationPath(migrationSource, sUser);
+      const targetPath = resolveMigrationPath(migrationTarget, tUser);
 
       // 2. Verileri çek
-      setDebugInfo(prev => prev + `\nKaynak veri okunuyor (${sourceUid})...`);
-      const sourceData = await db.getDataDirect(sourceUid);
+      setDebugInfo(prev => prev + `\nKaynak veri okunuyor (${sourcePath})...`);
+      const sourceData = await db.getDataDirect(sourcePath);
 
       if (!sourceData) {
         throw new Error('Kaynak hesapta aktarılacak veri bulunamadı.');
@@ -364,14 +432,14 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
 
       // 3. Hedef hesaba yaz (building_info hariç? Genelde hepsi aktarılır)
       // building_info'yu korumak isteyebiliriz ama migration genelde tam aktarımdır.
-      setDebugInfo(prev => prev + `\nVeriler hedefe yazılıyor (${targetUid})...`);
+      setDebugInfo(prev => prev + `\nVeriler hedefe yazılıyor (${targetPath})...`);
       
       // Bazı kritik alanları korumak isteyebiliriz (email gibi)
       if (sourceData.building_info && tUser?.email) {
         // sourceData.building_info.managerEmail = tUser.email; // Opsiyonel
       }
 
-      await db.saveDataDirect(targetUid, sourceData);
+      await db.saveDataDirect(targetPath, sourceData);
 
       // 4. Eğer kanyak UID biliniyorsa ve email değilse (geçici ID ise) eskiyi silmek isteyebiliriz?
       // Şimdilik sadece kopyalıyoruz, güvenli tarafta kalalım.
@@ -390,16 +458,16 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
   };
 
   const formatDate = (dateStr: string) => {
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('tr-TR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    } catch {
-      return dateStr;
-    }
+    if (!dateStr) return 'Kayıt yok';
+
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return 'Kayıt yok';
+
+    return date.toLocaleDateString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
   };
 
   return (
@@ -472,7 +540,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
             <button
               onClick={() => {
                 const confirmed = window.confirm('Bulut veritabanındaki tüm dalları taramak istiyor musunuz? Bu işlem yetki durumuna bağlıdır.');
-                if (confirmed) loadUsers();
+                if (confirmed) loadUsers({ showCloudSummary: true });
               }}
               disabled={isLoading}
               className={`w-full ${isLoading ? 'bg-emerald-800/60 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500'} text-white rounded-xl py-3 font-bold text-sm shadow-xl active:scale-95 transition-all`}
@@ -542,8 +610,10 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
           </div>
         ) : (
           <div className="space-y-3">
-            {users.map((user, index) => (
-              <div
+            {users.map((user, index) => {
+              const protectedAdmin = isProtectedAdmin(user);
+
+              return <div
                 key={user.sourcePath || user.uid || user.email}
                 className="bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-md rounded-3xl p-5 border border-white/5 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-500"
                 style={{ animationDelay: `${index * 50}ms` }}
@@ -555,31 +625,48 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
                     </div>
                     <div>
                       <h4 className="text-sm font-black text-white uppercase tracking-tight">{user.name}</h4>
-                      <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mt-0.5">{user.email}</p>
+                      <p className="text-[10px] font-bold text-white/40 tracking-wide mt-0.5">{user.email}</p>
+                      <p className="text-[10px] font-black text-emerald-300/80 uppercase tracking-widest mt-1">
+                        {user.role || 'Yönetici'}
+                        {user.buildingName ? ` • ${user.buildingName}` : ''}
+                      </p>
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleDeleteUser(user)}
-                    className="bg-red-600/10 hover:bg-red-600/20 p-2.5 rounded-xl border border-red-500/20 active:scale-90 transition-all"
-                  >
-                    <Trash2 size={16} className="text-red-400" />
-                  </button>
+                  {protectedAdmin ? (
+                    <div className="px-3 py-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10">
+                      <span className="text-[10px] font-black tracking-[0.2em] uppercase text-emerald-300">SİZ</span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleDeleteUser(user)}
+                      title="Kullanıcıyı sil veya banla"
+                      className="bg-red-600/10 hover:bg-red-600/20 border-red-500/20 active:scale-90 p-2.5 rounded-xl border transition-all"
+                    >
+                      <Trash2 size={16} className="text-red-400" />
+                    </button>
+                  )}
                 </div>
 
-                <div className="space-y-2.5">
-                  <div className="flex items-center space-x-2 bg-black/20 rounded-xl p-3 border border-white/5">
-                    <Phone size={14} className="text-green-400" />
-                    <span className="text-xs font-bold text-white/70">{user.phone || 'Girilmemiş'}</span>
-                  </div>
+                {(user.phone || user.createdAt) && (
+                  <div className="space-y-2.5">
+                    {user.phone && (
+                      <div className="flex items-center space-x-2 bg-black/20 rounded-xl p-3 border border-white/5">
+                        <Phone size={14} className="text-green-400" />
+                        <span className="text-xs font-bold text-white/70">{user.phone}</span>
+                      </div>
+                    )}
 
-                  <div className="flex items-center space-x-2 bg-black/20 rounded-xl p-3 border border-white/5">
-                    <Calendar size={14} className="text-purple-400" />
-                    <span className="text-xs font-bold text-white/70">Kayıt: {formatDate(user.createdAt)}</span>
+                    {user.createdAt && (
+                      <div className="flex items-center space-x-2 bg-black/20 rounded-xl p-3 border border-white/5">
+                        <Calendar size={14} className="text-purple-400" />
+                        <span className="text-xs font-bold text-white/70">Kayıt: {formatDate(user.createdAt)}</span>
+                      </div>
+                    )}
                   </div>
-                </div>
-              </div>
-            ))}
+                )}
+              </div>;
+            })}
           </div>
         )}
 

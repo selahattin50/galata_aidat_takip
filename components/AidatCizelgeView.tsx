@@ -9,10 +9,11 @@ interface AidatCizelgeViewProps {
   info: BuildingInfo;
   onClose: () => void;
   onAddDues: (unitId: string, amount: number, month: number, year: number) => void;
+  currentDate: Date;
 }
 
-const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions, info, onClose, onAddDues }) => {
-  const now = new Date();
+const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions, info, onClose, onAddDues, currentDate }) => {
+  const now = currentDate;
   const currentMonthActual = now.getMonth() + 1; // 1-12
   const currentYearActual = now.getFullYear();
 
@@ -32,7 +33,7 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
     }
 
     const duesValue = info.duesAmount ?? 0;
-    const currentYear = new Date().getFullYear();
+    const currentYear = currentDate.getFullYear();
 
     for (let m = 1; m <= 12; m++) {
       const mIdx = m - 1;

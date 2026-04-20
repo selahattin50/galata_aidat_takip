@@ -31,17 +31,17 @@ const ActionGrid: React.FC<ActionGridProps> = ({ variant = 'grid', onActionClick
 
   if (variant === 'grid') {
     return (
-      <div className="grid grid-cols-3 gap-2 pb-2">
+      <div className="grid grid-cols-2 gap-2 pb-2 min-[360px]:grid-cols-3">
         {actions.map((action, idx) => (
           <button
             key={idx}
             onClick={() => onActionClick?.(action.label)}
-            className="flex flex-col items-center justify-center glass-panel rounded-[24px] p-3 h-[88px] active:bg-green-600/20 active:border-green-500/30 active:scale-95 transition-all border border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.3)] group"
+            className="flex flex-col items-center justify-center glass-panel rounded-[24px] p-3 h-[84px] active:bg-green-600/20 active:border-green-500/30 active:scale-95 transition-all border border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.3)] group min-[360px]:h-[88px]"
           >
             <div className="text-[#22c55e] group-hover:text-green-400 group-hover:scale-110 transition-all duration-300 mb-2">
               {action.icon}
             </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-white/80 text-center leading-tight">
+            <span className="text-[9px] font-black uppercase tracking-wide text-white/80 text-center leading-tight min-[360px]:text-[10px] min-[360px]:tracking-widest">
               {action.label}
             </span>
           </button>

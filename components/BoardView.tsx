@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, UserPlus, Phone, MessageCircle, ShieldCheck, X, Trash2, User, ArrowLeft } from 'lucide-react';
 import { BoardMember } from '../types.ts';
+import { markExternalIntent } from '../externalIntentGuard';
 
 interface BoardViewProps {
   members: BoardMember[];
@@ -98,7 +99,10 @@ const BoardView: React.FC<BoardViewProps> = ({ members, onClose, onAddMember, on
 
               <div className="flex flex-col space-y-2 ml-3">
                 <button 
-                  onClick={() => window.open(`tel:${member.phone}`)}
+                  onClick={() => {
+                    markExternalIntent();
+                    window.open(`tel:${member.phone}`);
+                  }}
                   className="p-2 bg-green-500/10 rounded-xl hover:bg-green-500/20 transition-all active:scale-90"
                 >
                   <Phone size={14} className="text-green-500" />

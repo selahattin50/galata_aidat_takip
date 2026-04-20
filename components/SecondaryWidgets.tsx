@@ -10,7 +10,7 @@ const SecondaryWidgets: React.FC<SecondaryWidgetsProps> = ({ onActionClick }) =>
   const iconSize = 28;
   
   return (
-    <div className="grid grid-cols-3 gap-2.5 px-0.5">
+    <div className="grid grid-cols-2 gap-2.5 px-0.5 min-[360px]:grid-cols-3">
       {/* Aidat Çizelge */}
       <button 
         onClick={() => onActionClick?.('AİDAT ÇİZELGE')}
@@ -40,7 +40,7 @@ const SecondaryWidgets: React.FC<SecondaryWidgetsProps> = ({ onActionClick }) =>
       {/* Yıllık Bilanço */}
       <button 
         onClick={() => onActionClick?.('YILLIK BİLANÇO')}
-        className="glass-panel rounded-[24px] p-2 flex flex-col items-center justify-center h-20 active:bg-blue-600/20 active:border-blue-500/30 active:scale-95 transition-transform group border border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.3)]"
+        className="glass-panel rounded-[24px] p-2 flex flex-col items-center justify-center h-20 active:bg-blue-600/20 active:border-blue-500/30 active:scale-95 transition-transform group border border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.3)] col-span-2 min-[360px]:col-span-1"
       >
         <div className="text-[#22c55e] group-hover:text-green-400 group-hover:scale-110 transition-all duration-300 mb-1">
           <TrendingUp size={iconSize} />

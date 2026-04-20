@@ -1,11 +1,12 @@
 
 import React, { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
 import { Save, Loader2, X, Check, ChevronLeft, ChevronRight, UserCog, Building2, ShieldCheck, ToggleLeft, ToggleRight, ArrowLeft, TriangleAlert } from 'lucide-react';
-import { BuildingInfo, Unit } from '../types.ts';
+import { BuildingInfo, Unit, Transaction } from '../types.ts';
 import { db } from '../databaseService';
 import { auth } from '../firebaseConfig';
 import UserManagementView from './UserManagementView.tsx';
 import { useAndroidBackHandler } from '../appBackButton';
+import CarryOverView from './CarryOverView.tsx';
 
 interface SettingsErrorBoundaryProps {
   children: ReactNode;
@@ -49,9 +50,10 @@ interface SettingsViewProps {
   units: Unit[];
   onResetMoney: () => void;
   onClose: () => void;
+  onAddTransactions: (txs: Transaction[]) => void;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuildingInfo, units, onResetMoney, onClose }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuildingInfo, units, onResetMoney, onClose, onAddTransactions }) => {
   const BULK_MESSAGE_EDITOR_KEY = 'galata_bulk_message_editor';
   const [st, setSt] = useState({
     name: buildingInfo?.name || '',
@@ -64,11 +66,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
     isAutoDuesEnabled: buildingInfo?.isAutoDuesEnabled || false,
     isBulkMessageEnabled: buildingInfo?.isBulkMessageEnabled !== false,
     bulkMessageInfoDay: (buildingInfo?.bulkMessageInfoDay || 1).toString(),
-    bulkMessageReminderDay: (buildingInfo?.bulkMessageReminderDay || buildingInfo?.bulkMessageStartDay || 19).toString()
+    bulkMessageReminderDay: (buildingInfo?.bulkMessageReminderDay || buildingInfo?.bulkMessageStartDay || 19).toString(),
+    expenseCategories: buildingInfo?.expenseCategories || ['Elektrik', 'Su', 'Asansör', 'Temizlik', 'Tamirat', 'Yönetim Gideri', 'Huzur Hakkı', 'Bahçe Bakımı', 'Diğer'],
+    lastAutoDuesMonth: buildingInfo?.lastAutoDuesMonth || ""
   });
+  const [newCat, setNewCat] = useState('');
+  const [showCarryOver, setShowCarryOver] = useState(false);
   const [showUnitModal, setShowUnitModal] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showExpenseCategories, setShowExpenseCategories] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const canAccessAdminPanel = auth.currentUser?.email === 'selahattin50@gmail.com';
   const [bulkMessageEditor, setBulkMessageEditor] = useState<'info' | 'reminder'>(() => {
     const savedEditor = localStorage.getItem(BULK_MESSAGE_EDITOR_KEY);
     return savedEditor === 'reminder' ? 'reminder' : 'info';
@@ -127,7 +135,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
       isBulkMessageEnabled: st.isBulkMessageEnabled,
       bulkMessageInfoDay: normalizedBulkMessageInfoDay,
       bulkMessageReminderDay: normalizedBulkMessageReminderDay,
-      bulkMessageStartDay: normalizedBulkMessageReminderDay
+      bulkMessageStartDay: normalizedBulkMessageReminderDay,
+      expenseCategories: st.expenseCategories,
+      lastAutoDuesMonth: st.lastAutoDuesMonth
     });
     setSt(prev => ({
       ...prev,
@@ -137,9 +147,20 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
     setIsSaving(false);
   };
 
+  const handleAddExpenseCategory = () => {
+    if (!showExpenseCategories) {
+      setShowExpenseCategories(true);
+    }
+
+    if (newCat.trim()) {
+      setSt({ ...st, expenseCategories: [...st.expenseCategories, newCat.trim()] });
+      setNewCat('');
+    }
+  };
+
   const selectedManagerUnit = units?.find(u => u && u.id === st.managerUnitId);
 
-  if (showAdminPanel) {
+  if (showAdminPanel && canAccessAdminPanel) {
     return <UserManagementView onClose={() => setShowAdminPanel(false)} />;
   }
 
@@ -334,24 +355,26 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
               </div>
 
               {/* M1 M2 SEÇME BÖLÜMÜ */}
-              <div className={`space-y-4 transition-all duration-500 ${st.isBulkMessageEnabled ? 'opacity-100' : 'opacity-30 pointer-events-none'}`}>
+              <div className={`space-y-3 transition-all duration-500 ${st.isBulkMessageEnabled ? 'opacity-100' : 'opacity-30 pointer-events-none'}`}>
                 
-                <div className="flex items-center justify-around bg-[#111827] rounded-[30px] p-4 border border-white/5 shadow-inner">
+                <div className="rounded-[26px] border border-cyan-400/10 bg-[linear-gradient(180deg,#111827_0%,#0b1220_100%)] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_24px_rgba(0,0,0,0.16)]">
+                  <div className="grid grid-cols-[44px_1fr_44px] items-center gap-1.5 min-[380px]:grid-cols-[52px_1fr_52px] min-[380px]:gap-2">
                   {/* M1 Butonu */}
                   <button
                     onClick={() => setBulkMessageEditor('info')}
-                    className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
+                    className={`h-[44px] rounded-[14px] flex items-center justify-center border transition-all min-[380px]:h-[52px] min-[380px]:rounded-[16px] ${
                       bulkMessageEditor === 'info'
-                        ? 'bg-[#7dd3fc] text-[#0f172a] shadow-[0_0_20px_rgba(125,211,252,0.4)] scale-110'
-                        : 'bg-[#1f2937] text-zinc-400'
+                        ? 'border-cyan-200/70 bg-[linear-gradient(180deg,#a5ecff_0%,#72d8ff_100%)] text-[#08111f] shadow-[0_10px_24px_rgba(95,211,255,0.28)]'
+                        : 'border-white/6 bg-[#182132] text-zinc-400'
                     }`}
                   >
-                    <span className="text-lg font-black italic">M 1</span>
+                    <span className="text-[15px] font-black italic tracking-tight min-[380px]:text-[17px]">M1</span>
                   </button>
 
                   {/* Orta Bilgi Kartı */}
-                  <div className="flex-1 max-w-[150px] mx-2 flex flex-col items-center justify-center p-3 border border-zinc-800 rounded-[25px] bg-black/20 min-h-[80px]">
-                    <span className="text-[8px] font-black text-center text-zinc-400 uppercase tracking-widest mb-1">
+                  <div className="min-h-[50px] rounded-[16px] border border-white/6 bg-[linear-gradient(180deg,#0b111d_0%,#121826_100%)] px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] min-[380px]:min-h-[56px] min-[380px]:rounded-[18px]">
+                    <div className="flex h-full flex-col items-center justify-center">
+                    <span className="text-[5px] font-black text-center text-cyan-100/70 uppercase tracking-[0.14em] mb-0.5 leading-tight min-[380px]:text-[6px] min-[380px]:tracking-[0.16em]">
                       {bulkMessageEditor === 'info' ? 'M1 AİDAT BİLGİLENDİRME' : 'M2 AİDAT HATIRLATMASI'}
                     </span>
                     <input
@@ -361,21 +384,23 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
                         ...st,
                         [bulkMessageEditor === 'info' ? 'bulkMessageInfoDay' : 'bulkMessageReminderDay']: e.target.value
                       })}
-                      className="bg-transparent text-center outline-none font-black text-3xl text-white w-full"
+                      className="w-full bg-transparent text-center outline-none font-black text-[22px] leading-none text-white tracking-tight min-[380px]:text-[26px]"
                     />
+                    </div>
                   </div>
 
                   {/* M2 Butonu */}
                   <button
                     onClick={() => setBulkMessageEditor('reminder')}
-                    className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
+                    className={`h-[44px] rounded-[14px] flex items-center justify-center border transition-all min-[380px]:h-[52px] min-[380px]:rounded-[16px] ${
                       bulkMessageEditor === 'reminder'
-                        ? 'bg-[#7dd3fc] text-[#0f172a] shadow-[0_0_20px_rgba(125,211,252,0.4)] scale-110'
-                        : 'bg-[#1f2937] text-zinc-400'
+                        ? 'border-cyan-200/70 bg-[linear-gradient(180deg,#a5ecff_0%,#72d8ff_100%)] text-[#08111f] shadow-[0_10px_24px_rgba(95,211,255,0.28)]'
+                        : 'border-white/6 bg-[#182132] text-zinc-400'
                     }`}
                   >
-                    <span className="text-lg font-black italic">M 2</span>
+                    <span className="text-[15px] font-black italic tracking-tight min-[380px]:text-[17px]">M2</span>
                   </button>
+                  </div>
                 </div>
 
                 {/* Alt Metinler */}
@@ -386,7 +411,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
                 </div>
               </div>
             </div>
-            {auth.currentUser?.email === 'selahattin50@gmail.com' && (
+            {canAccessAdminPanel && (
               <button
                 onClick={() => setShowAdminPanel(true)}
                 className="w-full mt-8 bg-white/5 border border-emerald-500/30 rounded-2xl py-3 flex items-center justify-center space-x-2 active:scale-95 transition-all hover:bg-emerald-500/10 hover:border-emerald-500/50 shadow-lg shadow-emerald-500/5"
@@ -397,7 +422,62 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
             )}
           </section>
 
-          {/* 3. VERİ YÖNETİMİ */}
+          {/* 3. GİDER KATEGORİLERİ */}
+          <section className="bg-amber-900/10 backdrop-blur-md rounded-[40px] p-6 border border-white/5 shadow-xl space-y-5">
+            <div className="w-full flex items-center justify-between gap-3 px-1">
+              <button
+                type="button"
+                onClick={() => setShowExpenseCategories(prev => !prev)}
+                className="flex-1 flex items-center justify-between opacity-60 active:scale-[0.99] transition-all"
+              >
+                <div className="flex items-center space-x-2">
+                  <Building2 size={16} className="text-amber-400" />
+                  <h2 className="text-[11px] font-black tracking-[0.2em] uppercase text-amber-100">GİDER KATEGORİLERİ</h2>
+                </div>
+                <ChevronRight
+                  size={18}
+                  className={`text-amber-300 transition-transform duration-300 ${showExpenseCategories ? 'rotate-90' : ''}`}
+                />
+              </button>
+              <button
+                type="button"
+                onClick={handleAddExpenseCategory}
+                className="shrink-0 h-9 px-4 rounded-xl bg-amber-600 text-white font-black text-[10px] tracking-[0.18em] uppercase active:scale-95 transition-all shadow-lg shadow-amber-900/20"
+              >
+                EKLE
+              </button>
+            </div>
+
+            {showExpenseCategories && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex flex-wrap gap-2">
+                  {st.expenseCategories.map((cat, idx) => (
+                    <div key={idx} className="bg-white/5 border border-white/10 rounded-2xl px-4 py-2 flex items-center space-x-2 animate-in zoom-in-95">
+                      <span className="text-xs font-bold text-white/80">{cat}</span>
+                      <button
+                        onClick={() => setSt({ ...st, expenseCategories: st.expenseCategories.filter((_, i) => i !== idx) })}
+                        className="text-white/20 hover:text-red-400 transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex">
+                  <input
+                    type="text"
+                    value={newCat}
+                    onChange={e => setNewCat(e.target.value)}
+                    placeholder="Yeni kategori..."
+                    className="flex-1 bg-black/40 border border-white/5 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-amber-500/50 transition-all font-bold"
+                  />
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* 4. VERİ YÖNETİMİ */}
           <section className="bg-purple-900/10 backdrop-blur-md rounded-[40px] p-6 border border-white/5 shadow-xl space-y-4">
             <div className="flex items-center space-x-2 opacity-40 mb-1 px-1">
               <ShieldCheck size={16} className="text-purple-400" />
@@ -405,6 +485,20 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
             </div>
 
             <div className="space-y-3">
+              {/* Bakiye Devri */}
+              <div className="bg-emerald-900/20 p-4 rounded-3xl border border-emerald-500/30">
+                <h3 className="text-[11px] font-black uppercase tracking-wider text-emerald-400 mb-2">Bakiye Devri (Yeni Dönem)</h3>
+                <p className="text-[9px] font-bold text-emerald-500/60 leading-relaxed mb-3 uppercase">
+                  Mevcut borç ve alacakları dondurup yeni bir "Açılış Bakiyesi" olarak aktarır. Yıl sonu veya yönetim değişimlerinde yapılması önerilir.
+                </p>
+                <button
+                  onClick={() => setShowCarryOver(true)}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-3 font-black text-base uppercase tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                >
+                  BAKİYE DEVRİ YAP
+                </button>
+              </div>
+
               {/* İptalli Belgeler */}
               <div className="bg-black/20 p-4 rounded-3xl border border-white/5">
                 <h3 className="text-[11px] font-black uppercase tracking-wider text-white/90 mb-2">İptalli Belgeler</h3>
@@ -550,6 +644,18 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Bakiye Devri Modal */}
+          {showCarryOver && (
+            <CarryOverView 
+              units={units as any} 
+              onClose={() => setShowCarryOver(false)} 
+              onCarryOver={(newTxs) => {
+                onAddTransactions(newTxs);
+                setShowCarryOver(false);
+              }}
+            />
           )}
         </div>
       </div>

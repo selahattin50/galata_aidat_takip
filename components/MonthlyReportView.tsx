@@ -2,10 +2,9 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { ArrowLeft, ChevronDown, X, FileDown, Calendar, MessageCircle, Building, Check, Wallet, Inbox, Share2, Lock } from 'lucide-react';
 import { Transaction, Unit, FileEntry } from '../types';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 import { PDFService } from '../pdfService';
 import { useAndroidBackHandler } from '../appBackButton';
+import { createFinancialReportPdf } from './reportPdfUtils';
 
 interface MonthlyReportViewProps {
   transactions: Transaction[];
@@ -13,10 +12,11 @@ interface MonthlyReportViewProps {
   onClose: () => void;
   buildingName: string;
   onAddFile: (name: string, category: FileEntry['category'], uri?: string, size?: number, fileName?: string) => void;
+  currentDate: Date;
 }
 
-const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, units, onClose, buildingName, onAddFile }) => {
-  const now = new Date();
+const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, units, onClose, buildingName, onAddFile, currentDate }) => {
+  const now = currentDate;
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedVault, setSelectedVault] = useState<'genel' | 'demirbas'>('genel');
@@ -50,11 +50,16 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
   const years = [2024, 2025, 2026];
 
   // Global Alacak/Kredi Bakiyesi hesaplama
-  const { totalDebt, totalCredit } = useMemo(() => {
-    return units.reduce((acc, u) => ({
-      totalDebt: acc.totalDebt + (u.debt || 0),
-      totalCredit: acc.totalCredit + (u.credit || 0)
-    }), { totalDebt: 0, totalCredit: 0 });
+  const { totalDebt, totalCredit, netDebt } = useMemo(() => {
+    return units.reduce((acc, u) => {
+      const debt = u.debt || 0;
+      const credit = u.credit || 0;
+      return {
+        totalDebt: acc.totalDebt + debt,
+        totalCredit: acc.totalCredit + credit,
+        netDebt: acc.netDebt + Math.max(0, debt - credit)
+      };
+    }, { totalDebt: 0, totalCredit: 0, netDebt: 0 });
   }, [units]);
 
   function isCreditBalanceIncome(tx: Transaction) {
@@ -141,7 +146,7 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
     })).sort((a, b) => a.minDate.localeCompare(b.minDate));
 
     if (previousDevir !== 0) {
-      incomes.unshift({ label: "ÖNCEKİ DÖNEMDEN DEVİR", total: previousDevir, minDate: "0000-00-00" });
+      incomes.unshift({ label: "ÖNCEKİ AYDAN DEVİR", total: previousDevir, minDate: "0000-00-00" });
     }
 
     return {
@@ -184,8 +189,8 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
     });
 
     const items: { label: string; total: number }[] = [];
-    if (duesTotal > 0) items.push({ label: 'AY ICI AIDAT GELIRI', total: duesTotal });
-    if (freeTotal > 0) items.push({ label: 'AY SERBEST GELIRI', total: freeTotal });
+    const combinedTotal = duesTotal + freeTotal;
+    if (combinedTotal > 0) items.push({ label: 'AY İÇİ AİDAT GELİRİ', total: combinedTotal });
 
     Object.entries(otherIncomeGroups).forEach(([label, total]) => {
       items.push({ label, total });
@@ -204,29 +209,27 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
   };
 
   const generateAndHandlePdf = async (mode: 'share' | 'download') => {
-    if (!reportRef.current) return;
     setIsProcessing(true);
     try {
-      const canvas = await html2canvas(reportRef.current!, {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        windowHeight: reportRef.current?.scrollHeight
+      const incomePdfItems = [
+        ...(previousDevir !== 0 ? [{ label: 'ÖNCEKİ AYDAN DEVİR', total: previousDevir, tone: 'info' as const }] : []),
+        ...displayIncomeItems.map((item) => ({ label: item.label, total: item.total, tone: 'default' as const })),
+        { label: 'FAZLA ÖDEME', total: totalCredit, tone: 'info' as const },
+        { label: 'AİDAT ALACAĞI', total: netDebt, tone: 'danger' as const },
+      ];
+
+      const pdf = await createFinancialReportPdf({
+        buildingName,
+        reportTitle: `${months[selectedMonth]} Ayi Apartman Hesap Durum Cizelgesi`,
+        leftTitle: 'Giderler',
+        rightTitle: 'Gelirler',
+        leftItems: reportData.expenses.map((item) => ({ label: item.label, total: item.total, tone: 'default' as const })),
+        rightItems: incomePdfItems,
+        leftTotal: totalExpense,
+        cashLabel: 'Kasa Durumu',
+        cashPeriodLabel: `${months[selectedMonth]} ${selectedYear} Sonu`,
+        cashTotal,
       });
-
-      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      if (imgHeight > pdfHeight) {
-        const scaledHeight = pdfHeight;
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, imgWidth, scaledHeight);
-      } else {
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, imgWidth, imgHeight);
-      }
 
       const fileName = `${months[selectedMonth]} Ayi Gelir Gider ${selectedYear}.pdf`;
 
@@ -265,7 +268,7 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-32 no-scrollbar">
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-1 gap-3 mb-4 min-[360px]:grid-cols-2">
           <button onClick={() => generateAndHandlePdf('download')} disabled={isProcessing} className="h-12 bg-[#1e293b] rounded-xl border border-white/5 flex items-center p-2 space-x-3 active:bg-white/10 transition-all shadow-lg">
             <div className="w-8 h-8 bg-red-600/20 rounded-lg flex items-center justify-center border border-red-600/30">
               <div className="flex flex-col items-center">
@@ -283,17 +286,17 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <button onClick={() => setShowVaultPicker(!showVaultPicker)} className="bg-[#1e293b] h-9 rounded-lg px-3 flex items-center justify-between border border-white/5 shadow-inner">
+        <div className="grid grid-cols-3 gap-1.5 mb-4">
+          <button onClick={() => setShowVaultPicker(!showVaultPicker)} className="bg-[#1e293b] h-9 rounded-lg px-2 flex items-center justify-between border border-white/5 shadow-inner">
             <span className="text-[10px] font-bold text-white/70 uppercase truncate">{selectedVault === 'genel' ? 'Genel Gider' : 'Demirbaş'}</span>
             <ChevronDown size={12} className="text-white/20" />
           </button>
-          <button onClick={() => setShowYearPicker(true)} className="bg-[#1e293b] h-9 rounded-lg px-3 flex items-center justify-between border border-white/5 shadow-inner">
-            <span className="text-[10px] font-bold text-white/70 uppercase">{selectedYear}</span>
+          <button onClick={() => setShowYearPicker(true)} className="bg-[#1e293b] h-9 rounded-lg px-2 flex items-center justify-between border border-white/5 shadow-inner">
+            <span className="text-[9px] font-bold text-white/70 uppercase">{selectedYear}</span>
             <ChevronDown size={12} className="text-white/20" />
           </button>
-          <button onClick={() => setShowDatePicker(true)} className="bg-[#1e293b] h-9 rounded-lg px-3 flex items-center justify-between border border-white/5 shadow-inner">
-            <span className="text-[10px] font-bold text-white/70 uppercase truncate">{months[selectedMonth]}</span>
+          <button onClick={() => setShowDatePicker(true)} className="bg-[#1e293b] h-9 rounded-lg px-2 flex items-center justify-between border border-white/5 shadow-inner">
+            <span className="text-[9px] font-bold text-white/70 uppercase truncate">{months[selectedMonth]}</span>
             <ChevronDown size={12} className="text-white/20" />
           </button>
         </div>
@@ -335,10 +338,10 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
           </div>
         )}
 
-        <div className="flex space-x-2 mb-4">
+        <div className="mb-4 flex flex-row space-x-2">
           <div className="flex-1 bg-white/5 rounded-xl border border-white/5 p-3 flex items-center justify-between shadow-inner">
             <span className="text-[9px] font-black text-white uppercase tracking-wider">ALACAK BAKİYESİ</span>
-            <span className="text-[12px] font-black text-red-500 tracking-tight">{formatCurrency(totalDebt).replace('₺', '')}</span>
+            <span className="text-[12px] font-black text-red-500 tracking-tight">{formatCurrency(netDebt).replace('₺', '')}</span>
           </div>
           <div className="flex-1 bg-white/5 rounded-xl border border-white/5 p-3 flex items-center justify-between shadow-inner">
             <span className="text-[9px] font-black text-white uppercase tracking-wider">KREDİ BAKİYESİ</span>
@@ -347,8 +350,8 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
         </div>
 
         <div className="bg-[#1e293b]/40 rounded-[32px] border border-white/5 px-2 py-6 mb-6 shadow-2xl relative overflow-hidden ring-1 ring-white/5">
-          <div className="grid grid-cols-2 gap-3 relative">
-            <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-white/10" />
+          <div className="grid grid-cols-1 gap-6 relative min-[380px]:grid-cols-2 min-[380px]:gap-3">
+            <div className="absolute left-1/2 top-0 bottom-0 hidden w-[1px] bg-white/10 min-[380px]:block" />
             <div>
               <h3 className="text-[13px] font-black text-white mb-2 pb-1 border-b border-white/20 tracking-wide uppercase">Gider Kalemleri</h3>
               <div className="space-y-3 min-h-[200px]">
@@ -357,8 +360,8 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
                 ) : (
                   reportData.expenses.map((ex, i) => (
                     <div key={i} className="flex justify-between items-baseline">
-                      <span className="text-[10px] font-bold text-white/60 italic lowercase pr-1 leading-tight">{ex.label}</span>
-                      <span className="text-[11px] font-black text-white shrink-0">{formatCurrency(ex.total)}</span>
+                      <span className="text-[12px] font-black text-white pr-1 leading-tight">{ex.label}</span>
+                      <span className="text-[12px] font-black text-white shrink-0">{formatCurrency(ex.total)}</span>
                     </div>
                   ))
                 )}
@@ -373,8 +376,8 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
                 ) : (
                   displayIncomeItems.map((inc, i) => (
                     <div key={i} className="flex justify-between items-baseline">
-                      <span className="text-[10px] font-bold text-white/60 italic lowercase pr-1 leading-tight">{inc.label}</span>
-                      <span className="text-[11px] font-black text-white shrink-0">{formatCurrency(inc.total)}</span>
+                      <span className="text-[12px] font-black text-white pr-1 leading-tight">{inc.label}</span>
+                      <span className="text-[12px] font-black text-white shrink-0">{formatCurrency(inc.total)}</span>
                     </div>
                   ))
                 )}
@@ -414,37 +417,48 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
         </div>
       )}
 
-      <div className="fixed top-[-10000px] left-[-10000px] pointer-events-none">
-        <div id="pdf-report-content" ref={reportRef} style={{ width: '800px', backgroundColor: '#ffffff', color: '#000', padding: '40px' }}>
-          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+      <div className="fixed inset-0 pointer-events-none opacity-0 overflow-hidden" style={{ zIndex: -1 }}>
+        <div id="pdf-report-content" ref={reportRef} style={{ width: '860px', backgroundColor: '#ffffff', color: '#000', padding: '22px 18px', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
             <h1 style={{ fontSize: '32px', fontWeight: '900', color: '#000', margin: '0' }}>{buildingName.toUpperCase()}</h1>
             <h2 style={{ fontSize: '22px', fontWeight: '900', color: '#000', borderBottom: '2px solid #000', display: 'inline-block', paddingBottom: '5px', marginTop: '10px' }}>
               {months[selectedMonth].toUpperCase()} AYI APARTMAN HESAP DURUM ÇİZELGESİ
             </h2>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', backgroundColor: '#000', border: '2px solid #000' }}>
-            <div style={{ backgroundColor: '#fff', padding: '16px 12px' }}>
+            <div style={{ backgroundColor: '#fff', padding: '16px 10px' }}>
               <h3 style={{ fontSize: '20px', fontWeight: '900', color: '#ef4444', borderBottom: '2px solid #ef4444', marginBottom: '15px', paddingBottom: '5px' }}>GİDERLER</h3>
               {reportData.expenses.map((ex, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '8px', fontSize: '18px', borderBottom: '1px solid #eee', paddingBottom: '4px' }}>
-                  <span style={{ fontWeight: 'bold', flex: '1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ex.label}</span><span style={{ fontWeight: '900', whiteSpace: 'nowrap' }}>{formatCurrency(ex.total)}</span>
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', marginBottom: '8px', fontSize: '16px', lineHeight: '1.45', borderBottom: '1px solid #eee', paddingTop: '2px', paddingBottom: '8px', minHeight: '34px' }}>
+                  <span style={{ fontWeight: '700', flex: '1', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', lineHeight: '1.45' }}>{ex.label}</span><span style={{ fontWeight: '800', whiteSpace: 'nowrap', flexShrink: 0, display: 'block', lineHeight: '1.45' }}>{formatCurrency(ex.total)}</span>
                 </div>
               ))}
               <div style={{ marginTop: 'auto', paddingTop: '20px', textAlign: 'right' }}><span style={{ fontSize: '28px', fontWeight: '900', color: '#ef4444' }}>{formatCurrency(totalExpense)}</span></div>
             </div>
-            <div style={{ backgroundColor: '#fff', padding: '16px 12px' }}>
+            <div style={{ backgroundColor: '#fff', padding: '16px 10px' }}>
               <h3 style={{ fontSize: '20px', fontWeight: '900', color: '#22c55e', borderBottom: '2px solid #22c55e', marginBottom: '15px', paddingBottom: '5px' }}>GELİRLER</h3>
-              {[...(previousDevir !== 0 ? [{ label: 'ÖNCEKİ DÖNEMDEN DEVİR', total: previousDevir }] : []), ...displayIncomeItems].map((inc, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '8px', fontSize: '18px', borderBottom: '1px solid #eee', paddingBottom: '4px' }}>
-                  <span style={{ fontWeight: 'bold', color: inc.label.includes('DEVİR') ? '#2563eb' : '#000' }}>{inc.label}</span><span style={{ fontWeight: '900', color: inc.label.includes('DEVİR') ? '#2563eb' : '#000' }}>{formatCurrency(inc.total)}</span>
+              {[...(previousDevir !== 0 ? [{ label: 'ÖNCEKİ AYDAN DEVİR', total: previousDevir }] : []), ...displayIncomeItems].map((inc, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', marginBottom: '8px', fontSize: '16px', lineHeight: '1.45', borderBottom: '1px solid #eee', paddingTop: '2px', paddingBottom: '8px', minHeight: '34px' }}>
+                  <span style={{ fontWeight: '700', color: inc.label.includes('DEVİR') ? '#2563eb' : '#000', flex: '1', minWidth: 0, display: 'block', lineHeight: '1.45' }}>{inc.label}</span><span style={{ fontWeight: '800', color: inc.label.includes('DEVİR') ? '#2563eb' : '#000', whiteSpace: 'nowrap', flexShrink: 0, display: 'block', lineHeight: '1.45' }}>{formatCurrency(inc.total)}</span>
                 </div>
               ))}
-              <div style={{ marginTop: 'auto', paddingTop: '20px', textAlign: 'right' }}><span style={{ fontSize: '28px', fontWeight: '900', color: '#22c55e' }}>{formatCurrency(totalIncomeWithDevir)}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', marginBottom: '8px', fontSize: '16px', lineHeight: '1.45', borderBottom: '1px solid #eee', paddingTop: '2px', paddingBottom: '8px', minHeight: '34px' }}>
+                <span style={{ fontWeight: '700', color: '#2563eb', display: 'block', lineHeight: '1.45' }}>FAZLA ÖDEME</span>
+                <span style={{ fontWeight: '800', color: '#2563eb', whiteSpace: 'nowrap', flexShrink: 0, display: 'block', lineHeight: '1.45' }}>{formatCurrency(totalCredit)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', marginBottom: '8px', fontSize: '16px', lineHeight: '1.45', borderBottom: '1px solid #eee', paddingTop: '2px', paddingBottom: '8px', minHeight: '34px' }}>
+                <span style={{ fontWeight: '700', color: '#ef4444', display: 'block', lineHeight: '1.45' }}>AİDAT ALACAĞI</span>
+                <span style={{ fontWeight: '800', color: '#ef4444', whiteSpace: 'nowrap', flexShrink: 0, display: 'block', lineHeight: '1.45' }}>{formatCurrency(netDebt)}</span>
+              </div>
+              <div style={{ marginTop: 'auto', paddingTop: '20px', textAlign: 'right' }}></div>
             </div>
           </div>
-          <div style={{ marginTop: '30px', padding: '20px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', display: 'flex', justifySelf: 'space-between', alignItems: 'center' }}>
-            <div><p style={{ margin: '0', fontSize: '10px', fontWeight: '900', color: '#64748b' }}>KASA DURUMU</p><p style={{ margin: '0', fontSize: '14px', fontWeight: '900' }}>{months[selectedMonth].toUpperCase()} {selectedYear} SONU</p></div>
-            <span style={{ fontSize: '28px', fontWeight: '900', color: cashTotal >= 0 ? '#22c55e' : '#ef4444' }}>{formatCurrency(cashTotal)}</span>
+          <div style={{ marginTop: '24px', padding: '18px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px' }}>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ margin: '0', fontSize: '12px', fontWeight: '900', color: '#64748b' }}>KASA DURUMU</p>
+              <p style={{ margin: '0', fontSize: '20px', fontWeight: '900' }}>{months[selectedMonth].toUpperCase()} {selectedYear} SONU</p>
+            </div>
+            <span style={{ fontSize: '32px', fontWeight: '900', color: cashTotal >= 0 ? '#22c55e' : '#ef4444' }}>{formatCurrency(cashTotal)}</span>
           </div>
           <div style={{ marginTop: '50px', textAlign: 'center' }}><p style={{ fontSize: '10px', fontWeight: 'bold', color: '#94a3b8', letterSpacing: '4px' }}>GALATA DİJİTAL YÖNETİM SİSTEMİ</p></div>
         </div>

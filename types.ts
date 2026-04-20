@@ -22,6 +22,8 @@ export interface BuildingInfo {
   bulkMessageInfoDay?: number;
   bulkMessageReminderDay?: number;
   bulkMessageStartDay?: number;
+  lastAutoDuesMonth?: string;
+  expenseCategories?: string[];
 }
 
 export interface OwnerHistory {

@@ -16,9 +16,10 @@ interface UnitsViewProps {
   onEditUnit: (unit: Unit) => void;
   onDeleteUnit: (id: string) => void;
   onAddFile: (name: string, category: FileEntry['category'], uri?: string, size?: number, fileName?: string) => void;
+  currentDate: Date;
 }
 
-const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddUnit, onEditUnit, onDeleteUnit, onAddFile }) => {
+const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddUnit, onEditUnit, onDeleteUnit, onAddFile, currentDate }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
@@ -103,7 +104,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
 
     try {
       const months = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"];
-      const currentMonthName = months[new Date().getMonth()];
+      const currentMonthName = months[currentDate.getMonth()];
 
       const pdfContent = document.createElement('div');
       pdfContent.style.backgroundColor = '#ffffff';
@@ -116,13 +117,13 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
       header.style.textAlign = 'center';
       header.style.marginBottom = '30px';
       header.innerHTML = `
-        <h1 style="font-size: 48px; font-weight: 900; color: #000; text-transform: uppercase; margin-bottom: 20px; white-space: nowrap;">
+        <h1 style="font-size: 48px; font-weight: 900; color: #000; text-transform: uppercase; margin-bottom: 24px; white-space: nowrap;">
           ${currentMonthName} AYI APARTMAN HESAP DURUM ÇİZELGESİ
         </h1>
         
-        <div style="border: 4px solid #000; padding: 20px; margin-bottom: 20px; background-color: #fff;">
+        <div style="border: 4px solid #000; margin-bottom: 20px; background-color: #fff; display: flex; align-items: center; justify-content: center; padding: 12px 0;">
           <div style="text-align: center; white-space: nowrap;">
-            <p style="font-size: 32px; font-weight: 900; margin: 0; color: #000;">${info.name.toUpperCase()} YÖNETİMİ</p>
+            <p style="font-size: 45px; font-weight: 900; margin: 0; color: #000; line-height: 1;">${info.name.toUpperCase()} YÖNETİMİ</p>
           </div>
         </div>
       `;
@@ -136,14 +137,14 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
       const thead = document.createElement('thead');
       thead.innerHTML = `
         <tr style="border-bottom: 3px solid #000; background-color: #f8f8f8;">
-          <th style="border-right: 1px solid #000; padding: 15px; text-align: center; width: 80px; font-size: 26px; font-weight: 900; color: #000; white-space: nowrap;">NO</th>
-          <th style="border-right: 1px solid #000; padding: 15px; text-align: left; font-size: 26px; font-weight: 900; color: #000; white-space: nowrap;">İKAMET EDEN</th>
-          <th style="border-right: 1px solid #000; padding: 15px; text-align: right; width: 300px; font-size: 26px; font-weight: 900; color: #000; white-space: nowrap;">KREDİ BAKİYESİ</th>
-          <th style="padding: 15px; text-align: right; width: 300px; font-size: 26px; font-weight: 900; color: #000; white-space: nowrap;">BORÇ BAKİYESİ</th>
+          <th style="border-right: 1px solid #000; padding: 15px; text-align: center; width: 80px; font-size: 38px; font-weight: 900; color: #000; white-space: nowrap;">NO</th>
+          <th style="border-right: 1px solid #000; padding: 15px; text-align: left; font-size: 38px; font-weight: 900; color: #000; white-space: nowrap;">İKAMET EDEN</th>
+          <th style="border-right: 1px solid #000; padding: 15px; text-align: right; width: 300px; font-size: 38px; font-weight: 900; color: #22c55e; white-space: nowrap;">KREDİ BAKİYESİ</th>
+          <th style="padding: 15px; text-align: right; width: 300px; font-size: 38px; font-weight: 900; color: #ef4444; white-space: nowrap;">BORÇ BAKİYESİ</th>
         </tr>
       `;
       table.appendChild(thead);
-
+ 
       const tbody = document.createElement('tbody');
       units.sort((a, b) => {
         const aNo = parseInt(a.no);
@@ -154,13 +155,12 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
         row.style.borderBottom = '1px solid #ccc';
         row.style.backgroundColor = index % 2 === 0 ? '#ffffff' : '#f2f3ff';
         row.innerHTML = `
-          <td style="border-right: 1px solid #000; padding: 10px; text-align: center; font-size: 22px; font-weight: bold; color: #000; white-space: nowrap;">${unit.no}</td>
-          <td style="border-right: 1px solid #000; padding: 10px; text-align: left; font-size: 22px; font-weight: bold; color: #000; white-space: nowrap;">
+          <td style="border-right: 1px solid #000; padding: 10px; text-align: center; font-size: 35px; font-weight: bold; color: #000; white-space: nowrap;">${unit.no}</td>
+          <td style="border-right: 1px solid #000; padding: 10px; text-align: left; font-size: 35px; font-weight: bold; color: #000; white-space: nowrap;">
             ${unit.tenantName || unit.ownerName} 
-            <span style="font-size: 16px; font-weight: normal; color: #666;">(${unit.tenantName ? 'Kiracı' : 'Malik'})</span>
           </td>
-          <td style="border-right: 1px solid #000; padding: 10px; text-align: right; font-size: 22px; font-weight: bold; color: #000; white-space: nowrap;">${formatCurrency(unit.credit)}</td>
-          <td style="padding: 10px; text-align: right; font-size: 22px; font-weight: bold; color: #000; white-space: nowrap;">${formatCurrency(unit.debt)}</td>
+          <td style="border-right: 1px solid #000; padding: 10px; text-align: right; font-size: 35px; font-weight: bold; color: #22c55e; white-space: nowrap;">${unit.credit > 0 ? formatCurrency(unit.credit) : ''}</td>
+          <td style="padding: 10px; text-align: right; font-size: 35px; font-weight: bold; color: #ef4444; white-space: nowrap;">${unit.debt > 0 ? formatCurrency(unit.debt) : ''}</td>
         `;
         tbody.appendChild(row);
       });
@@ -168,12 +168,12 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
       pdfContent.appendChild(table);
 
       const footer = document.createElement('div');
-      footer.style.marginTop = '60px';
+      footer.style.marginTop = '0px';
       footer.style.display = 'flex';
       footer.style.justifyContent = 'flex-end';
       footer.innerHTML = `
         <div style="text-align: center; width: 350px;">
-          <div style="border-top: 4px solid #000; padding-top: 20px;">
+          <div style="padding-top: 5px;">
             <p style="font-size: 24px; font-weight: 900; margin: 0; color: #000;">YÖNETİM ONAYI</p>
             <p style="font-size: 16px; margin: 0; font-style: italic; color: #000;">Kaşe / İmza</p>
           </div>
@@ -208,8 +208,8 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
 
       const sanitizedBuildingName = info.name.replace(/[^a-zA-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
       const trMonths = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-      const currentMonthTr = trMonths[new Date().getMonth()];
-      const fileName = `${sanitizedBuildingName} ${currentMonthTr} Ayi Aidat Cizelgesi.pdf`;
+      const currentMonthTr = trMonths[currentDate.getMonth()];
+      const fileName = `${currentMonthTr} Ayi Aidat Cizelgesi.pdf`;
 
       const shouldShare = mode === 'share';
       const savedInfo = await PDFService.saveAndShareFromJsPDF(pdf, fileName, shouldShare);
@@ -234,6 +234,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
       transactions={transactions}
       onClose={() => setSelectedUnit(null)}
       onUpdate={(u) => { onEditUnit(u); setSelectedUnit(u); }}
+      currentDate={currentDate}
     />;
   }
 

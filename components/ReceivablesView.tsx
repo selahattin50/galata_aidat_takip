@@ -1,20 +1,22 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { App as CapacitorApp } from '@capacitor/app';
 import { ArrowLeft, Phone, MessageCircle, Inbox, AlertCircle, Loader2, Eye, X, CheckSquare, Square, Send, Eraser, RotateCcw, Check, AlertTriangle } from 'lucide-react';
 import { BuildingInfo, Unit } from '../types.ts';
 import { PDFService } from '../pdfService.ts';
+import { markExternalIntent } from '../externalIntentGuard';
 import buildingLogo from '../src/assets/logo.png';
 
 interface ReceivablesViewProps {
   units: Unit[];
   info: BuildingInfo;
   onClose: () => void;
+  currentDate: Date;
 }
 
 type ReceivableCardMode = 'info' | 'reminder';
 
-const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose }) => {
+const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose, currentDate }) => {
   const [sharingUnitId, setSharingUnitId] = useState<string | null>(null);
   const [isBulkSharing, setIsBulkSharing] = useState(false);
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
@@ -94,7 +96,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose 
       return 'info';
     }
 
-    return new Date().getDate() >= bulkMessageReminderDay ? 'reminder' : 'info';
+    return currentDate.getDate() >= bulkMessageReminderDay ? 'reminder' : 'info';
   };
 
   const activeCardMode = getCardMode();
@@ -123,6 +125,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose 
       alert('Telefon numarasi kayitli degil.');
       return;
     }
+    markExternalIntent();
     window.open(`tel:${phoneNumber.replace(/\s/g, '')}`);
   };
 
@@ -222,7 +225,10 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose 
 
   const createReminderCard = async (
     name: string,
-    amount: number,
+    totalDebt: number,
+    previousDebt: number,
+    credit: number,
+    duesAmount: number,
     unitNo: string,
     mode: ReceivableCardMode
   ) => {
@@ -262,21 +268,38 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose 
         </div>
 
         <div style="padding:34px 40px 38px 40px;">
-          <div style="display:grid;grid-template-columns:1fr 320px;gap:22px;">
-            <div style="background:#f8fafc;border:1px solid #dde5ee;border-radius:22px;padding:26px 28px;zoom:1.08;">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 370px;grid-template-areas:'name summary' 'due summary';gap:22px;align-items:stretch;">
+            <div style="grid-area:name;min-height:168px;background:#f8fafc;border:1px solid #dde5ee;border-radius:22px;padding:26px 28px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
               <div style="font-size:22px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#64748b;">&#304;sim</div>
               <div style="margin-top:14px;font-size:50px;line-height:1.1;font-weight:900;color:#0f172a;">${name}</div>
             </div>
 
-            <div style="background:#fff4f4;border:1px solid #f2caca;border-radius:22px;padding:26px 24px;text-align:center;zoom:1.12;">
-              <div style="font-size:22px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#991b1b;">Bor&#231; Tutar&#305;</div>
-              <div style="margin-top:18px;font-size:58px;line-height:1;font-weight:900;color:#dc2626;">&#8378;${formatCurrency(amount)}</div>
-            </div>
-          </div>
+            <div style="grid-area:summary;min-height:328px;background:#fff8f8;border:1px solid #f2d4d4;border-radius:22px;padding:22px 24px;box-sizing:border-box;display:grid;grid-template-rows:1fr 1fr 1fr 1fr;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #f2d4d4;">
+                <div style="font-size:40px;line-height:1;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#dc2626;white-space:nowrap;">Aidat</div>
+                <div style="font-size:40px;line-height:1;font-weight:900;color:#dc2626;white-space:nowrap;">&#8378;${formatCurrency(duesAmount)}</div>
+              </div>
 
-          <div style="margin-top:20px;background:#fffdf7;border:1px solid #ece1bc;border-radius:22px;padding:26px 28px;zoom:1.08;">
-            <div style="font-size:22px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#7c5c10;">Son &#214;deme Tarihi</div>
-            <div style="margin-top:12px;font-size:40px;font-weight:900;color:#111827;">Ay&#305;n 20'si</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #f2d4d4;">
+                <div style="font-size:40px;line-height:1;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#7c3aed;white-space:nowrap;">Ge&#231;mi&#351;</div>
+                <div style="font-size:40px;line-height:1;font-weight:900;color:#7c3aed;white-space:nowrap;">${formatCurrency(previousDebt)}</div>
+              </div>
+
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #f2d4d4;">
+                <div style="font-size:40px;line-height:1;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#b45309;white-space:nowrap;">Kredi</div>
+                <div style="font-size:40px;line-height:1;font-weight:900;color:#b45309;white-space:nowrap;">${formatCurrency(credit)}</div>
+              </div>
+
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+                <div style="font-size:45px;line-height:1;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#b91c1c;white-space:nowrap;">Bor&#231;</div>
+                <div style="font-size:45px;line-height:1;font-weight:950;color:#dc2626;white-space:nowrap;">${formatCurrency(totalDebt)}</div>
+              </div>
+            </div>
+
+            <div style="grid-area:due;min-height:140px;background:#fffdf7;border:1px solid #ece1bc;border-radius:22px;padding:26px 28px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
+              <div style="font-size:22px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#7c5c10;">Son &#214;deme Tarihi</div>
+              <div style="margin-top:12px;font-size:40px;font-weight:900;color:#111827;">Ay&#305;n 20'si</div>
+            </div>
           </div>
 
           <div style="margin-top:20px;background:${isReminder ? '#fff7ed' : '#f7fafc'};border:1px solid ${isReminder ? '#fed7aa' : '#dde5ee'};border-radius:22px;padding:26px 12px;zoom:1.1;">
@@ -287,8 +310,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose 
           <div style="margin-top:20px;background:#f8fafc;border:1px solid #dde5ee;border-radius:22px;padding:28px 10px;zoom:1.14;">
             <div style="font-size:22px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#475569;">&#214;deme Bilgileri</div>
             <div style="margin-top:16px;font-size:36px;line-height:1.15;font-weight:900;color:#0f172a;white-space:nowrap;">IBAN: TR74 0021 0000 0007 9239 7000 01</div>
-            <div style="margin-top:14px;font-size:31px;font-weight:800;color:#1f2937;">GALATA APARTMAN Y&#214;NET&#304;M&#304;</div>
-            <div style="margin-top:10px;font-size:28px;color:#334155;">Al&#305;c&#305;: Galata Apartman&#305; Y&#246;netimi</div>
+            <div style="margin-top:14px;font-size:31px;font-weight:800;color:#1f2937;">ALICI : GALATA APARTMAN Y&#214;NET&#304;M&#304;</div>
           </div>
         </div>
       </div>
@@ -317,7 +339,18 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose 
       throw new Error('Telefon numarasi kayitli degil.');
     }
 
-    const imageDataUrl = await createReminderCard(activeName, unit.debt, unit.no, mode);
+    const duesAmt = info?.duesAmount || 0;
+    const netDebt = Math.max(0, unit.debt - unit.credit);
+    const previousDebt = Math.max(0, unit.debt - duesAmt - unit.credit);
+    const imageDataUrl = await createReminderCard(
+      activeName,
+      netDebt,
+      previousDebt,
+      unit.credit,
+      duesAmt,
+      unit.no,
+      mode
+    );
     const fileName = `${mode === 'reminder' ? 'Aidat Hatirlatma' : 'Aidat Olusturuldu'}.png`;
     await PDFService.saveAndShareImage(imageDataUrl, fileName, phoneNumber);
   };
@@ -387,9 +420,15 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose 
 
     try {
       const previewName = toTitleCase(previewUnit.tenantName || previewUnit.ownerName);
+      const previewDuesAmt = info?.duesAmount || 0;
+      const previewNetDebt = Math.max(0, previewUnit.debt - previewUnit.credit);
+      const previewPreviousDebt = Math.max(0, previewUnit.debt - previewDuesAmt - previewUnit.credit);
       const imageDataUrl = await createReminderCard(
         previewName,
-        previewUnit.debt,
+        previewNetDebt,
+        previewPreviousDebt,
+        previewUnit.credit,
+        previewDuesAmt,
         previewUnit.no,
         getCardMode()
       );
@@ -579,7 +618,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose 
                     </div>
 
                     <div className="ml-2 flex items-center space-x-2">
-                      <div className="flex flex-col items-end text-right">
+                       <div className="flex flex-col items-end text-right">
                         <span className="text-[15px] font-black leading-none tracking-tighter text-red-500">
                           {currencySymbol}{formatCurrency(unit.debt)}
                         </span>
@@ -637,4 +676,3 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose 
 };
 
 export default ReceivablesView;
-

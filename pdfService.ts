@@ -2,6 +2,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 import { registerPlugin } from '@capacitor/core';
+import { markExternalIntent } from './externalIntentGuard';
 
 export interface WhatsAppSharePlugin {
   shareToWhatsApp(options: { phoneNumber: string; filePath: string; mimeType?: string }): Promise<void>;
@@ -84,6 +85,7 @@ export class PDFService {
             console.log('Formatlanmış telefon:', formattedPhone);
 
             // Native WhatsApp plugin ile paylaş
+            markExternalIntent();
             await WhatsAppShare.shareToWhatsApp({
               phoneNumber: formattedPhone,
               filePath: savedFile.uri
@@ -93,6 +95,7 @@ export class PDFService {
           } catch (error) {
             console.error('WhatsApp paylaşma hatası:', error);
             // Hata olursa normal paylaşma dialogunu göster
+            markExternalIntent();
             await Share.share({
               title: 'PDF Paylaş',
               text: fileName,
@@ -102,6 +105,7 @@ export class PDFService {
           }
         } else {
           // Telefon numarası yoksa normal paylaşma
+          markExternalIntent();
           await Share.share({
             title: 'PDF Paylaş',
             text: fileName,
@@ -187,6 +191,7 @@ export class PDFService {
           }
 
           try {
+            markExternalIntent();
             await WhatsAppShare.shareToWhatsApp({
               phoneNumber: formattedPhone.replace('+', ''),
               filePath: savedFile.uri,
@@ -194,6 +199,7 @@ export class PDFService {
             });
           } catch (shareError) {
             console.error('WhatsApp görsel paylaşma hatası, genel paylaşıma dönülüyor:', shareError);
+            markExternalIntent();
             await Share.share({
               title: 'Hatırlatma Kartı',
               text: fileName,
@@ -202,6 +208,7 @@ export class PDFService {
             });
           }
         } else {
+          markExternalIntent();
           await Share.share({
             title: 'Hatırlatma Kartı',
             text: fileName,
@@ -239,12 +246,23 @@ export class PDFService {
 
         // Android'de FileOpener plugin'i yerine Share kullan ama sadece PDF uygulamaları için
         // Bu sayede kullanıcı PDF görüntüleyici seçebilir
-        await Share.share({
-          title: 'PDF Görüntüle',
-          text: fileName || 'PDF Dosyası',
-          url: uri,
-          dialogTitle: 'PDF ile aç'
-        });
+        try {
+          const { FileOpener } = await import('@capacitor-community/file-opener');
+          markExternalIntent();
+          await FileOpener.open({
+            filePath: uri,
+            contentType: 'application/pdf'
+          });
+        } catch (error) {
+          console.error('FileOpener hatası, Share API kullanılıyor:', error);
+          markExternalIntent();
+          await Share.share({
+            title: 'PDF Görüntüle',
+            text: fileName || 'PDF Dosyası',
+            url: uri,
+            dialogTitle: 'PDF ile aç'
+          });
+        }
       } else {
         // Web tarayıcısında yeni sekmede aç
         window.open(uri, '_blank');

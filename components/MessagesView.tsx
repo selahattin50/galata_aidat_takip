@@ -58,7 +58,7 @@ const MessagesView: React.FC<MessagesViewProps> = ({ onClose, messages, onSendMe
                 <div className="w-10" />
             </div>
 
-            <div className="flex-1 overflow-y-auto px-1 space-y-4 pb-24 no-scrollbar">
+            <div className="flex-1 overflow-y-auto px-1 space-y-4 pb-4 no-scrollbar">
                 {messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 opacity-50">
                         <Mail size={48} className="mb-4 text-emerald-500" />
@@ -110,7 +110,7 @@ const MessagesView: React.FC<MessagesViewProps> = ({ onClose, messages, onSendMe
             </div>
 
             {/* Input Area */}
-            <div className="fixed bottom-[80px] left-0 right-0 max-w-md mx-auto p-4 bg-[#030712]/90 backdrop-blur-xl border-t border-white/5 z-[150]">
+            <div className="sticky bottom-0 left-0 right-0 max-w-md mx-auto p-4 pb-[calc(env(safe-area-inset-bottom)+16px)] bg-[#030712]/90 backdrop-blur-xl border-t border-white/5 z-[150]">
                 <div className="flex items-end space-x-2 bg-white/5 rounded-3xl p-2 border border-white/10 focus-within:border-emerald-500/50 transition-all">
                     <textarea
                         value={content}

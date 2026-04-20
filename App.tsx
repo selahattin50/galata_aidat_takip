@@ -34,6 +34,7 @@ import { BuildingInfo, ActiveTab, Transaction, Unit, BoardMember, FileEntry, Bal
 import { db } from './databaseService';
 import { auth } from './firebaseConfig';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { consumeRecentExternalIntent, markExternalIntent } from './externalIntentGuard';
 
 const STORAGE_KEYS = {
   AUTH: 'galata_v16_auth'
@@ -56,7 +57,9 @@ const DEFAULT_BUILDING_INFO: BuildingInfo = {
   isBulkMessageEnabled: true,
   bulkMessageInfoDay: 1,
   bulkMessageReminderDay: 19,
-  bulkMessageStartDay: 19
+  bulkMessageStartDay: 19,
+  lastAutoDuesMonth: "",
+  expenseCategories: ['Elektrik', 'Su', 'Asansör', 'Temizlik', 'Tamirat', 'Yönetim Gideri', 'Huzur Hakkı', 'Bahçe Bakımı', 'Diğer']
 };
 
 const INITIAL_UNITS: Unit[] = [];
@@ -71,6 +74,25 @@ const App: React.FC = () => {
 
   const [showRegister, setShowRegister] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  // Tarihi her dakika başı kontrol et ve gün/ay/yıl değişirse state'i güncelle
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      setCurrentDate(prevDate => {
+        // Sadece gün, ay veya yıl değiştiyse state'i güncelle
+        if (prevDate.getDate() !== now.getDate() ||
+          prevDate.getMonth() !== now.getMonth() ||
+          prevDate.getFullYear() !== now.getFullYear()) {
+          console.log('📅 Gün değişti, takvimler güncelleniyor:', now.toLocaleDateString('tr-TR'));
+          return now;
+        }
+        return prevDate;
+      });
+    }, 60000); // 1 dakikada bir kontrol et
+    return () => clearInterval(timer);
+  }, []);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [activeSubView, setActiveSubView] = useState<string | null>(null);
@@ -100,6 +122,51 @@ const App: React.FC = () => {
   const [lastSeenMsgTime, setLastSeenMsgTime] = useState(() => {
     return parseInt(localStorage.getItem('galata_last_msg_time') || '0', 10);
   });
+
+  // Otomatik Aidat Borçlandırma Kontrolü (Her ayın 1'inde)
+  useEffect(() => {
+    if (!isAuthenticated || isLoading || !buildingInfo.isAutoDuesEnabled || !units.length) return;
+
+    const now = currentDate;
+    const currentMonthKey = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`; // Örn: "2026-04"
+    
+    // Sadece ayın 1'inde ve bu ay için daha önce yapılmadıysa çalış
+    if (now.getDate() === 1 && buildingInfo.lastAutoDuesMonth !== currentMonthKey) {
+      console.log('🚀 Otomatik aidat borçlandırma başlatılıyor:', currentMonthKey);
+      
+      const newTransactions: Transaction[] = [];
+      const duesAmount = buildingInfo.duesAmount || 0;
+      
+      if (duesAmount <= 0) return;
+
+      units.forEach(unit => {
+        // Yönetici dairesi muafsa borçlandırma yapma
+        if (buildingInfo.isManagerExempt && unit.id === buildingInfo.managerUnitId) return;
+
+        newTransactions.push({
+          id: Math.random().toString(36).slice(2),
+          type: 'BORÇLANDIRMA',
+          amount: duesAmount,
+          description: `${now.getMonth() + 1}. AY AİDAT BORCU [genel]`,
+          unitId: unit.id,
+          date: now.toLocaleDateString('tr-TR'),
+          periodMonth: now.getMonth(),
+          periodYear: now.getFullYear()
+        });
+      });
+
+      if (newTransactions.length > 0) {
+        const updatedTransactions = [...newTransactions, ...transactions];
+        setTransactions(updatedTransactions);
+        
+        // buildingInfo'yu da güncelle ki tekrar yapmasın
+        const updatedInfo = { ...buildingInfo, lastAutoDuesMonth: currentMonthKey };
+        setBuildingInfo(updatedInfo);
+        
+        console.log(`✅ ${newTransactions.length} daire için otomatik borç kaydı oluşturuldu.`);
+      }
+    }
+  }, [currentDate, isAuthenticated, isLoading, buildingInfo.isAutoDuesEnabled, units.length]);
 
   // Firebase'den verileri yükle
   useEffect(() => {
@@ -589,7 +656,7 @@ const App: React.FC = () => {
 
   const unitsWithBalances = useMemo(() => {
     if (!Array.isArray(units)) return INITIAL_UNITS;
-    const now = new Date();
+    const now = currentDate;
     const currentMonthIdx = now.getMonth();
     const currentYear = now.getFullYear();
 
@@ -615,30 +682,38 @@ const App: React.FC = () => {
       // (KREDİ) ile yapılan ödemeler de burada 'paid' olarak sayılır çünkü periodMonth ve periodYear değerleri vardır.
       if (duesValue > 0) {
         for (let m = 0; m <= currentMonthIdx; m++) {
-          const hasSpecificPayment = unitTransactions.some(tx =>
-            tx.type === 'GELİR' &&
-            tx.periodMonth === m &&
-            tx.periodYear === currentYear
+          const hasManualDebtForMonth = unitTransactions.some(tx => 
+            tx.type === 'BORÇLANDIRMA' && tx.periodMonth === m && tx.periodYear === currentYear
           );
 
-          if (hasSpecificPayment) {
-            paidDuesTotal += duesValue;
-          } else {
-            unpaidDuesTotal += duesValue;
+          if (!hasManualDebtForMonth) {
+            const hasSpecificPayment = unitTransactions.some(tx =>
+              tx.type === 'GELİR' &&
+              tx.periodMonth === m &&
+              tx.periodYear === currentYear
+            );
+
+            if (hasSpecificPayment) {
+              paidDuesTotal += duesValue;
+            } else {
+              unpaidDuesTotal += duesValue;
+            }
           }
         }
       }
 
-      // Kredi = Toplam Nakit Gelir - (Manuel Borçlandırmalar + Aidat Tahsilatı ile Ödenen Miktar)
-      const finalCredit = totalIncome - (totalManualDebt + paidDuesTotal);
+      // Kredi = Toplam Nakit Gelir - Aidat Tahsilatı ile Ödenen Miktar 
+      // (Manuel Borçlandırmalar artık krediden düşmeyecek, ayrı bir borç olarak görünecek)
+      const currentCredit = Math.max(0, totalIncome - paidDuesTotal);
+      const currentDebt = totalManualDebt + unpaidDuesTotal;
 
       return {
         ...unit,
-        credit: finalCredit > 0 ? finalCredit : 0,
-        debt: unpaidDuesTotal + (finalCredit < 0 ? -finalCredit : 0)
+        credit: currentCredit,
+        debt: currentDebt
       };
     });
-  }, [units, transactions, buildingInfo]);
+  }, [units, transactions, buildingInfo, currentDate]);
 
 
   const balance: BalanceSummary = useMemo(() => {
@@ -649,10 +724,12 @@ const App: React.FC = () => {
       .reduce((sum, tx) => sum + (tx?.amount || 0), 0);
     const totalExpense = txArr.filter(tx => tx?.type === 'GİDER').reduce((sum, tx) => sum + (tx?.amount || 0), 0);
     const mevcut = totalIncome - totalExpense;
-    const alacak = Array.isArray(unitsWithBalances) ? unitsWithBalances.reduce((sum, u) => sum + (u?.debt || 0), 0) : 0;
+    const alacak = Array.isArray(unitsWithBalances)
+      ? unitsWithBalances.reduce((sum, u) => sum + Math.max(0, (u?.debt || 0) - (u?.credit || 0)), 0)
+      : 0;
 
     // İçinde bulunduğumuz ay için Aidat Performansı (Grafik için)
-    const now = new Date();
+    const now = currentDate;
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
@@ -679,7 +756,7 @@ const App: React.FC = () => {
       monthlyCollected,
       monthlyRemainingDebt
     };
-  }, [unitsWithBalances, transactions, buildingInfo, units]);
+  }, [unitsWithBalances, transactions, buildingInfo, units, currentDate]);
 
   const handleLogin = (remember: boolean) => {
     if (remember) localStorage.setItem(STORAGE_KEYS.AUTH, 'true');
@@ -710,6 +787,25 @@ const App: React.FC = () => {
     setActiveSubView(null);
   };
 
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || !isAuthenticated) {
+      return;
+    }
+
+    const listener = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+      if (!isActive) {
+        if (consumeRecentExternalIntent()) {
+          return;
+        }
+        handleLogout();
+      }
+    });
+
+    return () => {
+      listener.then(handle => handle.remove()).catch(() => {});
+    };
+  }, [isAuthenticated]);
+
   const handleAddUnit = (u: Omit<Unit, 'id' | 'credit' | 'debt'>) => {
     const newUnit = { ...u, id: Math.random().toString(36).slice(2), credit: 0, debt: 0 };
     const updatedUnits = [...(Array.isArray(units) ? units : []), newUnit];
@@ -738,7 +834,7 @@ const App: React.FC = () => {
   const handleAddTransaction = async (amount: number, description: string, type: any, vault: any = 'genel', date?: string, unitId?: string, periodMonth?: number, periodYear?: number) => {
     console.log('🔵 handleAddTransaction çağrıldı:', { amount, description, type, vault, date, unitId });
 
-    const formattedDate = date ? (date.includes('-') ? date.split('-').reverse().join('.') : date) : new Date().toLocaleDateString('tr-TR');
+    const formattedDate = date ? (date.includes('-') ? date.split('-').reverse().join('.') : date) : currentDate.toLocaleDateString('tr-TR');
     const newTx: Transaction = { id: Math.random().toString(36).slice(2), type, amount, description: `${description} [${vault}]`, unitId, date: formattedDate, periodMonth, periodYear };
 
     console.log('🔵 Yeni transaction oluşturuldu:', newTx);
@@ -778,7 +874,7 @@ const App: React.FC = () => {
       id: Math.random().toString(36).slice(2),
       name: name,
       category: category,
-      date: new Date().toLocaleDateString('tr-TR'),
+      date: currentDate.toLocaleDateString('tr-TR'),
       size: fileSizeStr,
       extension: 'pdf',
       uri: uri,
@@ -794,6 +890,7 @@ const App: React.FC = () => {
 
       if (file.uri) {
         console.log('Dosya paylaşılıyor/açılıyor:', file.uri);
+        markExternalIntent();
         await Share.share({
           title: file.name,
           text: file.name,
@@ -819,47 +916,21 @@ const App: React.FC = () => {
         return;
       }
 
-      console.log('PDF açılıyor:', file.uri);
-      console.log('Dosya adı:', file.fileName);
+      console.log('PDF açılıyor (FileOpener):', file.uri);
 
-      // Dosyayı oku ve base64 olarak al
-      const { Filesystem, Directory } = await import('@capacitor/filesystem');
-
-      if (file.fileName) {
+      if (Capacitor.isNativePlatform()) {
         try {
-          const fileData = await Filesystem.readFile({
-            path: file.fileName,
-            directory: Directory.Data
+          const { FileOpener } = await import('@capacitor-community/file-opener');
+          markExternalIntent();
+          await FileOpener.open({
+            filePath: file.uri,
+            contentType: 'application/pdf'
           });
-
-          console.log('Dosya okundu, base64 uzunluğu:', fileData.data.toString().length);
-
-          // Base64 data'yı blob'a çevir
-          const base64Data = fileData.data as string;
-          const byteCharacters = atob(base64Data);
-          const byteNumbers = new Array(byteCharacters.length);
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-          }
-          const byteArray = new Uint8Array(byteNumbers);
-          const blob = new Blob([byteArray], { type: 'application/pdf' });
-
-          // Blob'dan URL oluştur
-          const blobUrl = URL.createObjectURL(blob);
-
-          // Browser ile aç
-          const { Browser } = await import('@capacitor/browser');
-          await Browser.open({
-            url: blobUrl,
-            presentationStyle: 'fullscreen'
-          });
-
-          // Cleanup
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-        } catch (readError) {
-          console.error('Dosya okuma hatası:', readError);
-          // Fallback: Share API kullan
+        } catch (openerError) {
+          console.error('FileOpener hatası, alternatif deneniyor:', openerError);
+          // Fallback: Browser veya Share
           const { Share } = await import('@capacitor/share');
+          markExternalIntent();
           await Share.share({
             title: file.name,
             text: 'PDF Görüntüle',
@@ -868,14 +939,8 @@ const App: React.FC = () => {
           });
         }
       } else {
-        // fileName yoksa direkt Share kullan
-        const { Share } = await import('@capacitor/share');
-        await Share.share({
-          title: file.name,
-          text: 'PDF Görüntüle',
-          url: file.uri,
-          dialogTitle: 'PDF ile aç'
-        });
+        // Web tarayıcısında yeni sekmede aç
+        window.open(file.uri, '_blank');
       }
     } catch (error) {
       console.error('PDF açma hatası:', error);
@@ -943,28 +1008,28 @@ const App: React.FC = () => {
 
       <main className="px-4">
         {activeSubView ? (
-          activeSubView === 'tahsilat' ? <TahsilatView units={unitsWithBalances} info={buildingInfo} transactions={transactions} onClose={() => setActiveSubView(null)} onSave={(a, desc, v, dt, uId, m, y) => handleAddTransaction(a, desc, 'GELİR', v, dt, uId, m, y)} /> :
-            activeSubView === 'gider' ? <GiderView onClose={() => setActiveSubView(null)} onSave={async (a, d, v, dt) => await handleAddTransaction(a, d, 'GİDER', v, dt)} /> :
-              activeSubView === 'borclandir' ? <BorclandirView units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt, uId, m, y) => handleAddTransaction(a, d, 'BORÇLANDIRMA', v, dt, uId, m, y)} /> :
-                activeSubView === 'gelir' ? <GelirView onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt) => handleAddTransaction(a, d, 'GELİR', v, dt)} /> :
-                  activeSubView === 'iade' ? <IadeView units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt, uId) => handleAddTransaction(a, d, 'GİDER', v, dt, uId)} /> :
-                    activeSubView === 'transfer' ? <TransferView onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt) => handleAddTransaction(a, d, 'TRANSFER', v, dt)} /> :
-                      activeSubView === 'units' ? <UnitsView units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddUnit={handleAddUnit} onEditUnit={handleEditUnit} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
-                        activeSubView === 'history' ? <TransactionsView transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} onDeleteTransaction={async (id) => {
+          activeSubView === 'tahsilat' ? <TahsilatView currentDate={currentDate} units={unitsWithBalances} info={buildingInfo} transactions={transactions} onClose={() => setActiveSubView(null)} onSave={(a, desc, v, dt, uId, m, y) => handleAddTransaction(a, desc, 'GELİR', v, dt, uId, m, y)} /> :
+            activeSubView === 'gider' ? <GiderView currentDate={currentDate} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={async (a, d, v, dt) => await handleAddTransaction(a, d, 'GİDER', v, dt)} /> :
+              activeSubView === 'borclandir' ? <BorclandirView currentDate={currentDate} units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt, uId, m, y) => handleAddTransaction(a, d, 'BORÇLANDIRMA', v, dt, uId, m, y)} /> :
+                activeSubView === 'gelir' ? <GelirView currentDate={currentDate} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt) => handleAddTransaction(a, d, 'GELİR', v, dt)} /> :
+                  activeSubView === 'iade' ? <IadeView currentDate={currentDate} units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt, uId) => handleAddTransaction(a, d, 'GİDER', v, dt, uId)} /> :
+                    activeSubView === 'transfer' ? <TransferView currentDate={currentDate} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt) => handleAddTransaction(a, d, 'TRANSFER', v, dt)} /> :
+                      activeSubView === 'units' ? <UnitsView currentDate={currentDate} units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddUnit={handleAddUnit} onEditUnit={handleEditUnit} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
+                        activeSubView === 'history' ? <TransactionsView currentDate={currentDate} transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} onDeleteTransaction={async (id) => {
                           setTransactions(p => p.filter(x => x.id !== id));
                           if (isAuthenticated && !isLoading) {
                             try { await db.deleteTransaction(id); } catch (err) { console.error('✗ Silme esnasında hata:', err); }
                           }
                         }} onUpdateTransaction={tx => setTransactions(p => p.map(x => x.id === tx.id ? tx : x))} /> :
-                          activeSubView === 'receivables' ? <ReceivablesView units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} /> :
-                            activeSubView === 'aidat-cizelge' ? <AidatCizelgeView units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddDues={() => { }} /> :
-                              activeSubView === 'monthly-report' ? <MonthlyReportView transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
-                                activeSubView === 'yearly-report' ? <YearlyReportView transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
+                          activeSubView === 'receivables' ? <ReceivablesView currentDate={currentDate} units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} /> :
+                            activeSubView === 'aidat-cizelge' ? <AidatCizelgeView currentDate={currentDate} units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddDues={() => { }} /> :
+                              activeSubView === 'monthly-report' ? <MonthlyReportView currentDate={currentDate} transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
+                                activeSubView === 'yearly-report' ? <YearlyReportView currentDate={currentDate} transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
                                   activeSubView === 'board' ? <BoardView members={boardMembers} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddMember={m => setBoardMembers(p => [...(Array.isArray(p) ? p : []), { ...m, id: Math.random().toString(36).slice(2) }])} onDeleteMember={id => setBoardMembers(p => p.filter(x => x.id !== id))} /> :
                                     activeSubView === 'messages' ? <MessagesView messages={messages} onClose={() => setActiveSubView(null)} onSendMessage={handleSendMessage} onDeleteMessage={handleDeleteMessage} /> : null
         ) : (
           activeTab === 'menu' ? <MenuView onActionClick={(sv, tab) => { if (tab) setActiveTab(tab); else setActiveSubView(sv); }} onLogout={handleLogout} onClose={() => setActiveTab('home')} /> :
-            activeTab === 'settings' ? <SettingsView buildingInfo={buildingInfo} onUpdateBuildingInfo={setBuildingInfo} units={unitsWithBalances} onResetMoney={() => setTransactions([])} onClose={() => setActiveTab('home')} /> :
+            activeTab === 'settings' ? <SettingsView buildingInfo={buildingInfo} onUpdateBuildingInfo={setBuildingInfo} units={unitsWithBalances} onResetMoney={() => setTransactions([])} onClose={() => setActiveTab('home')} onAddTransactions={(newTxs) => setTransactions(prev => [...newTxs, ...prev])} /> :
               activeTab === 'sessions' ? <SessionsView
                 activeSiteId={activeSiteId}
                 userSites={userSites}
@@ -1031,7 +1096,7 @@ const App: React.FC = () => {
               /> :
                 activeTab === 'home' ? <div className="space-y-3 pt-1"><SummaryCard balance={balance} /><ActionGrid variant="grid" onActionClick={a => { const m: any = { 'Tahsilat': 'tahsilat', 'Gider': 'gider', 'Borçlandır': 'borclandir', 'Gelir': 'gelir', 'İade': 'iade', 'Transfer': 'transfer', 'Bağımsız Bölümler': 'units', 'İşlem Hareketleri': 'history', 'Alacak Listesi': 'receivables' }; if (m[a]) setActiveSubView(m[a]); }} /><SecondaryWidgets onActionClick={a => { const m: any = { 'AİDAT ÇİZELGE': 'aidat-cizelge', 'AYLIK BİLANÇO': 'monthly-report', 'YILLIK BİLANÇO': 'yearly-report' }; if (m[a]) setActiveSubView(m[a]); }} /><LastTransaction transaction={(Array.isArray(transactions) && transactions.length > 0) ? transactions[0] : null} /></div> :
 
-                  activeTab === 'files' ? <FilesView files={files} onAddFile={f => setFiles(p => [...(Array.isArray(p) ? p : []), { ...f, id: Math.random().toString(36).slice(2) }])} onDeleteFile={id => setFiles(p => p.filter(x => x.id !== id))} onOpenFile={handleOpenFile} onShareFile={handleShareFile} /> : null
+                  activeTab === 'files' ? <FilesView currentDate={currentDate} files={files} onAddFile={f => setFiles(p => [...(Array.isArray(p) ? p : []), { ...f, id: Math.random().toString(36).slice(2) }])} onDeleteFile={id => setFiles(p => p.filter(x => x.id !== id))} onOpenFile={handleOpenFile} onShareFile={handleShareFile} /> : null
         )}
       </main>
       <BottomNav activeTab={activeTab} onTabChange={t => { setActiveTab(t); setActiveSubView(null); }} />

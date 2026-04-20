@@ -9,10 +9,11 @@ interface TahsilatViewProps {
   transactions: Transaction[];
   onClose: () => void;
   onSave: (amount: number, description: string, vault: 'genel' | 'demirbas', date: string, unitId: string, month?: number, year?: number) => void;
+  currentDate: Date;
 }
 
-const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, onClose, onSave }) => {
-  const now = new Date();
+const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, onClose, onSave, currentDate }) => {
+  const now = currentDate;
   const currentMonthIdx = now.getMonth();
   const currentYearActual = now.getFullYear();
 
@@ -121,7 +122,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
         <div className="w-10" />
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4 pb-32">
         <section>
           <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-2 block ml-1">1. DAİRE SEÇİMİ</label>
           <div className="rounded-2xl border border-white/10 overflow-hidden shadow-2xl transition-all bg-[#111827]">
@@ -169,7 +170,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
         {selectedUnit && selectedUnit.tenantName && selectedUnit.tenantName.trim() !== '' && (
           <section className="animate-in fade-in zoom-in-95 duration-300">
             <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">2. ÖDEMEYİ YAPAN</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2">
               <button
                 onClick={() => setSelectedPayerType('Kiracı')}
                 className={`flex items-center justify-center space-x-2 h-12 rounded-xl border transition-all ${selectedPayerType === 'Kiracı' ? 'bg-orange-600 border-orange-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'}`}

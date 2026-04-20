@@ -10,9 +10,10 @@ interface FilesViewProps {
   onDeleteFile: (id: string) => void;
   onOpenFile: (file: FileEntry) => void;
   onShareFile?: (file: FileEntry) => void;
+  currentDate: Date;
 }
 
-const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, onOpenFile, onShareFile }) => {
+const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, onOpenFile, onShareFile, currentDate }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('Hepsi');
@@ -28,7 +29,7 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
 
   const [fileName, setFileName] = useState('');
   const [fileCategory, setFileCategory] = useState<FileEntry['category']>('Fatura');
-  const [fileDate, setFileDate] = useState(new Date().toISOString().split('T')[0]);
+  const [fileDate, setFileDate] = useState(currentDate.toISOString().split('T')[0]);
 
   const categories = ['Hepsi', 'Fatura', 'Sözleşme', 'Tutanak', 'Karar', 'Diğer'];
 

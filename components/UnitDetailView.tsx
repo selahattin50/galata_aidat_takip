@@ -9,15 +9,16 @@ interface UnitDetailViewProps {
   transactions: Transaction[];
   onClose: () => void;
   onUpdate: (unit: Unit) => void;
+  currentDate: Date;
 }
 
-const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transactions, onClose, onUpdate }) => {
+const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transactions, onClose, onUpdate, currentDate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ ...unit });
 
   const cardRef = useRef<HTMLDivElement>(null);
   const months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-  const currentYear = new Date().getFullYear();
+  const currentYearActual = currentDate.getFullYear();
 
   const toTitleCase = (str: string) => {
     if (!str) return '';
@@ -37,9 +38,8 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
   };
 
   const getMonthStatus = (mIdx: number) => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
 
     // Gelecek aylar
     if (mIdx > currentMonth) {
@@ -286,7 +286,7 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
         <section className="pb-10">
           <div className="flex items-center justify-between mb-2 px-1">
             <h3 className="text-[10px] font-black text-white/40 tracking-[0.2em] uppercase">AİDAT ÇİZELGESİ</h3>
-            <span className="text-[10px] font-black text-white/10">{currentYear}</span>
+            <span className="text-[10px] font-black text-white/10">{currentYearActual}</span>
           </div>
           <div className="grid grid-cols-12 gap-1">
             {months.map((m, idx) => {

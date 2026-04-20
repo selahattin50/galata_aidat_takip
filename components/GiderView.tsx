@@ -1,24 +1,16 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Wallet, Briefcase, ChevronDown, Save, Loader2, CheckCircle2, Database } from 'lucide-react';
 
-const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, v: any, dt: string) => Promise<void>; }> = ({ onClose, onSave }) => {
-  const [st, setSt] = useState({ cat: '', amt: '', desc: '', v: 'genel', dt: new Date().toISOString().split('T')[0] });
+import { BuildingInfo } from '../types.ts';
+
+const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, v: any, dt: string) => Promise<void>; currentDate: Date; info: BuildingInfo; }> = ({ onClose, onSave, currentDate, info }) => {
+  const [st, setSt] = useState({ cat: '', amt: '', desc: '', v: 'genel', dt: currentDate.toISOString().split('T')[0] });
   const [showCatList, setShowCatList] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
 
-  const expenseCategories = [
-    { id: 'elektrik', label: 'Elektrik Gideri', icon: '⚡' },
-    { id: 'su', label: 'Su Gideri', icon: '💧' },
-    { id: 'temizlik', label: 'Temizlik ve Çöp Alımı', icon: '🧹' },
-    { id: 'asansor', label: 'Asansör Bakım', icon: '🛗' },
-    { id: 'onarim', label: 'Tadilat', icon: '🔧' },
-    { id: 'bahce', label: 'Bahçe Bakımı', icon: '🌱' },
-    { id: 'personel', label: 'Personel Maaşı', icon: '👤' },
-    { id: 'sigorta', label: 'Bina Sigortası', icon: '🛡️' },
-    { id: 'diger', label: 'Diğer Giderler', icon: '📦' },
-  ];
+  const expenseCategories = info.expenseCategories || ['Elektrik', 'Su', 'Asansör', 'Temizlik', 'Tamirat', 'Yönetim Gideri', 'Huzur Hakkı', 'Bahçe Bakımı', 'Diğer'];
 
   const handleCategorySelect = (catLabel: string) => {
     const newDesc = `${catLabel.toUpperCase()}`;
@@ -110,7 +102,7 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
   }
 
   return (
-    <div className="animate-in slide-in-from-bottom-6 duration-500 pt-0 pb-16">
+    <div className="animate-in slide-in-from-bottom-6 duration-500 pt-0 pb-60">
       <div className="sticky top-0 z-[100] -mx-4 px-4 py-3.5 mb-3 bg-[#030712]/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
         <button onClick={onClose} className="bg-white/5 p-2 rounded-xl border border-white/5 active:scale-90 transition-all"><ArrowLeft size={24} className="text-zinc-400" /></button>
         <h3 className="text-[18px] font-black uppercase tracking-[0.2em] text-red-500 text-center">GİDER KAYDI</h3>
@@ -119,21 +111,32 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
 
       <div className="space-y-6 px-1">
         <section>
-          <label className="text-[10px] font-black tracking-widest text-white/30 uppercase mb-3 block ml-1">KASA VE TARİH</label>
+          <label className="text-[10px] font-black tracking-widest text-white/30 uppercase mb-3 block ml-1">KASA SEÇİMİ</label>
+          <div className="grid grid-cols-2 gap-2.5 bg-white/5 p-1.5 rounded-2xl border border-white/5">
+            <button onClick={() => setSt({ ...st, v: 'genel' })} className={`h-12 rounded-xl flex items-center justify-center space-x-2 transition-all ${st.v === 'genel' ? 'bg-green-500 shadow-lg text-white' : 'text-white/20'}`}>
+              <Wallet size={16} /><span className="text-[11px] font-black uppercase">Genel Gider</span>
+            </button>
+            <button onClick={() => setSt({ ...st, v: 'demirbas' })} className={`h-12 rounded-xl flex items-center justify-center space-x-2 transition-all ${st.v === 'demirbas' ? 'bg-blue-600 shadow-lg text-white' : 'text-white/20'}`}>
+              <Briefcase size={16} /><span className="text-[11px] font-black uppercase">Demirbaş</span>
+            </button>
+          </div>
+        </section>
+
+        <section>
+          <label className="text-[10px] font-black tracking-widest text-white/30 uppercase mb-3 block ml-1">TARİH VE TUTAR</label>
           <div className="grid grid-cols-2 gap-3">
-            <div className="grid grid-cols-2 gap-1.5 bg-white/5 p-1.5 rounded-2xl border border-white/5">
-              <button onClick={() => setSt({ ...st, v: 'genel' })} className={`h-12 rounded-xl flex items-center justify-center space-x-2 transition-all ${st.v === 'genel' ? 'bg-green-500 shadow-lg text-white' : 'text-white/20'}`}>
-                <Wallet size={16} /><span className="text-[11px] font-black uppercase">Genel</span>
-              </button>
-              <button onClick={() => setSt({ ...st, v: 'demirbas' })} className={`h-12 rounded-xl flex items-center justify-center space-x-2 transition-all ${st.v === 'demirbas' ? 'bg-blue-600 shadow-lg text-white' : 'text-white/20'}`}>
-                <Briefcase size={16} /><span className="text-[11px] font-black uppercase">Demirbaş</span>
-              </button>
-            </div>
             <input 
               type="date" 
               value={st.dt} 
               onChange={e => setSt({ ...st, dt: e.target.value })} 
               className="bg-white/5 w-full h-[52px] rounded-2xl px-4 text-[15px] font-black text-white outline-none border border-white/5" 
+            />
+            <input 
+              type="number" 
+              placeholder="0.00" 
+              value={st.amt} 
+              onChange={e => setSt({ ...st, amt: e.target.value })} 
+              className="bg-black/40 w-full h-[52px] rounded-2xl px-4 text-xl font-black text-red-500 border border-white/10 outline-none focus:border-red-500/50 transition-all" 
             />
           </div>
         </section>
@@ -145,7 +148,7 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
             className="w-full bg-[#1e293b] rounded-2xl h-14 flex items-center justify-between px-5 border border-white/10 hover:bg-[#2d3a4f] hover:border-red-500/50 active:bg-white/5 transition-all shadow-xl"
           >
             <div className="flex items-center space-x-3 truncate">
-              <span className="text-xl shrink-0">{expenseCategories.find(c => c.label === st.cat)?.icon || '📂'}</span>
+              <span className="text-xl shrink-0">📂</span>
               <span className={`text-[13px] font-black uppercase tracking-wider truncate transition-colors ${st.cat ? 'text-white' : 'text-white/20 group-hover:text-white/40'}`}>
                 {st.cat || 'TÜR SEÇ...'}
               </span>
@@ -156,17 +159,17 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
           {showCatList && (
             <div className="absolute top-full left-0 right-0 z-[110] mt-2 bg-[#1e293b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
               <div className="max-h-[220px] overflow-y-auto no-scrollbar">
-                {expenseCategories.map((cat) => (
+                {expenseCategories.map((cat, idx) => (
                   <button 
-                    key={cat.id}
-                    onClick={() => handleCategorySelect(cat.label)}
-                    className={`w-full py-3.5 px-4 text-left flex items-center space-x-3 border-b border-white/5 last:border-0 hover:bg-red-500/20 active:bg-white/5 transition-colors group ${st.cat === cat.label ? 'bg-red-500/10' : ''}`}
+                    key={idx}
+                    onClick={() => handleCategorySelect(cat)}
+                    className={`w-full py-3.5 px-4 text-left flex items-center space-x-3 border-b border-white/5 last:border-0 hover:bg-red-500/20 active:bg-white/5 transition-colors group ${st.cat === cat ? 'bg-red-500/10' : ''}`}
                   >
-                    <span className="text-xl shrink-0 group-hover:scale-110 transition-transform">{cat.icon}</span>
-                    <span className={`text-[12px] font-black uppercase tracking-widest flex-1 truncate transition-colors ${st.cat === cat.label ? 'text-red-400' : 'text-white/60 group-hover:text-white'}`}>
-                      {cat.label}
+                    <span className="text-xl shrink-0 group-hover:scale-110 transition-transform">📂</span>
+                    <span className={`text-[12px] font-black uppercase tracking-widest flex-1 truncate transition-colors ${st.cat === cat ? 'text-red-400' : 'text-white/60 group-hover:text-white'}`}>
+                      {cat}
                     </span>
-                    {st.cat === cat.label && <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444]" />}
+                    {st.cat === cat && <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444]" />}
                   </button>
                 ))}
               </div>
@@ -174,28 +177,15 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
           )}
         </section>
 
-        <section className="bg-slate-800/40 rounded-[24px] p-5 space-y-4 border border-white/5 shadow-2xl">
-          <div>
-            <label className="text-[10px] font-black tracking-widest text-white/20 uppercase mb-2 block ml-1">TUTAR (₺)</label>
-            <input 
-              type="number" 
-              placeholder="0.00" 
-              value={st.amt} 
-              onChange={e => setSt({ ...st, amt: e.target.value })} 
-              className="w-full h-12 bg-black/40 rounded-xl px-4 text-2xl font-black text-red-500 border border-white/10 outline-none focus:border-red-500/50 transition-all" 
-            />
-          </div>
-          
-          <div>
-            <label className="text-[10px] font-black tracking-widest text-white/20 uppercase mb-2 block ml-1">AÇIKLAMA</label>
-            <input 
-              type="text" 
-              placeholder="Açıklama giriniz..." 
-              value={st.desc} 
-              onChange={e => setSt({ ...st, desc: e.target.value })} 
-              className="w-full h-12 bg-black/20 rounded-xl px-4 text-[11px] font-bold text-white border border-white/5 outline-none" 
-            />
-          </div>
+        <section className="bg-slate-800/40 rounded-[24px] p-5 border border-white/5 shadow-2xl">
+          <label className="text-[10px] font-black tracking-widest text-white/20 uppercase mb-2 block ml-1">AÇIKLAMA</label>
+          <input 
+            type="text" 
+            placeholder="Açıklama giriniz..." 
+            value={st.desc} 
+            onChange={e => setSt({ ...st, desc: e.target.value })} 
+            className="w-full h-[52px] bg-black/20 rounded-xl px-4 text-[13px] font-black text-white border border-white/5 outline-none" 
+          />
         </section>
 
         <button 

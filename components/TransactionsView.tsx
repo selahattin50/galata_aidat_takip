@@ -13,13 +13,14 @@ interface TransactionsViewProps {
   onAddFile: (name: string, category: FileEntry['category'], uri?: string, size?: number, fileName?: string) => void;
   onDeleteTransaction: (id: string) => void;
   onUpdateTransaction: (tx: Transaction) => void;
+  currentDate: Date;
 }
 
-const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units, onClose, onAddFile, onDeleteTransaction, onUpdateTransaction }) => {
+const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units, onClose, onAddFile, onDeleteTransaction, onUpdateTransaction, currentDate }) => {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(new Date().getMonth());
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(currentDate.getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [deletingTx, setDeletingTx] = useState<Transaction | null>(null);
   const [txToPrint, setTxToPrint] = useState<Transaction | null>(null);
@@ -73,7 +74,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
 
   const trToIsoDate = (trDate: string) => {
     const parts = trDate.split('.');
-    if (parts.length !== 3) return new Date().toISOString().split('T')[0];
+    if (parts.length !== 3) return currentDate.toISOString().split('T')[0];
     return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
   };
 
@@ -245,11 +246,11 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                 <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 bg-black/20">
                   <button onClick={() => setSelectedYear(selectedYear - 1)} className="p-1 text-white/60 hover:text-white active:scale-90 transition-all"><ChevronDown size={16} className="rotate-90" /></button>
                   <span className="text-[11px] font-black text-white uppercase tracking-widest">{selectedYear}</span>
-                  <button onClick={() => { if (selectedYear < new Date().getFullYear()) setSelectedYear(selectedYear + 1); }} className="p-1 text-white/60 hover:text-white active:scale-90 transition-all disabled:opacity-30" disabled={selectedYear >= new Date().getFullYear()}><ChevronDown size={16} className="-rotate-90" /></button>
+                  <button onClick={() => { if (selectedYear < currentDate.getFullYear()) setSelectedYear(selectedYear + 1); }} className="p-1 text-white/60 hover:text-white active:scale-90 transition-all disabled:opacity-30" disabled={selectedYear >= currentDate.getFullYear()}><ChevronDown size={16} className="-rotate-90" /></button>
                 </div>
                 <div className="max-h-[300px] overflow-y-auto no-scrollbar">
                   {months.map((m, idx) => {
-                    if (selectedYear === new Date().getFullYear() && idx > new Date().getMonth()) return null;
+                    if (selectedYear === currentDate.getFullYear() && idx > currentDate.getMonth()) return null;
                     return <button key={idx} onClick={() => { setSelectedMonth(idx); setIsDatePickerOpen(false); }} className={`w-full py-2 px-4 text-[11px] font-black uppercase tracking-widest border-b border-white/5 last:border-0 text-center transition-colors ${selectedMonth === idx ? 'text-green-400 bg-green-400/5' : 'text-white/60 hover:bg-white/5'}`}>{m.toUpperCase()} {selectedYear}</button>;
                   })}
                 </div>

@@ -8,16 +8,17 @@ interface BorclandirViewProps {
   info: BuildingInfo;
   onClose: () => void;
   onSave: (amount: number, description: string, vault: 'genel' | 'demirbas', date: string, unitId: string, month: number, year: number) => void;
+  currentDate: Date;
 }
 
-const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, onSave }) => {
+const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, onSave, currentDate }) => {
   const [formData, setFormData] = useState({
     unitId: '',
     amount: '',
     description: '',
     kasa: 'genel' as 'genel' | 'demirbas',
     debtorType: 'Malik' as 'Malik' | 'Kiracı',
-    date: new Date().toISOString().split('T')[0]
+    date: currentDate.toISOString().split('T')[0]
   });
 
   const [showUnitList, setShowUnitList] = useState(false);
@@ -83,7 +84,7 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
   }
 
   return (
-    <div className="animate-in slide-in-from-bottom-6 duration-500 pt-0 pb-16">
+    <div className="animate-in slide-in-from-bottom-6 duration-500 pt-0 pb-60">
       <div className="sticky top-0 z-[100] -mx-4 px-4 py-2.5 mb-2 bg-[#030712]/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
         <button onClick={onClose} className="bg-white/5 p-2 rounded-xl active:scale-90 transition-all border border-white/5">
           <ArrowLeft size={24} className="text-zinc-400" />
@@ -95,7 +96,7 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
       <div className="space-y-4 px-1">
         <section>
           <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">1. KASA SEÇİMİ</label>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
             <button onClick={() => setFormData(prev => ({...prev, kasa: 'genel'}))} className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${formData.kasa === 'genel' ? 'bg-green-500/10 border-green-500/40 text-green-400' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}><Wallet size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Genel Gider</span></button>
             <button onClick={() => setFormData(prev => ({...prev, kasa: 'demirbas'}))} className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${formData.kasa === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}><Briefcase size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Demirbaş</span></button>
           </div>
@@ -138,15 +139,15 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
 
         <section>
           <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">3. BORÇLU TÜRÜ</label>
-          <div className="grid grid-cols-2 gap-2.5">
-            <button type="button" disabled={!!selectedUnit?.tenantName} onClick={() => setFormData(prev => ({...prev, debtorType: 'Malik'}))} className={`flex items-center justify-center space-x-2 h-12 rounded-xl border transition-all ${formData.debtorType === 'Malik' ? 'bg-blue-600 border-blue-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'} disabled:opacity-20 disabled:grayscale disabled:pointer-events-none`}><User size={16} /><span className="text-[13px] font-black uppercase tracking-widest">MALİK</span></button>
+          <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
+            <button type="button" onClick={() => setFormData(prev => ({...prev, debtorType: 'Malik'}))} className={`flex items-center justify-center space-x-2 h-12 rounded-xl border transition-all ${formData.debtorType === 'Malik' ? 'bg-blue-600 border-blue-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'}`}><User size={16} /><span className="text-[13px] font-black uppercase tracking-widest">MALİK</span></button>
             <button type="button" disabled={!selectedUnit?.tenantName} onClick={() => setFormData(prev => ({...prev, debtorType: 'Kiracı'}))} className={`flex items-center justify-center space-x-2 h-12 rounded-xl border transition-all ${formData.debtorType === 'Kiracı' ? 'bg-red-600 border-red-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'} disabled:opacity-20 disabled:grayscale disabled:pointer-events-none`}><UserCheck size={16} /><span className="text-[13px] font-black uppercase tracking-widest">KİRACI</span></button>
           </div>
         </section>
 
         <section>
           <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">4. İŞLEM DETAYLARI</label>
-          <div className="glass-panel rounded-2xl p-4 space-y-3 border border-white/10">
+          <div className="glass-panel rounded-2xl p-4 space-y-4 border border-white/10">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">İşlem Tarihi</label>
@@ -154,12 +155,12 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
               </div>
               <div>
                 <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">Tutar (₺)</label>
-                <input type="number" placeholder="0.00" value={formData.amount} onChange={(e) => setFormData(prev => ({...prev, amount: e.target.value}))} className="bg-black/20 w-full h-10 rounded-xl px-3 text-[18px] font-black text-red-400 outline-none border border-white/5" />
+                <input type="number" placeholder="0.00" value={formData.amount} onChange={(e) => setFormData(prev => ({...prev, amount: e.target.value}))} className="bg-black/20 w-full h-[52px] rounded-xl px-3 text-[20px] font-black text-red-500 outline-none border border-white/5" />
               </div>
             </div>
             <div>
               <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">Açıklama</label>
-              <input type="text" placeholder="Örn: Aidat Borcu" value={formData.description} onChange={(e) => setFormData(prev => ({...prev, description: e.target.value}))} className="bg-black/20 w-full h-10 rounded-xl px-3 text-[13px] font-bold text-white outline-none border border-white/5" />
+              <input type="text" placeholder="Örn: Aidat Borcu" value={formData.description} onChange={(e) => setFormData(prev => ({...prev, description: e.target.value}))} className="bg-black/20 w-full h-[52px] rounded-xl px-3 text-[13px] font-bold text-white outline-none border border-white/5" />
             </div>
           </div>
         </section>
