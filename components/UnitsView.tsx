@@ -169,15 +169,16 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
 
       const footer = document.createElement('div');
       footer.style.marginTop = '0px';
-      footer.style.display = 'flex';
-      footer.style.justifyContent = 'flex-end';
       footer.innerHTML = `
-        <div style="text-align: center; width: 350px;">
-          <div style="padding-top: 5px;">
-            <p style="font-size: 24px; font-weight: 900; margin: 0; color: #000;">YÖNETİM ONAYI</p>
-            <p style="font-size: 16px; margin: 0; font-style: italic; color: #000;">Kaşe / İmza</p>
+        <div style="display: flex; justify-content: flex-end;">
+          <div style="text-align: center; width: 350px;">
+            <div style="padding-top: 5px;">
+              <p style="font-size: 24px; font-weight: 900; margin: 0; color: #000;">YÖNETİM ONAYI</p>
+              <p style="font-size: 16px; margin: 0; font-style: italic; color: #000;">Kaşe / İmza</p>
+            </div>
           </div>
         </div>
+        <p style="font-size: 12px; font-weight: 700; margin: 14px 0 0; color: #334155; text-align: center;">Galata Aidat Takip Sistemi Tarafından Oluşturmuştur</p>
       `;
       pdfContent.appendChild(footer);
 

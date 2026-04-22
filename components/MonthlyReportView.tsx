@@ -460,7 +460,7 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
             </div>
             <span style={{ fontSize: '32px', fontWeight: '900', color: cashTotal >= 0 ? '#22c55e' : '#ef4444' }}>{formatCurrency(cashTotal)}</span>
           </div>
-          <div style={{ marginTop: '50px', textAlign: 'center' }}><p style={{ fontSize: '10px', fontWeight: 'bold', color: '#94a3b8', letterSpacing: '4px' }}>galata aidat takip sistemi</p></div>
+          <div style={{ marginTop: '50px', textAlign: 'center' }}><p style={{ fontSize: '10px', fontWeight: 'bold', color: '#94a3b8' }}>Galata Aidat Takip Sistemi Tarafından Oluşturmuştur</p></div>
         </div>
       </div>
     </div>

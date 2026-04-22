@@ -312,6 +312,10 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
             <div style="margin-top:16px;font-size:36px;line-height:1.15;font-weight:900;color:#0f172a;white-space:nowrap;">IBAN: TR74 0021 0000 0007 9239 7000 01</div>
             <div style="margin-top:14px;font-size:31px;font-weight:800;color:#1f2937;">ALICI : GALATA APARTMAN Y&#214;NET&#304;M&#304;</div>
           </div>
+
+          <div style="margin-top:18px;text-align:center;">
+            <p style="margin:0;font-size:16px;font-weight:800;color:#334155;">Galata Aidat Takip Sistemi Tarafından Oluşturmuştur</p>
+          </div>
         </div>
       </div>
     `;

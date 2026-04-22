@@ -139,7 +139,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
     <div className="fixed inset-0 z-[200] bg-[#030712] flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
       <div className="fixed top-[-9999px] left-[-9999px] pointer-events-none">
         {txToPrint && (
-          <div id="receipt-print-area" className="bg-white text-slate-900 flex flex-col" style={{ width: '842px', height: '595px', padding: '50px 60px', fontFamily: 'sans-serif' }}>
+          <div id="receipt-print-area" className="relative bg-white text-slate-900 flex flex-col" style={{ width: '842px', height: '595px', padding: '50px 60px 96px', fontFamily: 'sans-serif', boxSizing: 'border-box' }}>
             <div className="flex items-start justify-between mb-2">
               <div>
                 <h2 className="font-black text-[42px] tracking-tight text-[#0f172a] leading-none uppercase m-0">GALATA APARTMANI</h2>
@@ -229,7 +229,9 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                 </div>
               </div>
             </div>
-            <div className="mt-4 text-center border-t border-slate-100 pt-4"><p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.6em]">BU BELGE SİSTEM TARAFINDAN OTOMATİK OLUŞTURULMUŞTUR</p></div>
+            <div style={{ position: 'absolute', left: '60px', right: '60px', bottom: '20px', textAlign: 'center', paddingTop: '10px' }}>
+              <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: '#334155' }}>Galata Aidat Takip Sistemi Tarafından Oluşturmuştur</p>
+            </div>
           </div>
         )}
       </div>
