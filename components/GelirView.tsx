@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { ArrowLeft, CheckCircle2, TrendingUp, Wallet, Briefcase, Calendar, ChevronDown, Save, Loader2, X, Database } from 'lucide-react';
+import DatePickerModal from './DatePickerModal';
 
 interface GelirViewProps {
   onClose: () => void;
@@ -116,12 +117,7 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
         <section>
           <label className="text-[10px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">TARİH VE TUTAR</label>
           <div className="grid grid-cols-2 gap-3">
-            <input 
-              type="date" 
-              value={formData.date} 
-              onChange={e => setFormData(prev => ({...prev, date: e.target.value}))} 
-              className="bg-white/5 w-full h-[52px] rounded-xl px-4 text-[15px] font-black text-white outline-none border border-white/5" 
-            />
+            <DatePickerModal value={formData.date} onChange={v => setFormData(prev => ({...prev, date: v}))} />
             <input 
               type="number" 
               placeholder="0.00" 

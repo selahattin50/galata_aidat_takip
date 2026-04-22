@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, CheckCircle2, ArrowRightLeft, Wallet, Briefcase, Save, Loader2 } from 'lucide-react';
+import DatePickerModal from './DatePickerModal';
 
 interface TransferViewProps {
   onClose: () => void;
@@ -111,12 +112,7 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
               <div>
                 <label className="text-[10px] font-black tracking-widest text-white/20 uppercase mb-2 block ml-1">İŞLEM TARİHİ</label>
                 <div className="relative">
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full h-[52px] bg-black/40 border border-white/10 rounded-xl px-3 text-[13px] font-black text-white outline-none focus:border-indigo-500/30 transition-all shadow-inner"
-                  />
+                  <DatePickerModal value={selectedDate} onChange={setSelectedDate} />
                 </div>
               </div>
 

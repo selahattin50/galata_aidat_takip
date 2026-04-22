@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Wallet, Briefcase, ChevronDown, Save, Loader2, CheckCircle2, Database } from 'lucide-react';
-
 import { BuildingInfo } from '../types.ts';
+import DatePickerModal from './DatePickerModal';
 
 const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, v: any, dt: string) => Promise<void>; currentDate: Date; info: BuildingInfo; }> = ({ onClose, onSave, currentDate, info }) => {
   const [st, setSt] = useState({ cat: '', amt: '', desc: '', v: 'genel', dt: currentDate.toISOString().split('T')[0] });
@@ -125,12 +125,7 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
         <section>
           <label className="text-[10px] font-black tracking-widest text-white/30 uppercase mb-3 block ml-1">TARİH VE TUTAR</label>
           <div className="grid grid-cols-2 gap-3">
-            <input 
-              type="date" 
-              value={st.dt} 
-              onChange={e => setSt({ ...st, dt: e.target.value })} 
-              className="bg-white/5 w-full h-[52px] rounded-2xl px-4 text-[15px] font-black text-white outline-none border border-white/5" 
-            />
+            <DatePickerModal value={st.dt} onChange={v => setSt({ ...st, dt: v })} />
             <input 
               type="number" 
               placeholder="0.00" 

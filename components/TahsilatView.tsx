@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, ChevronDown, CheckCircle2, Save, Home, Loader2, User, UserCheck, Calendar } from 'lucide-react';
 import { Unit, BuildingInfo, Transaction } from '../types.ts';
+import DatePickerModal from './DatePickerModal';
 
 interface TahsilatViewProps {
   units: Unit[];
@@ -64,7 +65,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
 
     const description = isManualAmountCollection
       ? `${payerLabel} SERBEST TAHSİLAT ${methodLabel}`
-      : `${months[debtItem.month]} AYI AİDAT ${methodLabel}${selectedPayerType === 'Kiracı' ? ' KİRACI' : ''}`;
+      : `${months[debtItem.month]} AYI AİDATI ${methodLabel}${selectedPayerType === 'Kiracı' ? ' KİRACI' : ''}`;
 
     const finalMonth = debtItem ? debtItem.month : undefined;
     const finalYear = debtItem ? debtItem.year : undefined;
@@ -227,13 +228,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
                 <div>
                   <label className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em] ml-1 mb-1.5 block">İşlem Tarihi</label>
                   <div className="relative">
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="w-full h-[52px] bg-black/40 border border-white/10 rounded-xl px-3 text-[15px] font-black text-white outline-none focus:border-blue-500/30 transition-all shadow-inner"
-                    />
-                    <Calendar size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                    <DatePickerModal value={selectedDate} onChange={setSelectedDate} />
                   </div>
                 </div>
                 <div>

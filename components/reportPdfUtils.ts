@@ -130,7 +130,7 @@ export const createFinancialReportPdf = async ({
   cashLabel,
   cashPeriodLabel,
   cashTotal,
-  footerNote = 'GALATA DIJITAL YONETIM SISTEMI',
+  footerNote = 'galata aidat takip sistemi',
 }: FinancialReportPdfOptions) => {
   const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
   await registerPdfFonts(pdf);

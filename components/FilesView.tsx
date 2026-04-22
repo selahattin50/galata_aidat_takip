@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { FileText, FilePlus, Search, X, Trash2, File, ImageIcon, FileCode, ChevronRight, FolderOpen, Filter, ArrowLeft, ExternalLink, Share2 } from 'lucide-react';
 import { FileEntry } from '../types.ts';
 import { useAndroidBackHandler } from '../appBackButton';
+import DatePickerModal from './DatePickerModal';
 
 interface FilesViewProps {
   files: FileEntry[];
@@ -215,12 +216,7 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
 
               <div>
                 <label className="text-[10px] font-black text-white/50 uppercase tracking-[0.15em] block mb-2 ml-1">BELGE TARİHİ</label>
-                <input
-                  type="date"
-                  value={fileDate}
-                  onChange={(e) => setFileDate(e.target.value)}
-                  className="bg-white/5 w-full h-[52px] rounded-2xl px-5 text-[15px] font-black text-white outline-none border border-white/10 focus:border-blue-500/50 focus:bg-white/10 transition-all"
-                />
+                <DatePickerModal value={fileDate} onChange={setFileDate} />
               </div>
 
               <button

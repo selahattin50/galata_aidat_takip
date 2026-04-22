@@ -5,6 +5,7 @@ import { Transaction, Unit, FileEntry } from '../types.ts';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { PDFService } from '../pdfService';
+import DatePickerModal from './DatePickerModal';
 
 interface TransactionsViewProps {
   transactions: Transaction[];
@@ -159,7 +160,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
               </div>
               <div>
                 <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest">AÇIKLAMA</p>
-                <p className="text-[26px] font-bold text-slate-700 leading-tight uppercase">
+                <p className="whitespace-nowrap text-[24px] font-bold uppercase leading-none text-slate-700">
                   {(() => {
                     if (txToPrint.type === 'GİDER') {
                       const expenseDesc = txToPrint.description.split('[')[0].trim()
@@ -177,6 +178,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                       .replace(/\s+(MALİK|KİRACI)\s*$/i, '')
                       .replace(/\b(MALİK|KİRACI)\b/gi, '')
                       .replace(/\bSERBEST\s+TAHSİLAT\b/gi, '')
+                      .replace(/\bAYI\s+A[Iİ]DATI?\b/gi, 'AYI AİDATI')
                       .replace(/\s+/g, ' ')
                       .trim();
                     const isExpense = txToPrint.type === 'GİDER';
@@ -185,7 +187,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                       desc = desc.replace(/\(TAHSİLATİ\)/gi, 'EFT/HAVALE')
                         .replace(/\(TAHSİLATI\)/gi, 'EFT/HAVALE')
                         .replace(/TAHSİLATI/gi, 'EFT/HAVALE')
-                        .replace(/\(EFT[\/\s]*HAVALE\)/gi, 'EFT/HAVALE') + " İLE TAHSİL EDİLMİŞTİR";
+                        .replace(/\(EFT[\/\s]*HAVALE\)/gi, 'EFT/HAVALE') + " YOLUYLA TAHSİL EDİLMİŞTİR.";
                     } else if (desc.includes('(KREDİ)') || desc.includes('KREDİ BAKİYESİNDEN')) {
                       desc = desc.replace(/\(KREDİ\)/gi, 'KREDİ BAKİYESİNDEN')
                         .replace(/KREDİ BAKİYESİNDEN/gi, 'KREDİ BAKİYESİNDEN') + " TAHSİL EDİLMİŞTİR";
@@ -303,7 +305,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
             <div className="flex justify-between items-center mb-4"><h3 className="text-[9px] font-black uppercase tracking-widest text-white/60">GÜNCELLE</h3><button onClick={() => setEditingTx(null)} className="text-white/40"><X size={20} /></button></div>
             <div className="space-y-3">
               <div><label className="text-[7px] font-black text-white/30 uppercase block mb-1">TUTAR</label><input type="number" value={editingTx.amount === 0 ? '' : editingTx.amount} onChange={e => setEditingTx({ ...editingTx, amount: parseFloat(e.target.value) || 0 })} className="w-full h-10 bg-black/40 border border-white/10 rounded-lg px-3 text-lg font-black text-white outline-none focus:border-blue-500" /></div>
-              <div><label className="text-[7px] font-black text-white/30 uppercase block mb-1">TARİH</label><input type="date" value={trToIsoDate(editingTx.date)} onChange={e => setEditingTx({ ...editingTx, date: isoToTrDate(e.target.value) })} className="w-full h-[52px] bg-black/40 border border-white/10 rounded-lg px-3 text-[15px] font-bold text-white outline-none focus:border-blue-500" /></div>
+              <div><label className="text-[7px] font-black text-white/30 uppercase block mb-1">TARİH</label><DatePickerModal value={trToIsoDate(editingTx.date)} onChange={v => setEditingTx({ ...editingTx, date: isoToTrDate(v) })} /></div>
               <div><label className="text-[7px] font-black text-white/30 uppercase block mb-1">AÇIKLAMA</label><input type="text" value={editingTx.description} onChange={e => setEditingTx({ ...editingTx, description: e.target.value })} className="w-full h-10 bg-black/40 border border-white/10 rounded-lg px-3 text-[9px] font-bold text-white outline-none focus:border-blue-500" /></div>
               <button onClick={handleUpdate} className="w-full h-11 bg-blue-600 text-white rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center space-x-2"><Save size={14} /><span>KAYDET</span></button>
             </div>

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, CheckCircle2, UserPlus, Home, ChevronDown, Wallet, Briefcase, Calendar, Save, Loader2, User, UserCheck, Check, Phone } from 'lucide-react';
+import DatePickerModal from './DatePickerModal';
 import { Unit, BuildingInfo } from '../types';
 
 interface BorclandirViewProps {
@@ -151,7 +152,7 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">İşlem Tarihi</label>
-                <input type="date" value={formData.date} onChange={(e) => setFormData(prev => ({...prev, date: e.target.value}))} className="bg-black/20 w-full h-[52px] rounded-xl px-3 text-[15px] font-bold text-white outline-none border border-white/5" />
+                <DatePickerModal value={formData.date} onChange={(v) => setFormData(prev => ({...prev, date: v}))} />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">Tutar (₺)</label>

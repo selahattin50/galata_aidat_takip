@@ -275,8 +275,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
         </div>
 
         <div className="mt-8 text-center flex flex-col items-center space-y-2 opacity-20">
-          <p className="text-[9px] font-black uppercase tracking-[0.3em]">GALATA DİJİTAL YÖNETİM SİSTEMİ</p>
-          <p className="text-[8px] font-bold">Version 2.4.0 • 2026 Tüm Hakları Saklıdır</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.3em]">GALATA AIDAT TAKIP SISTEMI</p>
+          <p className="text-[8px] font-bold">Tum haklari Galata Aidat Takip Sistemine aittir 2026</p>
         </div>
       </div>
 

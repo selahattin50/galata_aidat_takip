@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { App as CapacitorApp } from '@capacitor/app';
-import { ArrowLeft, Phone, MessageCircle, Inbox, AlertCircle, Loader2, Eye, X, CheckSquare, Square, Send, Eraser, RotateCcw, Check, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Phone, MessageCircle, Inbox, Loader2, Eye, X, CheckSquare, Square, Send, Eraser, RotateCcw, Check, AlertTriangle } from 'lucide-react';
 import { BuildingInfo, Unit } from '../types.ts';
 import { PDFService } from '../pdfService.ts';
 import { markExternalIntent } from '../externalIntentGuard';
@@ -463,93 +463,17 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
         </button>
       </div>
 
-      <div className="animate-in slide-in-from-bottom-6 px-1 duration-500">
-        <div className="glass-panel mb-3 flex items-center justify-between rounded-[24px] border border-red-500/10 bg-gradient-to-br from-red-500/5 to-transparent p-4">
-          <div className="flex items-center space-x-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10 shadow-lg shadow-red-900/10">
-              <AlertCircle className="text-red-500" size={24} />
-            </div>
-            <div>
-              <p className="mb-1.5 text-[9px] font-black uppercase leading-none tracking-[0.2em] text-white/30">
-                TOPLAM ALACAK
-              </p>
-              <p className="text-[26px] font-black leading-none tracking-tighter text-red-500">
-                {currencySymbol} {formatCurrency(totalReceivable)}
-              </p>
-            </div>
-          </div>
+      <div className="animate-in slide-in-from-bottom-6 px-0 duration-500">
+        <div className="glass-panel mb-3 flex justify-center rounded-[24px] border border-red-500/10 bg-gradient-to-br from-red-500/5 to-transparent px-4 py-3">
+          <p className="flex w-full items-center justify-center overflow-hidden whitespace-nowrap text-center text-[16px] font-black leading-none tracking-tight text-red-500">
+            <span className="mr-2 text-white/75">TOPLAM ALACAK</span>
+            <span>
+              {currencySymbol}
+              {formatCurrency(totalReceivable)}
+            </span>
+          </p>
         </div>
 
-        {debtors.length > 0 && (
-          <div className="glass-panel mb-3 rounded-[24px] border border-white/10 bg-white/[0.03] p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/35">
-                  {uiText.panelTitle}
-                </p>
-                <p className="mt-1 text-[12px] font-bold text-white/80">
-                  {uiText.selectedPrefix} {selectedUnitIds.length} {uiText.selectedSuffix}
-                </p>
-                <p className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-blue-300/80">
-                  {activeCardModeLabel}
-                </p>
-                <p className="mt-1 text-[10px] font-bold text-white/35">
-                  {activeCardModeDescription}
-                </p>
-              </div>
-              {bulkProgress && (
-                <div className="text-right">
-                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-green-400">
-                    {uiText.sending} {bulkProgress.current}/{bulkProgress.total}
-                  </p>
-                </div>
-              )}
-              <button
-                onClick={() => handleBulkWhatsApp()}
-                disabled={isBulkSharing || selectedUnitIds.length === 0}
-                className="flex h-11 items-center gap-2 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 px-4 text-[12px] font-black uppercase tracking-[0.14em] text-white shadow-lg shadow-green-500/20 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {isBulkSharing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                {uiText.send}
-              </button>
-            </div>
-
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={handleSelectAll}
-                disabled={isBulkSharing}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-white/80 transition-all active:scale-95 disabled:opacity-40"
-              >
-                <CheckSquare size={14} />
-                {uiText.selectAll}
-              </button>
-              <button
-                onClick={handleClearSelection}
-                disabled={isBulkSharing || selectedUnitIds.length === 0}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-white/60 transition-all active:scale-95 disabled:opacity-40"
-              >
-                <Eraser size={14} />
-                {uiText.clear}
-              </button>
-            </div>
-            {(bulkSuccessIds.length > 0 || bulkFailedIds.length > 0) && (
-              <div className="mt-3 flex gap-2">
-                <div className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-300">
-                  <Check size={14} />
-                  {uiText.success} {bulkSuccessIds.length}
-                </div>
-                <button
-                  onClick={handleRetryFailed}
-                  disabled={isBulkSharing || bulkFailedIds.length === 0}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-amber-200 transition-all active:scale-95 disabled:opacity-40"
-                >
-                  <RotateCcw size={14} />
-                  {uiText.remaining} {bulkFailedIds.length}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="space-y-2">
           {debtors.length === 0 ? (
@@ -569,17 +493,8 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
                 return (
                   <div
                     key={unit.id}
-                    className={`glass-panel group flex min-h-[58px] items-center rounded-[16px] border px-3 py-1.5 transition-all hover:bg-white/10 ${isBulkSuccess ? 'border-emerald-500/40 bg-emerald-500/[0.08]' : isBulkFailed ? 'border-amber-500/40 bg-amber-500/[0.08]' : isSelected ? 'border-green-500/40 bg-green-500/[0.06]' : 'border-white/5'}`}
+                    className={`glass-panel group flex min-h-[58px] items-center rounded-[16px] border px-2.5 py-1.5 transition-all hover:bg-white/10 ${isBulkSuccess ? 'border-emerald-500/40 bg-emerald-500/[0.08]' : isBulkFailed ? 'border-amber-500/40 bg-amber-500/[0.08]' : isSelected ? 'border-red-500/40 bg-red-500/[0.06]' : 'border-red-500/25 bg-red-500/[0.03]'}`}
                   >
-                    <button
-                      onClick={() => toggleUnitSelection(unit.id)}
-                      disabled={isBulkSharing}
-                      className="mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition-all active:scale-90 disabled:opacity-40"
-                      title={isSelected ? 'Secimi kaldir' : 'Borcluyu sec'}
-                    >
-                      {isSelected ? <CheckSquare size={16} className="text-green-400" /> : <Square size={16} />}
-                    </button>
-
                     <div className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 shadow-inner">
                       <span className="text-[20px] font-black leading-none text-white">{unit.no}</span>
                     </div>
@@ -612,31 +527,28 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
                               </span>
                             )}
                           </span>
-                          <Phone size={8} className="text-green-500" />
+                          <Phone size={8} className="shrink-0 text-green-500" />
                         </div>
                       </div>
                     </div>
 
-                    <div className="ml-2 flex items-center space-x-2">
-                       <div className="flex flex-col items-end text-right">
+                    <div className="ml-1.5 flex items-center space-x-1.5">
+                      <div className="text-right">
                         <span className="text-[15px] font-black leading-none tracking-tighter text-red-500">
                           {currencySymbol}{formatCurrency(unit.debt)}
                         </span>
-                        <span className="mt-0.5 whitespace-nowrap text-[7px] font-black uppercase tracking-widest text-white/10">
-                          TOPLAM BORC
-                        </span>
                       </div>
-                      <div className="flex items-center space-x-3 border-l border-white/5 pl-2.5">
+                      <div className="flex items-center space-x-2 border-l border-white/5 pl-2">
                         <button
                           onClick={() => handleWhatsApp(unit, activeName)}
                           disabled={isSharing || isBulkSharing || !hasPhone}
-                          className="rounded-lg bg-gradient-to-br from-green-500 to-green-600 p-1 text-white shadow-lg shadow-green-500/20 transition-all hover:shadow-green-500/40 active:scale-90 disabled:cursor-wait disabled:opacity-70"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg shadow-green-500/20 transition-all hover:shadow-green-500/40 active:scale-90 disabled:cursor-wait disabled:opacity-70"
                         >
                           {isSharing ? <Loader2 size={14} className="animate-spin" /> : <MessageCircle size={14} />}
                         </button>
                         <button
                           onClick={() => handleCall(unit.tenantPhone || unit.phone)}
-                          className="rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 p-1 text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-blue-500/40 active:scale-90"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-blue-500/40 active:scale-90"
                         >
                           <Phone size={14} />
                         </button>

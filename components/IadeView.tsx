@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, CheckCircle2, RotateCcw, Wallet, Briefcase, Calendar, Home, ChevronDown, User, UserCheck, Save, Loader2, X, Check, Phone } from 'lucide-react';
 import { Unit, BuildingInfo } from '../types';
+import DatePickerModal from './DatePickerModal';
 
 interface IadeViewProps {
   units: Unit[];
@@ -144,7 +145,7 @@ const IadeView: React.FC<IadeViewProps> = ({ units, info, onClose, onSave, curre
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">İşlem Tarihi</label>
-                <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="bg-black/20 w-full h-[52px] rounded-xl px-3 text-[15px] font-bold text-white outline-none border border-white/5" />
+                <DatePickerModal value={selectedDate} onChange={setSelectedDate} />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">İade Tutarı</label>

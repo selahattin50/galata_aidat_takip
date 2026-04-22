@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { X, Check, ArrowRight, Wallet, History, Loader2 } from 'lucide-react';
 import { Unit, Transaction } from '../types.ts';
+import DatePickerModal from './DatePickerModal';
 
 interface CarryOverViewProps {
   units: (Unit & { credit: number; debt: number })[];
@@ -92,12 +93,7 @@ const CarryOverView: React.FC<CarryOverViewProps> = ({ units, onCarryOver, onClo
           {/* Date Selector */}
           <div className="space-y-2">
             <label className="text-[9px] font-black text-white/30 uppercase ml-2">Devir Tarihi (Açılış Tarihi)</label>
-            <input 
-              type="date" 
-              value={selectedDate}
-              onChange={e => setSelectedDate(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:border-emerald-500/50 transition-all"
-            />
+            <DatePickerModal value={selectedDate} onChange={setSelectedDate} className="bg-white/5 border-white/10 rounded-2xl px-5 py-4 text-white font-bold" />
           </div>
 
           {/* Units Summary */}
