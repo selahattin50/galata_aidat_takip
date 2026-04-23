@@ -43,6 +43,7 @@ const STORAGE_KEYS = {
 const RECEIVABLES_INFO_NOTIFICATION_ID = 190010;
 const RECEIVABLES_REMINDER_NOTIFICATION_ID = 190011;
 const RECEIVABLES_REMINDER_CHANNEL_ID = 'receivables-reminders';
+const ADMIN_EMAIL = 'selahattin50@gmail.com';
 
 const DEFAULT_BUILDING_INFO: BuildingInfo = {
   name: "YENİ YÖNETİM",
@@ -237,13 +238,14 @@ const App: React.FC = () => {
 
         // Tüm verileri Firebase'den çek
         const emailKey = currentUser.email?.replace(/[.@]/g, '_');
+        const isAdminUser = currentUser.email === ADMIN_EMAIL;
         const [info, unitsData, transactionsData, boardData, filesData, messagesData, userProfile, bannedData] = await Promise.all([
           db.getBuildingInfo(),
           db.getUnits(),
           db.getTransactions(),
           db.getBoardMembers(),
           db.getFiles(),
-          db.getMessages(),
+          isAdminUser ? db.getMessages() : Promise.resolve([]),
           db.getDataDirect(`_userProfiles/${currentUser.uid}`),
           db.getDataDirect(`_bannedUsers/${emailKey}`)
         ]);
@@ -257,7 +259,7 @@ const App: React.FC = () => {
         });
 
         // GÜVENLİK KONTROLÜ: Eğer BANLIYSA dışarı at
-        if (bannedData && currentUser.email !== 'selahattin50@gmail.com') {
+        if (bannedData && currentUser.email !== ADMIN_EMAIL) {
           console.warn('⚠️ BANLI HESAP: Bu e-posta yasaklanmış, oturum kapatılıyor.');
           alert('Hesabınız sistemden kalıcı olarak yasaklanmıştır.');
           handleLogout();
@@ -265,7 +267,7 @@ const App: React.FC = () => {
         }
 
         // GÜVENLİK KONTROLÜ: Eğer profil silinmişse (ve ana admin değilse) dışarı at
-        if (!userProfile && currentUser.email !== 'selahattin50@gmail.com') {
+        if (!userProfile && currentUser.email !== ADMIN_EMAIL) {
           console.warn('⚠️ HESAP SİLİNMİŞ: Profil bulunamadı, oturum kapatılıyor.');
           alert('Hesabınız yönetici tarafından silinmiştir veya geçersizdir.');
           handleLogout();
@@ -277,7 +279,7 @@ const App: React.FC = () => {
           console.log('✓ Building info yüklendi');
 
           // GÜVENLİK FİLTRESİ: Geçmişteki sızıntıdan dolayı corrupted (bozulmuş) olan hesapları temizle
-          const isSelahattin = currentUser.email === 'selahattin50@gmail.com';
+          const isSelahattin = currentUser.email === ADMIN_EMAIL;
           const isManagerSelahattin = info.managerName && info.managerName.toLocaleUpperCase('tr-TR').includes('SELAHATTİN');
           const isBuildingGalata = info.name && info.name.toLocaleUpperCase('tr-TR').includes('GALATA');
 
@@ -438,7 +440,7 @@ const App: React.FC = () => {
   }, [files, isAuthenticated, isLoading]);
 
   useEffect(() => {
-    if (isAuthenticated && !isLoading && Array.isArray(messages)) {
+    if (isAuthenticated && !isLoading && auth.currentUser?.email === ADMIN_EMAIL && Array.isArray(messages)) {
       const timer = setTimeout(() => {
         console.log('Messages Firebase\'e kaydediliyor:', messages.length);
         db.saveMessages(messages)
@@ -512,12 +514,13 @@ const App: React.FC = () => {
 
   // Mesajları gerçek zamanlı dinle
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && auth.currentUser?.email === ADMIN_EMAIL) {
       const unsubscribe = db.subscribeMessages((newMessages) => {
         setMessages(newMessages);
       });
       return () => unsubscribe();
     }
+    setMessages([]);
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -959,8 +962,12 @@ const App: React.FC = () => {
   }
 
   const unreadCount = messages.filter(m => new Date(m.createdAt).getTime() > lastSeenMsgTime).length;
+  const canUseGlobalMessages = auth.currentUser?.email === ADMIN_EMAIL;
 
   const handleMessagesClick = () => {
+    if (!canUseGlobalMessages) {
+      return;
+    }
     setActiveSubView('messages');
     const now = Date.now();
     setLastSeenMsgTime(now);
@@ -968,6 +975,11 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string) => {
+    if (!canUseGlobalMessages) {
+      alert('Mesaj panosu sadece ana yönetici tarafından kullanılabilir.');
+      return;
+    }
+
     const newMsg: AppMessage = {
       id: Math.random().toString(36).slice(2),
       senderEmail: auth.currentUser?.email || 'Bilinmiyor',
@@ -990,6 +1002,10 @@ const App: React.FC = () => {
   };
 
   const handleDeleteMessage = async (id: string) => {
+    if (!canUseGlobalMessages) {
+      return;
+    }
+
     const updatedMessages = messages.filter(m => m.id !== id);
     setMessages(updatedMessages);
 
@@ -1004,7 +1020,7 @@ const App: React.FC = () => {
 
   return (
     <div className="app-gradient text-white pb-24 max-w-md mx-auto shadow-2xl relative min-h-screen">
-      {!activeSubView && activeTab === 'home' && <Header info={buildingInfo} onLogout={handleLogout} onMessagesClick={handleMessagesClick} unreadCount={unreadCount} />}
+      {!activeSubView && activeTab === 'home' && <Header info={buildingInfo} onLogout={handleLogout} onMessagesClick={handleMessagesClick} unreadCount={canUseGlobalMessages ? unreadCount : 0} showMessages={canUseGlobalMessages} />}
 
       <main className="px-4">
         {activeSubView ? (
@@ -1026,7 +1042,7 @@ const App: React.FC = () => {
                               activeSubView === 'monthly-report' ? <MonthlyReportView currentDate={currentDate} transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
                                 activeSubView === 'yearly-report' ? <YearlyReportView currentDate={currentDate} transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
                                   activeSubView === 'board' ? <BoardView members={boardMembers} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddMember={m => setBoardMembers(p => [...(Array.isArray(p) ? p : []), { ...m, id: Math.random().toString(36).slice(2) }])} onDeleteMember={id => setBoardMembers(p => p.filter(x => x.id !== id))} /> :
-                                    activeSubView === 'messages' ? <MessagesView messages={messages} onClose={() => setActiveSubView(null)} onSendMessage={handleSendMessage} onDeleteMessage={handleDeleteMessage} /> : null
+                                    activeSubView === 'messages' && canUseGlobalMessages ? <MessagesView messages={messages} onClose={() => setActiveSubView(null)} onSendMessage={handleSendMessage} onDeleteMessage={handleDeleteMessage} /> : null
         ) : (
           activeTab === 'menu' ? <MenuView onActionClick={(sv, tab) => { if (tab) setActiveTab(tab); else setActiveSubView(sv); }} onLogout={handleLogout} onClose={() => setActiveTab('home')} /> :
             activeTab === 'settings' ? <SettingsView buildingInfo={buildingInfo} onUpdateBuildingInfo={setBuildingInfo} units={unitsWithBalances} onResetMoney={() => setTransactions([])} onClose={() => setActiveTab('home')} onAddTransactions={(newTxs) => setTransactions(prev => [...newTxs, ...prev])} /> :

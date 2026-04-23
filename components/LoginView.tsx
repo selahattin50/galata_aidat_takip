@@ -11,6 +11,70 @@ interface LoginViewProps {
 const REMEMBERED_USER_KEY = 'galata_remembered_username';
 const FAILED_ATTEMPTS_KEY = 'galata_failed_login_attempts';
 
+const getAuthErrorDetails = (error: any, fallbackMessage: string) => {
+  const code = error?.code || '';
+  const message = error?.message || '';
+  const raw = `${code} ${message}`.toLowerCase();
+  const isConfigOrConnectionError =
+    raw.includes('api_key_invalid') ||
+    raw.includes('api key not found') ||
+    raw.includes('api key not valid') ||
+    raw.includes('api-key-not-valid') ||
+    raw.includes('invalid-api-key') ||
+    raw.includes('auth/api-key') ||
+    raw.includes('network-request-failed');
+
+  if (
+    raw.includes('api_key_invalid') ||
+    raw.includes('api key not found') ||
+    raw.includes('api key not valid') ||
+    raw.includes('api-key-not-valid') ||
+    raw.includes('invalid-api-key') ||
+    raw.includes('auth/api-key')
+  ) {
+    return {
+      message: 'Firebase API key geçersiz. Firebase Console’dan güncel API key alınıp yeni APK oluşturulmalı.',
+      isConfigOrConnectionError
+    };
+  }
+
+  if (raw.includes('network-request-failed')) {
+    return {
+      message: 'İnternet bağlantısı kurulamadı. Bağlantınızı kontrol edip tekrar deneyin.',
+      isConfigOrConnectionError
+    };
+  }
+
+  if (code === 'auth/invalid-email') {
+    return { message: 'Geçersiz e-posta adresi!', isConfigOrConnectionError };
+  }
+
+  if (code === 'auth/user-not-found') {
+    return { message: 'Kullanıcı bulunamadı!', isConfigOrConnectionError };
+  }
+
+  if (code === 'auth/wrong-password') {
+    return { message: 'Hatalı şifre!', isConfigOrConnectionError };
+  }
+
+  if (code === 'auth/invalid-credential') {
+    return { message: 'Hatalı kullanıcı adı veya şifre!', isConfigOrConnectionError };
+  }
+
+  if (code === 'auth/too-many-requests') {
+    return { message: 'Çok fazla başarısız deneme. Lütfen daha sonra tekrar deneyin veya şifrenizi sıfırlayın.', isConfigOrConnectionError };
+  }
+
+  if (code === 'auth/operation-not-allowed') {
+    return { message: 'E-posta/şifre girişi Firebase Console üzerinde aktif değil.', isConfigOrConnectionError };
+  }
+
+  return {
+    message: code ? `${fallbackMessage} Hata kodu: ${code}` : fallbackMessage,
+    isConfigOrConnectionError
+  };
+};
+
 const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -86,36 +150,29 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
     } catch (error: any) {
       console.error('Giriş hatası:', error);
 
+      const authError = getAuthErrorDetails(error, 'Giriş başarısız!');
+      if (authError.isConfigOrConnectionError) {
+        localStorage.removeItem(FAILED_ATTEMPTS_KEY);
+        setError(authError.message);
+        setIsLoading(false);
+        return;
+      }
+
       // Hatalı deneme sayısını artır
       const newFailedAttempts = failedAttempts + 1;
       localStorage.setItem(FAILED_ATTEMPTS_KEY, newFailedAttempts.toString());
 
       // Hata mesajlarını Türkçeleştir
-      let errorMessage = 'Hatalı kullanıcı adı veya şifre!';
+      let errorMessage = authError.message;
 
-      // 5. hatalı denemede otomatik şifre sıfırlama maili gönder ve bloke et
+      // 5. hatalı denemede otomatik mail göndermiyoruz; sadece kullanıcıyı yönlendiriyoruz.
       if (newFailedAttempts >= 5) {
-        try {
-          const { sendPasswordResetEmail } = await import('firebase/auth');
-          const { auth } = await import('../firebaseConfig');
-          await sendPasswordResetEmail(auth, cleanUsername);
-          errorMessage = '5 KEZ HATALI GİRİŞ YAPILDI! HESABINIZ GÜVENLİĞİNİZ İÇİN BLOKE EDİLDİ. E-POSTA ADRESİNİZE ŞİFRE SIFIRLAMA BAĞLANTISI GÖNDERİLDİ.';
-          // Sayacı sıfırla ki mail tekrar tekrar gitmesin
-          localStorage.removeItem(FAILED_ATTEMPTS_KEY);
-        } catch (resetErr) {
-          console.error('Bloke sonrası reset mail hatası:', resetErr);
-          errorMessage = '5 KEZ HATALI GİRİŞ YAPILDI! HESABINIZ BLOKE EDİLDİ. LÜTFEN ŞİFREMİ UNUTTUM BÖLÜMÜNDEN SIFIRLAMA TALEBİ GÖNDERİN.';
-        }
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Geçersiz e-posta adresi!';
-      } else if (error.code === 'auth/user-not-found') {
-        errorMessage = 'Kullanıcı bulunamadı!';
+        errorMessage = '5 kez hatalı giriş yapıldı. Şifrenizi unuttuysanız "Şifremi Unuttum" bölümünden sıfırlama isteyin.';
+        localStorage.removeItem(FAILED_ATTEMPTS_KEY);
       } else if (error.code === 'auth/wrong-password') {
-        errorMessage = `HATALI ŞİFRE! (KALAN DENEME HAKKI: ${5 - newFailedAttempts})`;
+        errorMessage = `Hatalı şifre! Kalan deneme hakkı: ${5 - newFailedAttempts}`;
       } else if (error.code === 'auth/invalid-credential') {
-        errorMessage = `HATALI KULLANICI ADI VEYA ŞİFRE! (KALAN DENEME HAKKI: ${5 - newFailedAttempts})`;
-      } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'ÇOK FAZLA BAŞARISIZ DENEME! LÜTFEN DAHA SONRA TEKRAR DENEYİN.';
+        errorMessage = `Hatalı kullanıcı adı veya şifre! Kalan deneme hakkı: ${5 - newFailedAttempts}`;
       }
 
       setError(errorMessage);
@@ -152,12 +209,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
     } catch (error: any) {
       console.error('Şifre sıfırlama hatası:', error);
 
-      let errorMessage = 'Şifre sıfırlama başarısız!';
-      if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Geçersiz e-posta adresi!';
-      } else if (error.code === 'auth/user-not-found') {
-        errorMessage = 'Bu e-posta adresi ile kayıtlı kullanıcı bulunamadı!';
-      }
+      const errorMessage = getAuthErrorDetails(error, 'Şifre sıfırlama başarısız!').message;
 
       setError(errorMessage);
     } finally {

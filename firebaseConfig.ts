@@ -5,7 +5,7 @@ import { getAuth } from 'firebase/auth';
 // Firebase yapılandırması
 // Firebase Console'dan aldığınız bilgiler
 const firebaseConfig = {
-  apiKey: "AIzaSyD8Idy6IyeRq5jWIFInUaDhSdh7ZYjfpg0",
+  apiKey: "AIzaSyDMignWuOM30mKdDmEp1fUN5FLjWcrAN98",
   authDomain: "galata-aidat-takip.firebaseapp.com",
   databaseURL: "https://galata-aidat-takip-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "galata-aidat-takip",

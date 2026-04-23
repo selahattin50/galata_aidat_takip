@@ -1,0 +1,38 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      ".read": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
+      ".write": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || auth.token.email == 'selahattin50@gmail.com')",
+        ".write": "auth != null && (auth.uid == $uid || auth.token.email == 'selahattin50@gmail.com')"
+      }
+    },
+
+    "_userProfiles": {
+      ".read": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
+      ".write": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || auth.token.email == 'selahattin50@gmail.com')",
+        ".write": "auth != null && (auth.uid == $uid || auth.token.email == 'selahattin50@gmail.com')"
+      }
+    },
+
+    "_bannedUsers": {
+      ".read": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
+      ".write": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
+      "$banId": {
+        ".read": "auth != null && (auth.token.email == 'selahattin50@gmail.com' || data.child('email').val() == auth.token.email)",
+        ".write": "auth != null && auth.token.email == 'selahattin50@gmail.com'"
+      }
+    },
+
+    "_globalMessages": {
+      ".read": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
+      ".write": "auth != null && auth.token.email == 'selahattin50@gmail.com'"
+    }
+  }
+}
