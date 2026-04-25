@@ -24,6 +24,8 @@ export interface BuildingInfo {
   bulkMessageStartDay?: number;
   lastAutoDuesMonth?: string;
   expenseCategories?: string[];
+  iban?: string;
+  ibanReceiver?: string;
 }
 
 export interface OwnerHistory {

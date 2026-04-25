@@ -68,7 +68,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
     bulkMessageInfoDay: (buildingInfo?.bulkMessageInfoDay || 1).toString(),
     bulkMessageReminderDay: (buildingInfo?.bulkMessageReminderDay || buildingInfo?.bulkMessageStartDay || 19).toString(),
     expenseCategories: buildingInfo?.expenseCategories || ['Elektrik', 'Su', 'Asansör', 'Temizlik', 'Tamirat', 'Yönetim Gideri', 'Huzur Hakkı', 'Bahçe Bakımı', 'Diğer'],
-    lastAutoDuesMonth: buildingInfo?.lastAutoDuesMonth || ""
+    lastAutoDuesMonth: buildingInfo?.lastAutoDuesMonth || "",
+    iban: buildingInfo?.iban || "",
+    ibanReceiver: buildingInfo?.ibanReceiver || ""
   });
   const [newCat, setNewCat] = useState('');
   const [showCarryOver, setShowCarryOver] = useState(false);
@@ -137,7 +139,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
       bulkMessageReminderDay: normalizedBulkMessageReminderDay,
       bulkMessageStartDay: normalizedBulkMessageReminderDay,
       expenseCategories: st.expenseCategories,
-      lastAutoDuesMonth: st.lastAutoDuesMonth
+      lastAutoDuesMonth: st.lastAutoDuesMonth,
+      iban: st.iban,
+      ibanReceiver: st.ibanReceiver
     });
     setSt(prev => ({
       ...prev,
@@ -314,6 +318,48 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
               </div>
             </div>
 
+            {/* Banka Bilgisi */}
+            <div className="bg-black/20 p-4 rounded-3xl border border-white/5 space-y-4 mb-5">
+              <div className="flex flex-col">
+                <p className="text-[12px] font-black uppercase tracking-wider text-white/90">Banka Bilgisi</p>
+                <p className="text-[8px] font-bold text-white/30 uppercase mt-0.5">Aidat ödemeleri için kullanılacak banka hesabı</p>
+              </div>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[9px] font-black opacity-30 uppercase block mb-1.5 ml-1">IBAN</label>
+                  <input
+                    type="text"
+                    value={st.iban || ''}
+                    onChange={(e) => {
+                      let val = e.target.value.replace(/\s+/g, '').toUpperCase();
+                      if (!val.startsWith('TR')) {
+                        val = 'TR' + val.replace(/[^0-9]/g, '');
+                      } else {
+                        val = 'TR' + val.substring(2).replace(/[^0-9]/g, '');
+                      }
+                      val = val.substring(0, 26);
+                      let formatted = val.match(/.{1,4}/g)?.join(' ') || '';
+                      setSt({ ...st, iban: formatted });
+                    }}
+                    className="bg-black/40 outline-none font-black text-sm w-full text-white border border-white/5 rounded-2xl p-3 focus:border-blue-500/50 transition-colors tracking-widest placeholder:opacity-30"
+                    placeholder="TR__ ____ ____ ____ ____ ____ __"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-[9px] font-black opacity-30 uppercase block mb-1.5 ml-1">ALICI ADI SOYADI</label>
+                  <input
+                    type="text"
+                    value={st.ibanReceiver || ''}
+                    onChange={e => setSt({ ...st, ibanReceiver: e.target.value.toUpperCase() })}
+                    className="bg-black/40 outline-none font-black text-sm w-full text-white border border-white/5 rounded-2xl p-3 focus:border-blue-500/50 transition-colors placeholder:opacity-30"
+                    placeholder="AD SOYAD"
+                  />
+                </div>
+              </div>
+            </div>
+
             <button
               onClick={handleSave}
               disabled={isSaving}
@@ -328,34 +374,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
             </button>
 
             <div className="space-y-4 rounded-[40px] bg-[#0c1222] p-5 border border-white/5 shadow-2xl relative overflow-hidden">
-              {/* TOPLU MESAJ OLUŞTURMA BAŞLIĞI VE TOGGLE */}
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col space-y-0.5">
-                  <h2 className="text-sm font-black tracking-[0.15em] text-white">TOPLU MESAJ OLUŞTURMA</h2>
-                  <p className="text-[9px] font-bold text-zinc-500 max-w-[200px] uppercase tracking-wider leading-relaxed">
-                    AÇIKKEN BİLGİLENDİRME VE HATIRLATMA GÜNLERİNE GÖRE KART ÜRETİR
-                  </p>
-                </div>
-                
-                {/* Custom Toggle Switch */}
-                <button 
-                  onClick={() => setSt({ ...st, isBulkMessageEnabled: !st.isBulkMessageEnabled })}
-                  className={`relative w-12 h-7 rounded-full border-2 transition-all duration-300 flex items-center px-1 ${
-                    st.isBulkMessageEnabled 
-                      ? "border-[#3b82f6] bg-[#3b82f6]/10" 
-                      : "border-zinc-700 bg-transparent"
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded-full transition-all duration-300 ${
-                    st.isBulkMessageEnabled 
-                      ? "translate-x-5 bg-[#3b82f6] shadow-[0_0_10px_rgba(59,130,246,0.8)]" 
-                      : "translate-x-0 bg-zinc-600"
-                  }`} />
-                </button>
-              </div>
-
               {/* M1 M2 SEÇME BÖLÜMÜ */}
-              <div className={`space-y-3 transition-all duration-500 ${st.isBulkMessageEnabled ? 'opacity-100' : 'opacity-30 pointer-events-none'}`}>
+              <div className="space-y-3">
                 
                 <div className="rounded-[26px] border border-cyan-400/10 bg-[linear-gradient(180deg,#111827_0%,#0b1220_100%)] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_24px_rgba(0,0,0,0.16)]">
                   <div className="grid grid-cols-[44px_1fr_44px] items-center gap-1.5 min-[380px]:grid-cols-[52px_1fr_52px] min-[380px]:gap-2">

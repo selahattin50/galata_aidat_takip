@@ -249,7 +249,7 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-[#030712] flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
+    <div className="fixed inset-0 z-[200] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
       <div className="flex items-center justify-between px-4 pt-6 pb-2">
         <div className="flex items-center space-x-3">
           <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Send, Trash2, Mail, Loader2, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Send, Trash2, MessageCircle, Loader2, ShieldCheck } from 'lucide-react';
 import { AppMessage } from '../types';
 import { db } from '../databaseService';
 import { auth } from '../firebaseConfig';
@@ -44,7 +44,7 @@ const MessagesView: React.FC<MessagesViewProps> = ({ onClose, messages, onSendMe
 
     return (
         <div className="animate-in fade-in slide-in-from-right-4 duration-500 pt-0 pb-32 flex flex-col h-screen">
-            <div className="sticky top-0 z-[200] -mx-4 px-4 py-4 mb-2 bg-[#030712] backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
+            <div className="sticky top-0 z-[200] px-4 py-4 mb-2 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
                 <button
                     onClick={onClose}
                     className="bg-white/5 p-3 rounded-xl active:scale-90 transition-all border border-white/5 hover:bg-white/10"
@@ -52,7 +52,7 @@ const MessagesView: React.FC<MessagesViewProps> = ({ onClose, messages, onSendMe
                     <ArrowLeft size={22} className="text-zinc-400" />
                 </button>
                 <h3 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-500 flex items-center">
-                    <Mail size={16} className="mr-2" />
+                    <MessageCircle size={16} className="mr-2" />
                     MESAJ PANOSU
                 </h3>
                 <div className="w-10" />
@@ -61,7 +61,7 @@ const MessagesView: React.FC<MessagesViewProps> = ({ onClose, messages, onSendMe
             <div className="flex-1 overflow-y-auto px-1 space-y-4 pb-4 no-scrollbar">
                 {messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 opacity-50">
-                        <Mail size={48} className="mb-4 text-emerald-500" />
+                        <MessageCircle size={48} className="mb-4 text-emerald-500" />
                         <p className="text-xs font-bold uppercase tracking-widest text-white/50">Henüz Mesaj Yok</p>
                     </div>
                 ) : (
@@ -110,7 +110,7 @@ const MessagesView: React.FC<MessagesViewProps> = ({ onClose, messages, onSendMe
             </div>
 
             {/* Input Area */}
-            <div className="sticky bottom-0 left-0 right-0 max-w-md mx-auto p-4 pb-[calc(env(safe-area-inset-bottom)+16px)] bg-[#030712]/90 backdrop-blur-xl border-t border-white/5 z-[150]">
+            <div className="sticky bottom-0 left-0 right-0 w-full p-4 pb-[calc(env(safe-area-inset-bottom)+16px)] bg-slate-900/90 backdrop-blur-xl border-t border-white/5 z-[150]">
                 <div className="flex items-end space-x-2 bg-white/5 rounded-3xl p-2 border border-white/10 focus-within:border-emerald-500/50 transition-all">
                     <textarea
                         value={content}

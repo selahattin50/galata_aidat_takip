@@ -61,7 +61,7 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pt-0 pb-4 relative">
-      <div className="sticky top-0 z-[60] -mx-4 px-4 pt-4 pb-4 bg-[#030712]/95 backdrop-blur-3xl border-b border-white/5 shadow-2xl">
+      <div className="sticky top-0 z-[60] px-4 pt-4 pb-4 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900/95 backdrop-blur-3xl border-b border-white/5 shadow-2xl">
         <div className="flex items-center justify-between mb-4 relative">
           <button onClick={onClose} className="bg-white/5 p-2 rounded-xl border border-white/5 active:scale-90 transition-all">
             <ArrowLeft size={20} strokeWidth={3} className="text-zinc-400" />

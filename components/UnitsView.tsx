@@ -241,7 +241,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
 
   return (
     <div className="relative pt-0 pb-10">
-      <div className="sticky top-0 z-10 bg-[#030712]/80 backdrop-blur-xl border-b border-white/5 px-4 pt-1 pb-4 shadow-2xl">
+      <div className="sticky top-0 z-10 bg-slate-900/80 backdrop-blur-xl border-b border-white/5 px-4 pt-1 pb-4 shadow-2xl">
         <div className="flex items-center justify-between mb-4 mt-2">
           <div className="flex items-center space-x-3 flex-shrink-0">
             <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/5 shadow-inner">
@@ -282,7 +282,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
               <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 opacity-60" />
               <div className="flex items-center relative z-10 pl-1.5">
                 <div className="flex items-center space-x-2 min-w-0 flex-1 pr-1">
-                  <div className="w-12 h-12 bg-[#030712] rounded-[16px] flex-shrink-0 flex items-center justify-center border border-white/5 shadow-inner">
+                  <div className="w-12 h-12 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 rounded-[16px] flex-shrink-0 flex items-center justify-center border border-white/5 shadow-inner">
                     <span className="text-[18px] font-black text-white">{unit.no}</span>
                   </div>
                   <div className="flex flex-col min-w-0">

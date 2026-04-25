@@ -93,7 +93,7 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
 
   return (
     <div className="animate-in slide-in-from-bottom-6 duration-500 pt-0 pb-60">
-      <div className="sticky top-0 z-[100] -mx-4 px-4 py-2.5 mb-3 bg-[#030712]/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
+      <div className="sticky top-0 z-[100] px-4 py-2.5 mb-3 bg-slate-900/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
         <button onClick={onClose} className="bg-white/5 p-2 rounded-xl active:scale-90 transition-all border border-white/5">
           <ArrowLeft size={24} className="text-zinc-400" />
         </button>

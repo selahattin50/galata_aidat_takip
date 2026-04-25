@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Lock, User, Eye, EyeOff, Loader2, Building2, ShieldCheck, Check, Info, Mail } from 'lucide-react';
+import { Lock, User, Eye, EyeOff, Loader2, Building2, ShieldCheck, Check, Info, Mail, X } from 'lucide-react';
 import { useAndroidBackHandler } from '../appBackButton';
 
 interface LoginViewProps {
@@ -85,6 +85,9 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetMessage, setResetMessage] = useState('');
+  const [showContactUs, setShowContactUs] = useState(false);
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactMessage, setContactMessage] = useState('');
 
   // Sayfa yüklendiğinde hatırlanan kullanıcı adını getir
   useEffect(() => {
@@ -97,15 +100,19 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
   }, []);
 
   useAndroidBackHandler(() => {
-    if (!showForgotPassword) {
-      return false;
+    if (showContactUs) {
+      setShowContactUs(false);
+      return true;
+    }
+    if (showForgotPassword) {
+      setShowForgotPassword(false);
+      setResetEmail('');
+      setError('');
+      setResetMessage('');
+      return true;
     }
 
-    setShowForgotPassword(false);
-    setResetEmail('');
-    setError('');
-    setResetMessage('');
-    return true;
+    return false;
   });
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -218,7 +225,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] app-gradient flex items-center justify-center px-6 overflow-hidden">
+    <div className="fixed inset-0 z-[200] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex items-center justify-center px-6 overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-blue-600/10 rounded-full blur-[100px]" />
       <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-green-600/10 rounded-full blur-[100px]" />
 
@@ -226,18 +233,22 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-24 h-24 rounded-[32px] bg-white/5 border border-white/10 mb-6 shadow-2xl relative group p-2">
             <div className="absolute inset-0 bg-blue-500/10 rounded-[32px] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-            <img src="/assets/logo.png" alt="Galata Logo" className="w-full h-full object-contain relative z-10" />
+            <img src="/assets/logo.png" alt="Galata Logo" className="w-full h-full object-cover rounded-[24px] relative z-10" />
           </div>
-          <h1 className="text-2xl font-light uppercase tracking-[0.3em] text-white mb-2">Galata Apartmanı</h1>
-          <p className="text-[9px] font-medium text-white/40 uppercase tracking-[0.4em] leading-none">AİDAT TAKİP SİSTEMİ</p>
+          <h1 className="text-3xl font-black uppercase tracking-[0.2em] bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400 mb-1 drop-shadow-2xl">
+            GALATA AİDAT
+          </h1>
+          <p className="text-[13px] font-black uppercase tracking-[0.5em] text-zinc-400">
+            TAKİP SİSTEMİ
+          </p>
         </div>
 
-        <div className="bg-[#1e293b]/40 backdrop-blur-2xl rounded-[40px] p-8 border border-white/10 shadow-2xl relative overflow-hidden">
+        <div className="bg-[#1e293b]/70 backdrop-blur-3xl rounded-[40px] p-8 border border-white/20 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] ml-1">KULLANICI ADI</label>
+              <label className="text-[10px] font-black text-white/80 uppercase tracking-[0.2em] ml-1">KULLANICI ADI</label>
               <div className="relative group">
                 <input
                   type="text"
@@ -252,7 +263,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] ml-1">ŞİFRE</label>
+              <label className="text-[10px] font-black text-white/80 uppercase tracking-[0.2em] ml-1">ŞİFRE</label>
               <div className="relative group">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -303,7 +314,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-16 bg-blue-600 hover:bg-blue-500 text-white rounded-3xl font-black text-sm uppercase tracking-[0.2em] shadow-2xl shadow-blue-600/20 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center space-x-3"
+              className="w-full h-16 bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 text-white rounded-3xl font-black text-sm uppercase tracking-[0.2em] shadow-2xl shadow-emerald-500/20 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center space-x-3"
             >
               {isLoading ? (
                 <Loader2 size={24} className="animate-spin" />
@@ -315,19 +326,28 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
               )}
             </button>
 
-            {/* Register Button */}
-            <button
-              type="button"
-              onClick={onShowRegister}
-              className="w-full h-14 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 rounded-3xl font-black text-xs uppercase tracking-[0.2em] active:scale-[0.98] transition-all"
-            >
-              YENİ HESAP OLUŞTUR
-            </button>
+            {/* Register and Contact Buttons */}
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={onShowRegister}
+                className="flex-1 h-14 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/20 rounded-3xl font-black text-[11px] uppercase tracking-[0.1em] active:scale-[0.98] transition-all"
+              >
+                YENİ KAYIT OLUŞTUR
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowContactUs(true)}
+                className="flex-1 h-14 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 border border-blue-500/20 rounded-3xl font-black text-[11px] uppercase tracking-[0.1em] active:scale-[0.98] transition-all"
+              >
+                BİZE YAZIN
+              </button>
+            </div>
           </form>
         </div>
 
         <div className="mt-8 text-center flex flex-col items-center space-y-2 opacity-20">
-          <p className="text-[9px] font-black uppercase tracking-[0.3em]">GALATA AIDAT TAKIP SISTEMI</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.3em]">GALATA AİDAT TAKİP SİSTEMİ</p>
           <p className="text-[8px] font-bold">Tum haklari Galata Aidat Takip Sistemine aittir 2026</p>
         </div>
       </div>
@@ -389,6 +409,75 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Us Modal */}
+      {showContactUs && (
+        <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-[#0f172a] rounded-[16px] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-300 relative overflow-hidden">
+            {/* Kırmızı Çarpı Butonu */}
+            <button 
+              onClick={() => setShowContactUs(false)}
+              className="absolute top-0 right-0 bg-red-600 hover:bg-red-500 text-white w-12 h-12 flex items-center justify-center rounded-bl-xl transition-colors z-10"
+            >
+              <X size={28} strokeWidth={4} />
+            </button>
+
+            <div className="p-6 pt-8">
+              <div className="flex items-start space-x-4 mb-6">
+                <div className="mt-1">
+                  <Mail size={48} strokeWidth={1.5} className="text-white" />
+                </div>
+                <div className="flex-1 pr-8">
+                  <h2 className="text-[18px] font-black text-white mb-1 tracking-wide">BİZE YAZIN</h2>
+                  <p className="text-xs text-white/60 italic leading-snug">
+                    Sorun yaşadığınız konularda ya da sormak istediğiniz herhangi bir konuda bize yazın. Size e-posta adresiniz üzerinden cevap vereceğiz.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <input
+                    type="email"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    placeholder="E-Posta Adresiniz"
+                    className="w-full h-14 bg-transparent border border-white/80 rounded-sm px-4 text-sm font-bold text-white outline-none focus:border-white transition-colors placeholder:text-white/80"
+                  />
+                </div>
+                <div>
+                  <textarea
+                    value={contactMessage}
+                    onChange={(e) => setContactMessage(e.target.value.slice(0, 500))}
+                    className="w-full h-32 bg-transparent border border-white/80 rounded-sm p-4 text-sm font-medium text-white outline-none focus:border-white transition-colors resize-none"
+                  />
+                  <div className="text-right text-[12px] text-black font-black mt-1 opacity-40">
+                    {contactMessage.length}/500
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={() => {
+                      if (!contactEmail || !contactMessage) {
+                        alert("Lütfen tüm alanları doldurun.");
+                        return;
+                      }
+                      window.location.href = `mailto:selahattin50@gmail.com?subject=Galata Aidat Takip - İletişim&body=Gönderen: ${contactEmail}%0D%0A%0D%0A${contactMessage}`;
+                      setShowContactUs(false);
+                      setContactEmail('');
+                      setContactMessage('');
+                    }}
+                    className="bg-[#94a3b8] hover:bg-[#cbd5e1] text-[#0f172a] px-8 py-3 rounded-xl font-black text-sm tracking-wide transition-colors shadow-lg active:scale-95"
+                  >
+                    GÖNDER
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

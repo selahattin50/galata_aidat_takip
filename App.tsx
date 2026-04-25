@@ -245,7 +245,7 @@ const App: React.FC = () => {
           db.getTransactions(),
           db.getBoardMembers(),
           db.getFiles(),
-          isAdminUser ? db.getMessages() : Promise.resolve([]),
+          db.getMessages(),
           db.getDataDirect(`_userProfiles/${currentUser.uid}`),
           db.getDataDirect(`_bannedUsers/${emailKey}`)
         ]);
@@ -440,7 +440,7 @@ const App: React.FC = () => {
   }, [files, isAuthenticated, isLoading]);
 
   useEffect(() => {
-    if (isAuthenticated && !isLoading && auth.currentUser?.email === ADMIN_EMAIL && Array.isArray(messages)) {
+    if (isAuthenticated && !isLoading && Array.isArray(messages)) {
       const timer = setTimeout(() => {
         console.log('Messages Firebase\'e kaydediliyor:', messages.length);
         db.saveMessages(messages)
@@ -514,7 +514,7 @@ const App: React.FC = () => {
 
   // Mesajları gerçek zamanlı dinle
   useEffect(() => {
-    if (isAuthenticated && auth.currentUser?.email === ADMIN_EMAIL) {
+    if (isAuthenticated) {
       const unsubscribe = db.subscribeMessages((newMessages) => {
         setMessages(newMessages);
       });
@@ -528,7 +528,7 @@ const App: React.FC = () => {
       return;
     }
 
-    const isBulkMessageEnabled = buildingInfo?.isBulkMessageEnabled !== false;
+
     const bulkMessageInfoDay = Math.min(28, Math.max(1, Number(buildingInfo?.bulkMessageInfoDay) || 1));
     const bulkMessageReminderDay = Math.max(
       bulkMessageInfoDay,
@@ -551,9 +551,7 @@ const App: React.FC = () => {
           ],
         });
 
-        if (!isBulkMessageEnabled) {
-          return;
-        }
+
 
         const permissionStatus = await LocalNotifications.checkPermissions();
         const displayPermission =
@@ -962,12 +960,8 @@ const App: React.FC = () => {
   }
 
   const unreadCount = messages.filter(m => new Date(m.createdAt).getTime() > lastSeenMsgTime).length;
-  const canUseGlobalMessages = auth.currentUser?.email === ADMIN_EMAIL;
 
   const handleMessagesClick = () => {
-    if (!canUseGlobalMessages) {
-      return;
-    }
     setActiveSubView('messages');
     const now = Date.now();
     setLastSeenMsgTime(now);
@@ -975,10 +969,6 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string) => {
-    if (!canUseGlobalMessages) {
-      alert('Mesaj panosu sadece ana yönetici tarafından kullanılabilir.');
-      return;
-    }
 
     const newMsg: AppMessage = {
       id: Math.random().toString(36).slice(2),
@@ -1002,9 +992,6 @@ const App: React.FC = () => {
   };
 
   const handleDeleteMessage = async (id: string) => {
-    if (!canUseGlobalMessages) {
-      return;
-    }
 
     const updatedMessages = messages.filter(m => m.id !== id);
     setMessages(updatedMessages);
@@ -1019,10 +1006,10 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="app-gradient text-white pb-24 max-w-md mx-auto shadow-2xl relative min-h-screen">
-      {!activeSubView && activeTab === 'home' && <Header info={buildingInfo} onLogout={handleLogout} onMessagesClick={handleMessagesClick} unreadCount={canUseGlobalMessages ? unreadCount : 0} showMessages={canUseGlobalMessages} />}
+    <div className="bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 text-white pb-24 w-full shadow-2xl relative min-h-screen">
+      {!activeSubView && activeTab === 'home' && <Header info={buildingInfo} onLogout={handleLogout} onMessagesClick={handleMessagesClick} unreadCount={unreadCount} showMessages={true} />}
 
-      <main className="px-4">
+      <main className="w-full">
         {activeSubView ? (
           activeSubView === 'tahsilat' ? <TahsilatView currentDate={currentDate} units={unitsWithBalances} info={buildingInfo} transactions={transactions} onClose={() => setActiveSubView(null)} onSave={(a, desc, v, dt, uId, m, y) => handleAddTransaction(a, desc, 'GELİR', v, dt, uId, m, y)} /> :
             activeSubView === 'gider' ? <GiderView currentDate={currentDate} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={async (a, d, v, dt) => await handleAddTransaction(a, d, 'GİDER', v, dt)} /> :
@@ -1042,7 +1029,7 @@ const App: React.FC = () => {
                               activeSubView === 'monthly-report' ? <MonthlyReportView currentDate={currentDate} transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
                                 activeSubView === 'yearly-report' ? <YearlyReportView currentDate={currentDate} transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} /> :
                                   activeSubView === 'board' ? <BoardView members={boardMembers} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddMember={m => setBoardMembers(p => [...(Array.isArray(p) ? p : []), { ...m, id: Math.random().toString(36).slice(2) }])} onDeleteMember={id => setBoardMembers(p => p.filter(x => x.id !== id))} /> :
-                                    activeSubView === 'messages' && canUseGlobalMessages ? <MessagesView messages={messages} onClose={() => setActiveSubView(null)} onSendMessage={handleSendMessage} onDeleteMessage={handleDeleteMessage} /> : null
+                                    activeSubView === 'messages' ? <MessagesView messages={messages} onClose={() => setActiveSubView(null)} onSendMessage={handleSendMessage} onDeleteMessage={handleDeleteMessage} /> : null
         ) : (
           activeTab === 'menu' ? <MenuView onActionClick={(sv, tab) => { if (tab) setActiveTab(tab); else setActiveSubView(sv); }} onLogout={handleLogout} onClose={() => setActiveTab('home')} /> :
             activeTab === 'settings' ? <SettingsView buildingInfo={buildingInfo} onUpdateBuildingInfo={setBuildingInfo} units={unitsWithBalances} onResetMoney={() => setTransactions([])} onClose={() => setActiveTab('home')} onAddTransactions={(newTxs) => setTransactions(prev => [...newTxs, ...prev])} /> :
@@ -1110,7 +1097,7 @@ const App: React.FC = () => {
                 onClose={() => setActiveTab('home')}
                 onUpdateInfo={setBuildingInfo}
               /> :
-                activeTab === 'home' ? <div className="space-y-3 pt-1"><SummaryCard balance={balance} /><ActionGrid variant="grid" onActionClick={a => { const m: any = { 'Tahsilat': 'tahsilat', 'Gider': 'gider', 'Borçlandır': 'borclandir', 'Gelir': 'gelir', 'İade': 'iade', 'Transfer': 'transfer', 'Bağımsız Bölümler': 'units', 'İşlem Hareketleri': 'history', 'Alacak Listesi': 'receivables' }; if (m[a]) setActiveSubView(m[a]); }} /><SecondaryWidgets onActionClick={a => { const m: any = { 'AİDAT ÇİZELGE': 'aidat-cizelge', 'AYLIK BİLANÇO': 'monthly-report', 'YILLIK BİLANÇO': 'yearly-report' }; if (m[a]) setActiveSubView(m[a]); }} /><LastTransaction transaction={(Array.isArray(transactions) && transactions.length > 0) ? transactions[0] : null} /></div> :
+                activeTab === 'home' ? <div className="space-y-3 pt-1 px-4"><SummaryCard balance={balance} /><ActionGrid variant="grid" onActionClick={a => { const m: any = { 'Tahsilat': 'tahsilat', 'Gider': 'gider', 'Borçlandır': 'borclandir', 'Gelir': 'gelir', 'İade': 'iade', 'Transfer': 'transfer', 'Bağımsız Bölümler': 'units', 'İşlem Hareketleri': 'history', 'Alacak Listesi': 'receivables' }; if (m[a]) setActiveSubView(m[a]); }} /><SecondaryWidgets onActionClick={a => { const m: any = { 'AİDAT ÇİZELGE': 'aidat-cizelge', 'AYLIK BİLANÇO': 'monthly-report', 'YILLIK BİLANÇO': 'yearly-report' }; if (m[a]) setActiveSubView(m[a]); }} /><LastTransaction transaction={(Array.isArray(transactions) && transactions.length > 0) ? transactions[0] : null} /></div> :
 
                   activeTab === 'files' ? <FilesView currentDate={currentDate} files={files} onAddFile={f => setFiles(p => [...(Array.isArray(p) ? p : []), { ...f, id: Math.random().toString(36).slice(2) }])} onDeleteFile={id => setFiles(p => p.filter(x => x.id !== id))} onOpenFile={handleOpenFile} onShareFile={handleShareFile} /> : null
         )}

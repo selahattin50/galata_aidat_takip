@@ -256,7 +256,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
                 <img src="${buildingLogo}" alt="Galata Logo" style="width:112px;height:112px;object-fit:contain;display:block;" />
               </div>
               <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;flex:1;">
-                <div style="width:100%;font-size:24px;font-weight:800;letter-spacing:0.2em;text-transform:uppercase;opacity:0.88;text-align:center;">Galata Apartman&#305;</div>
+                <div style="width:100%;font-size:24px;font-weight:800;letter-spacing:0.2em;text-transform:uppercase;opacity:0.88;text-align:center;">${info?.name || 'GALATA APARTMANI'}</div>
                 <div style="width:100%;margin-top:12px;font-size:50px;line-height:1.06;font-weight:900;text-align:center;">${cardTitle}</div>
               </div>
             </div>
@@ -309,8 +309,8 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
 
           <div style="margin-top:20px;background:#f8fafc;border:1px solid #dde5ee;border-radius:22px;padding:28px 10px;zoom:1.14;">
             <div style="font-size:22px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#475569;">&#214;deme Bilgileri</div>
-            <div style="margin-top:16px;font-size:36px;line-height:1.15;font-weight:900;color:#0f172a;white-space:nowrap;">IBAN: TR74 0021 0000 0007 9239 7000 01</div>
-            <div style="margin-top:14px;font-size:31px;font-weight:800;color:#1f2937;">ALICI : GALATA APARTMAN Y&#214;NET&#304;M&#304;</div>
+            <div style="margin-top:16px;font-size:36px;line-height:1.15;font-weight:900;color:#0f172a;white-space:nowrap;">IBAN: ${info?.iban || 'Belirtilmedi'}</div>
+            <div style="margin-top:14px;font-size:31px;font-weight:800;color:#1f2937;">ALICI : ${info?.ibanReceiver || 'Belirtilmedi'}</div>
           </div>
 
           <div style="margin-top:18px;text-align:center;">
@@ -447,7 +447,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
 
   return (
     <div className="relative pt-0 pb-24">
-      <div className="sticky top-0 z-[100] -mx-4 mb-3 flex items-center justify-between border-b border-white/5 bg-[#030712]/90 px-4 py-3 shadow-2xl backdrop-blur-xl">
+      <div className="sticky top-0 z-[100] mb-3 flex items-center justify-between border-b border-white/5 bg-slate-900/90 px-4 py-3 shadow-2xl backdrop-blur-xl">
         <button
           onClick={onClose}
           className="rounded-xl border border-white/5 bg-white/5 p-2 transition-all active:scale-90"

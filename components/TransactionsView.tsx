@@ -15,9 +15,10 @@ interface TransactionsViewProps {
   onDeleteTransaction: (id: string) => void;
   onUpdateTransaction: (tx: Transaction) => void;
   currentDate: Date;
+  info?: any;
 }
 
-const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units, onClose, onAddFile, onDeleteTransaction, onUpdateTransaction, currentDate }) => {
+const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units, onClose, onAddFile, onDeleteTransaction, onUpdateTransaction, currentDate, info }) => {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(currentDate.getMonth());
@@ -136,13 +137,13 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-[#030712] flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
+    <div className="fixed inset-0 z-[200] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
       <div className="fixed top-[-9999px] left-[-9999px] pointer-events-none">
         {txToPrint && (
           <div id="receipt-print-area" className="relative bg-white text-slate-900 flex flex-col" style={{ width: '842px', height: '595px', padding: '50px 60px 96px', fontFamily: 'sans-serif', boxSizing: 'border-box' }}>
             <div className="flex items-start justify-between mb-2">
               <div>
-                <h2 className="font-black text-[42px] tracking-tight text-[#0f172a] leading-none uppercase m-0">GALATA APARTMANI</h2>
+                <h2 className="font-black text-[42px] tracking-tight text-[#0f172a] leading-none uppercase m-0">{info?.name || 'GALATA APARTMANI'}</h2>
                 <p className="text-[20px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-7 m-0">{txToPrint.type === 'GİDER' ? 'ÖDEME DEKONTU' : 'TAHSİLAT DEKONTU'}</p>
               </div>
               <div className="text-right">
@@ -221,8 +222,8 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                     <div className="absolute inset-[10px] border-[2px] border-green-600 rounded-full"></div>
                     <svg viewBox="0 0 150 150" className="absolute inset-0 w-full h-full">
                       <defs><path id="txPathTop" d="M 30,75 A 45,45 0 0,1 120,75" /><path id="txPathBottom" d="M 20,75 A 55,55 0 0,0 130,75" /></defs>
-                      <text className="fill-green-600 text-[18px] font-black uppercase tracking-[0.2em]"><textPath xlinkHref="#txPathTop" startOffset="50%" textAnchor="middle">GALATA</textPath></text>
-                      <text dy="4" className="fill-green-600 text-[18px] font-black uppercase tracking-[0.05em]"><textPath xlinkHref="#txPathBottom" startOffset="50%" textAnchor="middle">APARTMANI</textPath></text>
+                      <text className="fill-green-600 text-[18px] font-black uppercase tracking-[0.2em]"><textPath xlinkHref="#txPathTop" startOffset="50%" textAnchor="middle">{(info?.name || 'GALATA APARTMANI').split(' ')[0]}</textPath></text>
+                      <text dy="4" className="fill-green-600 text-[18px] font-black uppercase tracking-[0.05em]"><textPath xlinkHref="#txPathBottom" startOffset="50%" textAnchor="middle">{(info?.name || 'GALATA APARTMANI').split(' ').slice(1).join(' ') || 'APARTMANI'}</textPath></text>
                     </svg>
                     <div className="z-10 bg-green-600 text-white px-4 pt-[2px] pb-[13px] rotate-[-2deg] shadow-2xl flex items-center justify-center border border-white/20 min-w-[120px]"><span className="text-[16px] font-black tracking-tighter uppercase whitespace-nowrap leading-none">{txToPrint.type === 'GİDER' ? 'ÖDEME YAPILDI' : 'TAHSİL EDİLDİ'}</span></div>
                   </div>
@@ -236,7 +237,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
         )}
       </div>
 
-      <div className="bg-[#030712]/95 backdrop-blur-xl border-b border-white/5 px-4 pt-4 pb-3 flex flex-col items-center shadow-2xl relative z-[210]">
+      <div className="bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900/95 backdrop-blur-xl border-b border-white/5 px-4 pt-4 pb-3 flex flex-col items-center shadow-2xl relative z-[210]">
         <button onClick={onClose} className="absolute left-4 top-4 p-2 bg-white/5 rounded-xl text-zinc-400 active:scale-90 transition-all border border-white/5"><ArrowLeft size={20} strokeWidth={2.5} /></button>
         <h3 className="text-[15px] font-black uppercase tracking-[0.1em] text-white leading-none">İŞLEM HAREKETLERİ</h3>
         <div className="mt-5 w-full flex justify-center px-2">
@@ -270,7 +271,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
         ) : (
           <div className="divide-y divide-white/5">
             {filteredTransactions.map((tx) => (
-              <div key={tx.id} className="relative bg-[#030712] border-l-[3px] px-4 py-1.5 flex items-center justify-between" style={{ borderLeftColor: tx.type === 'GELİR' ? '#22c55e' : tx.type === 'BORÇLANDIRMA' ? '#f97316' : '#ef4444' }}>
+              <div key={tx.id} className="relative bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 border-l-[3px] px-4 py-1.5 flex items-center justify-between" style={{ borderLeftColor: tx.type === 'GELİR' ? '#22c55e' : tx.type === 'BORÇLANDIRMA' ? '#f97316' : '#ef4444' }}>
                 <div className="flex-1 min-w-0 pr-2">
                   <div className="flex items-center space-x-1.5 mb-0.5 opacity-60"><span className="text-[7px] font-black uppercase tracking-widest">{tx.type}</span><span className="w-0.5 h-0.5 rounded-full bg-white/20" /><span className="text-[7px] font-black uppercase tracking-widest">{tx.date}</span></div>
                   <p className="text-[12px] font-bold text-white uppercase truncate leading-tight mb-1">

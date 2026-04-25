@@ -94,9 +94,9 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
   };
 
   return (
-    <div className="fixed inset-0 z-[300] bg-[#030712] flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
+    <div className="fixed inset-0 z-[300] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-4 flex items-center justify-between border-b border-white/5 bg-[#030712]/80 backdrop-blur-xl shrink-0 shadow-xl">
+      <div className="px-4 py-4 flex items-center justify-between border-b border-white/5 bg-slate-900/80 backdrop-blur-xl shrink-0 shadow-xl">
         <button onClick={onClose} className="p-2 bg-white/5 rounded-xl text-zinc-400 active:scale-90 transition-all border border-white/5">
           <ArrowLeft size={22} />
         </button>

@@ -102,7 +102,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
 
   if (isSuccess) {
     return (
-      <div className="fixed inset-0 z-[400] bg-[#030712] flex flex-col items-center justify-center p-8 text-center animate-in zoom-in duration-300">
+      <div className="fixed inset-0 z-[400] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-8 text-center animate-in zoom-in duration-300">
         <CheckCircle2 size={64} className="text-green-500 mb-4" />
         <h3 className="text-xl font-black text-white uppercase tracking-widest">İŞLEM TAMAMLANDI</h3>
         <p className="text-white/40 text-xs mt-2 uppercase font-bold">Ödeme başarıyla kaydedildi.</p>
@@ -112,8 +112,8 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
   }
 
   return (
-    <div className="fixed inset-0 z-[200] bg-[#030712] flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
-      <div className="px-4 py-4 flex items-center justify-between border-b border-white/5 bg-[#030712]/90 backdrop-blur-xl shrink-0 shadow-xl">
+    <div className="fixed inset-0 z-[200] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
+      <div className="px-4 py-4 flex items-center justify-between border-b border-white/5 bg-slate-900/90 backdrop-blur-xl shrink-0 shadow-xl">
         <button onClick={onClose} className="p-2 bg-white/5 rounded-xl text-zinc-400 active:scale-90 transition-all border border-white/5">
           <ArrowLeft size={22} />
         </button>

@@ -472,7 +472,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
 
   return (
     <div className="animate-in fade-in slide-in-from-right-4 duration-500 pt-0 pb-32">
-      <div className="sticky top-0 z-[200] -mx-4 px-4 py-4 mb-6 bg-[#030712] backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
+      <div className="sticky top-0 z-[200] px-4 py-4 mb-6 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
         <button
           onClick={onClose}
           className="bg-white/5 p-3 rounded-xl active:scale-90 transition-all border border-white/5 hover:bg-white/10"

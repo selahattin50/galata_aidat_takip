@@ -102,8 +102,8 @@ const SessionsView: React.FC<SessionsViewProps> = ({
 
   if (isEditing) {
     return (
-      <div className="absolute inset-0 z-[120] bg-[#030712] p-6 animate-in slide-in-from-right duration-500 overflow-y-auto no-scrollbar">
-        <div className="sticky top-0 z-[100] -mx-6 px-6 py-4 mb-6 bg-[#030712]/95 backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
+      <div className="absolute inset-0 z-[120] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 p-6 animate-in slide-in-from-right duration-500 overflow-y-auto no-scrollbar">
+        <div className="sticky top-0 z-[100] -mx-6 px-6 py-4 mb-6 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900/95 backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
           <button
             onClick={() => setIsEditing(false)}
             className="p-2.5 bg-white/5 rounded-xl border border-white/5 active:scale-90 transition-all font-bold"
@@ -163,7 +163,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
 
   return (
     <div className="animate-in fade-in slide-in-from-right-4 duration-500 pt-0 pb-32">
-      <div className="sticky top-0 z-[100] -mx-4 px-4 py-4 mb-6 bg-[#030712]/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-center">
+      <div className="sticky top-0 z-[100] px-4 py-4 mb-6 bg-slate-900/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-center">
         <button onClick={onClose} className="absolute left-4 bg-white/5 p-2 rounded-xl active:scale-90 transition-all border border-white/5">
           <ArrowLeft size={20} className="text-zinc-400" />
         </button>

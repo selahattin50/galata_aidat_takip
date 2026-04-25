@@ -35,7 +35,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ balance }) => {
 
   return (
     <div className="px-1">
-      <div className="bg-[#111827]/90 backdrop-blur-2xl border border-white/5 rounded-[22px] py-2.5 px-5 flex items-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden min-h-[105px]">
+      <div className="glass-panel rounded-[24px] py-2.5 px-5 flex items-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden min-h-[105px]">
 
         {/* Sol Taraf: Donut Grafik */}
         <div className="w-[28%] aspect-square relative flex items-center justify-center">
