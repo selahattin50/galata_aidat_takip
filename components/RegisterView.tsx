@@ -89,12 +89,8 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
       onBackToLogin();
     } catch (error: any) {
       console.error('Kayıt hatası:', error);
-      console.error('Hata kodu:', error.code);
-      console.error('Hata mesajı:', error.message);
-
       let errorMessage = 'Kayıt sırasında hata oluştu!';
 
-      // Firebase Authentication hatalarını kontrol et
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'Bu e-posta adresi zaten kullanılıyor!';
       } else if (error.code === 'auth/invalid-email') {
@@ -102,7 +98,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
       } else if (error.code === 'auth/weak-password') {
         errorMessage = 'Şifre çok zayıf! En az 6 karakter olmalıdır.';
       } else if (error.code === 'auth/operation-not-allowed') {
-        errorMessage = 'E-posta/şifre girişi Firebase Console\'da aktif değil!\n\nLütfen Firebase Console > Authentication > Sign-in method bölümünden Email/Password metodunu aktif edin.';
+        errorMessage = 'E-posta/şifre girişi Firebase Console\'da aktif değil!';
       } else if (error.message) {
         errorMessage = `Hata: ${error.message}`;
       }
@@ -112,7 +108,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a] flex items-center justify-center p-6">
       <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Logo & Title */}
         <div className="text-center mb-12">
@@ -126,7 +122,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
 
         {/* Register Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name Input */}
           <div className="glass-panel rounded-2xl p-1 border border-white/10">
             <div className="flex items-center">
               <div className="bg-white/5 p-3 rounded-xl mr-3">
@@ -143,7 +138,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
             </div>
           </div>
 
-          {/* Email Input */}
           <div className="glass-panel rounded-2xl p-1 border border-white/10">
             <div className="flex items-center">
               <div className="bg-white/5 p-3 rounded-xl mr-3">
@@ -160,7 +154,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
             </div>
           </div>
 
-          {/* Phone Input */}
           <div className="glass-panel rounded-2xl p-1 border border-white/10">
             <div className="flex items-center">
               <div className="bg-white/5 p-3 rounded-xl mr-3">
@@ -176,7 +169,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
             </div>
           </div>
 
-          {/* Password Input */}
           <div className="glass-panel rounded-2xl p-1 border border-white/10">
             <div className="flex items-center">
               <div className="bg-white/5 p-3 rounded-xl mr-3">
@@ -200,7 +192,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
             </div>
           </div>
 
-          {/* Confirm Password Input */}
           <div className="glass-panel rounded-2xl p-1 border border-white/10">
             <div className="flex items-center">
               <div className="bg-white/5 p-3 rounded-xl mr-3">
@@ -224,7 +215,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
             </div>
           </div>
 
-          {/* Register Button */}
           <button
             type="submit"
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white h-16 rounded-[28px] font-black text-sm uppercase tracking-[0.2em] active:scale-95 transition-all shadow-2xl shadow-blue-900/50 mt-6"
@@ -232,7 +222,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
             HESAP OLUŞTUR
           </button>
 
-          {/* Back to Login */}
           <button
             type="button"
             onClick={onBackToLogin}
@@ -243,7 +232,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
           </button>
         </form>
 
-        {/* Info Text */}
         <p className="text-center text-[10px] text-white/20 font-bold uppercase tracking-widest mt-8">
           * İşaretli alanlar zorunludur
         </p>

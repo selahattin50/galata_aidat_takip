@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { ChevronDown, ArrowLeft, FileText, Share2, Loader2, FileDown, Check, Wallet, Calendar, MessageCircle, Building, Inbox, X, Lock } from 'lucide-react';
 import { Transaction, Unit, FileEntry } from '../types';
@@ -24,17 +23,16 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
   const [isYearPickerOpen, setIsYearPickerOpen] = useState(false);
   const [showVaultPicker, setShowVaultPicker] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  
   useAndroidBackHandler(() => {
     if (showVaultPicker) {
       setShowVaultPicker(false);
       return true;
     }
-
     if (isYearPickerOpen) {
       setIsYearPickerOpen(false);
       return true;
     }
-
     return false;
   });
 
@@ -93,7 +91,6 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
 
     yearlyTransactions.forEach(tx => {
       if (tx.type !== 'GELİR' || isCreditBalanceIncome(tx)) return;
-
       const rawDescription = tx.description.toUpperCase();
       const cleanLabel = tx.description
         .replace(/\s*\(?MAL[Iİ]K\)?/gi, '')
@@ -107,12 +104,10 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
         freeTotal += tx.amount;
         return;
       }
-
       if (tx.periodMonth !== undefined || tx.periodYear !== undefined || /A[Iİ]DAT/i.test(rawDescription)) {
         duesTotal += tx.amount;
         return;
       }
-
       const fallbackLabel = cleanLabel || 'DIGER GELIR';
       otherIncomeGroups[fallbackLabel] = (otherIncomeGroups[fallbackLabel] || 0) + tx.amount;
     });
@@ -120,11 +115,9 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
     const items: { label: string; total: number }[] = [];
     const combinedTotal = duesTotal + freeTotal;
     if (combinedTotal > 0) items.push({ label: 'YILLIK AİDAT GELİRİ', total: combinedTotal });
-
     Object.entries(otherIncomeGroups).forEach(([label, total]) => {
       items.push({ label, total });
     });
-
     return items;
   }, [yearlyTransactions]);
 
@@ -203,7 +196,6 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
       });
 
       const fileName = `${selectedYear} Yili Gelir Gider.pdf`;
-
       const shouldShare = mode === 'share';
       const savedInfo = await PDFService.saveAndShareFromJsPDF(pdf, fileName, shouldShare);
       onAddFile(fileName, 'Karar', savedInfo.uri, savedInfo.size, savedInfo.fileName);
@@ -220,7 +212,7 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
+    <div className="fixed inset-0 z-[200] bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a] flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
       <div className="flex items-center justify-between px-4 pt-6 pb-2">
         <div className="flex items-center space-x-3">
           <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5">
@@ -259,11 +251,11 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
 
         <div className="grid grid-cols-2 gap-1.5 mb-4">
           <button onClick={() => setShowVaultPicker(!showVaultPicker)} className="bg-[#1e293b] h-9 rounded-lg px-2 flex items-center justify-between border border-white/5 shadow-inner">
-            <span className="text-[10px] font-bold text-white/70 uppercase truncate">{selectedVault === 'genel' ? 'Genel Gider' : 'Demirbaş'}</span>
+            <span className="text-[12px] font-black text-white/70 uppercase truncate">{selectedVault === 'genel' ? 'Genel Gider' : 'Demirbaş'}</span>
             <ChevronDown size={12} className="text-white/20" />
           </button>
           <button onClick={() => setIsYearPickerOpen(true)} className="bg-[#1e293b] h-9 rounded-lg px-2 flex items-center justify-between border border-white/5 shadow-inner">
-            <span className="text-[9px] font-bold text-white/70 uppercase">{selectedYear}</span>
+            <span className="text-[12px] font-black text-white/70 uppercase">{selectedYear}</span>
             <ChevronDown size={12} className="text-white/20" />
           </button>
         </div>

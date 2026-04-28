@@ -50,7 +50,7 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
 
   return (
     <div className="animate-in slide-in-from-bottom-6 duration-500 pt-0 pb-16">
-      <div className="sticky top-0 z-[100] mb-3 flex items-center justify-between border-b border-white/5 bg-slate-900/90 px-4 py-3.5 backdrop-blur-xl">
+      <div className="px-4 py-6 mb-3 flex items-center justify-between">
         <button onClick={onClose} className="bg-white/5 p-2 rounded-xl active:scale-90 transition-all border border-white/5">
           <ArrowLeft size={24} className="text-zinc-400" />
         </button>

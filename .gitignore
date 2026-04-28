@@ -27,4 +27,6 @@ dist-ssr
 android/.gradle-user/
 android/.gradle/
 android/app/build/
+android/keystore.properties
+android/app/*.jks
 *.apk

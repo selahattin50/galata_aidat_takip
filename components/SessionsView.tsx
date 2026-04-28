@@ -3,6 +3,7 @@ import { Home, ArrowLeft, Building2, Pencil, MapPin, User, Users, Check, Loader2
 import { BuildingInfo, Unit } from '../types.ts';
 import { db } from '../databaseService';
 import { useAndroidBackHandler } from '../appBackButton';
+import { auth } from '../firebaseConfig';
 
 interface SessionsViewProps {
   info: BuildingInfo;
@@ -233,7 +234,14 @@ const SessionsView: React.FC<SessionsViewProps> = ({
           ))}
 
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              const isAdmin = auth.currentUser?.email === 'selahattin50@gmail.com';
+              if (!isAdmin && userSites.length >= 1) {
+                alert('Yeni bir apartman/site eklemek ücretli bir özelliktir. Lütfen bizimle iletişime geçin.\n\nİletişim: selahattin50@gmail.com');
+                return;
+              }
+              setShowCreateModal(true);
+            }}
             className="w-full h-14 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 rounded-2xl flex items-center justify-center space-x-3 active:scale-[0.98] transition-all group"
           >
             <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">

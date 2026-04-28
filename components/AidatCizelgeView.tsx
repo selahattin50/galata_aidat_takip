@@ -60,8 +60,8 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pt-0 pb-4 relative">
-      <div className="sticky top-0 z-[60] px-4 pt-4 pb-4 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900/95 backdrop-blur-3xl border-b border-white/5 shadow-2xl">
+    <div className="animate-page-in pt-0 pb-4 relative">
+      <div className="px-4 pt-4 pb-4">
         <div className="flex items-center justify-between mb-4 relative">
           <button onClick={onClose} className="bg-white/5 p-2 rounded-xl border border-white/5 active:scale-90 transition-all">
             <ArrowLeft size={20} strokeWidth={3} className="text-zinc-400" />
@@ -89,10 +89,18 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
 
       </div>
 
-      <div className="px-2 mt-4 space-y-2">
-        {units.sort((a, b) => parseInt(a.no) - parseInt(b.no)).map((unit) => (
-          <div key={unit.id} className="bg-[#111827]/60 backdrop-blur-md rounded-[20px] p-3 border border-white/5 shadow-xl flex flex-col">
-            <div className="flex items-baseline justify-between mb-2">
+      <div className="px-2 mt-4 space-y-1.5">
+        {units.sort((a, b) => parseInt(a.no) - parseInt(b.no)).map((unit, index) => (
+          <div 
+            key={unit.id} 
+            className="bg-[#1e293b]/50 backdrop-blur-md rounded-2xl p-3 border border-white/5 shadow-xl flex flex-col animate-card-in relative overflow-hidden"
+            style={{ animationDelay: `${index * 80}ms` }}
+          >
+            {/* Sol ve Sağ Mavi Çizgiler */}
+            <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 opacity-40" />
+            <div className="absolute top-0 right-0 w-1 h-full bg-blue-600 opacity-40" />
+            
+            <div className="flex items-baseline justify-between mb-2 relative z-10">
               <div className="flex items-baseline space-x-4 min-w-0">
                 <span className="text-xl font-black text-white/90 leading-none">{unit.no}</span>
                 <div className="min-w-0 flex items-center space-x-2">

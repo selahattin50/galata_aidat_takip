@@ -16,6 +16,15 @@ interface User {
   buildingName?: string;
 }
 
+interface UserProfileRecord {
+  email?: string;
+  name?: string;
+  phone?: string;
+  createdAt?: string;
+  role?: string;
+  buildingName?: string;
+}
+
 interface UserManagementViewProps {
   onClose: () => void;
 }
@@ -94,25 +103,32 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
     return email || siteName || `Kullanici: ${fallbackId}`;
   };
 
-  const resolveUserRecord = (rawUserData: any, profile: any, fallbackId: string, sourcePath: string): User => {
-    const fallbackEmail = fallbackId === auth.currentUser?.uid ? (auth.currentUser?.email || '') : '';
-    const resolvedEmail = rawUserData?.email || fallbackEmail || `UID: ${fallbackId.substring(0, 6)}...`;
+  const getBaseUid = (value?: string) => {
+    if (!value) return '';
+    return value.includes(':') ? value.split(':')[0] : value;
+  };
+
+  const resolveUserRecord = (rawUserData: any, profile: any, fallbackId: string, sourcePath: string, userProfile?: UserProfileRecord | null): User => {
+    const baseUid = getBaseUid(fallbackId);
+    const fallbackEmail = baseUid === auth.currentUser?.uid ? (auth.currentUser?.email || '') : '';
+    const resolvedEmail = rawUserData?.email || userProfile?.email || fallbackEmail || `UID: ${baseUid.substring(0, 6)}...`;
     const resolvedName =
       (isProtectedAdminEmail(resolvedEmail) ? PROTECTED_ADMIN_PROFILE.name : rawUserData?.name) ||
+      userProfile?.name ||
       rawUserData?.displayName ||
       profile?.managerName ||
       resolvedEmail.split('@')[0] ||
       'İsimsiz Kullanıcı';
 
     return {
-      uid: fallbackId,
+      uid: baseUid || fallbackId,
       sourcePath,
       email: resolvedEmail,
       name: resolvedName,
-      phone: isProtectedAdminEmail(resolvedEmail) ? PROTECTED_ADMIN_PROFILE.phone : (rawUserData?.phone || ''),
-      createdAt: rawUserData?.createdAt || '',
-      role: rawUserData?.role || profile?.role || (isProtectedAdminEmail(resolvedEmail) ? PROTECTED_ADMIN_PROFILE.role : 'Yönetici'),
-      buildingName: profile?.name || ''
+      phone: isProtectedAdminEmail(resolvedEmail) ? PROTECTED_ADMIN_PROFILE.phone : (rawUserData?.phone || userProfile?.phone || ''),
+      createdAt: rawUserData?.createdAt || userProfile?.createdAt || '',
+      role: rawUserData?.role || userProfile?.role || profile?.role || (isProtectedAdminEmail(resolvedEmail) ? PROTECTED_ADMIN_PROFILE.role : 'Yönetici'),
+      buildingName: profile?.name || userProfile?.buildingName || ''
     };
   };
 
@@ -163,9 +179,13 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
 
       // 1. Önce _userProfiles tablosunu dene
       setDebugInfo('Adım 1: _userProfiles taranıyor...');
+      const profileMap = new Map<string, UserProfileRecord>();
       try {
         const usersData = await db.getDataDirect('_userProfiles');
         if (usersData) {
+          Object.keys(usersData).forEach(uid => {
+            profileMap.set(uid, usersData[uid]);
+          });
           const profileList = Object.keys(usersData).map(uid => ({
             uid: uid,
             sourcePath: `_userProfiles/${uid}`,
@@ -201,7 +221,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
             // Eğer bu UID zaten finalUsers'da yoksa ekle
             if (!finalUsers.find(u => u.sourcePath === `users/${uid}`)) {
               const profile = rootUserData?.building_info || {};
-              finalUsers.push(resolveUserRecord(rootUserData, profile, uid, `users/${uid}`));
+              finalUsers.push(resolveUserRecord(rootUserData, profile, uid, `users/${uid}`, profileMap.get(uid)));
               count++;
             }
             const sites = rootUserData?.sites;
@@ -222,7 +242,8 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
                     },
                     profile,
                     `${uid}:${siteId}`,
-                    sourcePath
+                    sourcePath,
+                    profileMap.get(uid)
                   ));
                   nestedSiteCount++;
                 }
@@ -250,15 +271,65 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
       }
 
       if (finalUsers.length > 0) {
-        // Sort: selahattin50@gmail.com first
-        // Tekrar edenleri temizle (email bazlı)
-        const uniqueUsers = Array.from(new Map(finalUsers.map(u => [u.sourcePath || u.uid || u.email, u])).values());
+        // E-posta bazlı grupla ve apartman isimlerini birleştir
+        const userMap = new Map<string, User>();
+        finalUsers.forEach(u => {
+          const baseUid = getBaseUid(u.uid);
+          
+          let emailToUse = u.email;
+          if (emailToUse?.startsWith('UID:')) {
+            emailToUse = `UID: ${baseUid.substring(0, 6)}...`;
+          }
+          
+          const isRealEmail = emailToUse && !emailToUse.startsWith('UID:');
+          let key = '';
+          
+          if (baseUid) {
+            key = `uid:${baseUid}`;
+          } else if (isRealEmail) {
+            key = emailToUse.toLowerCase().trim();
+          } else {
+            // E-postası olmayan kullanıcıları ismine göre gruplayalım
+            key = u.name ? u.name.toLowerCase().trim() : baseUid;
+          }
+          
+          if (!key) return;
+          
+          if (userMap.has(key)) {
+            const existing = userMap.get(key)!;
+            if ((!existing.email || existing.email.startsWith('UID:')) && isRealEmail) {
+              existing.email = emailToUse;
+            }
+            if (!existing.name && u.name) {
+              existing.name = u.name;
+            }
+            if (!existing.phone && u.phone) {
+              existing.phone = u.phone;
+            }
+            if (!existing.createdAt && u.createdAt) {
+              existing.createdAt = u.createdAt;
+            }
+            if ((!existing.role || existing.role === 'Yönetici') && u.role) {
+              existing.role = u.role;
+            }
+            if (u.buildingName && !existing.buildingName?.includes(u.buildingName)) {
+              existing.buildingName = existing.buildingName 
+                ? `${existing.buildingName} • ${u.buildingName}` 
+                : u.buildingName;
+            }
+          } else {
+            userMap.set(key, { ...u, email: emailToUse });
+          }
+        });
+
+        const uniqueUsers = Array.from(userMap.values());
 
         uniqueUsers.sort((a, b) => {
           if (a.email === 'selahattin50@gmail.com') return -1;
           if (b.email === 'selahattin50@gmail.com') return 1;
           return 0;
         });
+
         setUsers(uniqueUsers);
         setDebugInfo(prev => prev + `\nToplam ${uniqueUsers.length} benzersiz kullanıcı yüklendi.`);
       } else if (lastError && lastError.message?.toLowerCase().includes('permission denied')) {

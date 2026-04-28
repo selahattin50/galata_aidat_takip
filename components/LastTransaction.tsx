@@ -17,12 +17,12 @@ const LastTransaction: React.FC<LastTransactionProps> = ({ transaction }) => {
 
   return (
     <div className="mt-1 pb-2">
-      <div className="flex justify-between items-center bg-black/40 px-4 py-1 rounded-t-xl border-x border-t border-white/5">
+      <div className="flex justify-between items-center px-4 py-1 rounded-t-xl border-x border-t border-white/5">
         <h4 className="text-[7px] font-bold tracking-[0.2em] text-white/50 uppercase">SON YAPILAN İŞLEM</h4>
       </div>
       
       {transaction ? (
-        <div className="glass-panel rounded-b-xl px-3 py-2 border-t-0 flex justify-between items-center active:bg-white/5 transition-colors cursor-pointer animate-in fade-in duration-500">
+        <div className="bg-white/[0.03] rounded-b-xl px-3 py-2 border border-t-0 border-white/5 flex justify-between items-center active:bg-white/5 transition-colors cursor-pointer animate-in fade-in duration-500">
           <div className="flex items-center space-x-2 flex-1 min-w-0">
             <div className={`w-6 h-6 rounded-full flex items-center justify-center border shrink-0 ${
               transaction.type === 'GELİR' ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'
@@ -49,7 +49,7 @@ const LastTransaction: React.FC<LastTransactionProps> = ({ transaction }) => {
           </div>
         </div>
       ) : (
-        <div className="glass-panel rounded-b-xl p-4 border-t-0 flex flex-col items-center justify-center space-y-1 animate-in fade-in duration-500">
+        <div className="bg-white/[0.03] rounded-b-xl p-4 border border-t-0 border-white/5 flex flex-col items-center justify-center space-y-1 animate-in fade-in duration-500">
           <Inbox size={20} className="text-white/10" />
           <span className="text-[8px] font-bold text-white/20 uppercase tracking-[0.2em]">Kayıtlı İşlem Bulunamadı</span>
         </div>

@@ -2,12 +2,13 @@
 import React from 'react';
 import {
   HandCoins, UserPlus, RotateCcw, TrendingUp, TrendingDown,
-  ArrowLeftRight, Building2, History, UserCheck, ChevronRight
+  ArrowLeftRight, Building2, History, UserCheck, CalendarDays, BarChart3, ChevronRight
 } from 'lucide-react';
 
 interface ActionItem {
   icon: React.ReactNode;
   label: string;
+  color: string;
 }
 
 interface ActionGridProps {
@@ -16,33 +17,42 @@ interface ActionGridProps {
 }
 
 const ActionGrid: React.FC<ActionGridProps> = ({ variant = 'grid', onActionClick }) => {
-  const iconSize = variant === 'grid' ? 28 : 22;
+  const iconSize = 24; // Biraz daha kompakt ikonlar
   const actions: ActionItem[] = [
-    { icon: <HandCoins size={iconSize} />, label: "Tahsilat" },
-    { icon: <UserPlus size={iconSize} />, label: "Borçlandır" },
-    { icon: <RotateCcw size={iconSize} />, label: "İade" },
-    { icon: <TrendingUp size={iconSize} />, label: "Gelir" },
-    { icon: <TrendingDown size={iconSize} />, label: "Gider" },
-    { icon: <ArrowLeftRight size={iconSize} />, label: "Transfer" },
-    { icon: <Building2 size={iconSize} />, label: "Bağımsız Bölümler" },
-    { icon: <History size={iconSize} />, label: "İşlem Hareketleri" },
-    { icon: <UserCheck size={iconSize} />, label: "Alacak Listesi" },
+    { icon: <HandCoins size={iconSize} />, label: "Tahsilat", color: "from-emerald-500/12 to-teal-500/12" },
+    { icon: <UserPlus size={iconSize} />, label: "Borçlandır", color: "from-blue-500/12 to-indigo-500/12" },
+    { icon: <RotateCcw size={iconSize} />, label: "İade", color: "from-rose-500/12 to-pink-500/12" },
+    { icon: <TrendingUp size={iconSize} />, label: "Gelir", color: "from-green-500/12 to-emerald-500/12" },
+    { icon: <TrendingDown size={iconSize} />, label: "Gider", color: "from-orange-500/12 to-amber-500/12" },
+    { icon: <ArrowLeftRight size={iconSize} />, label: "Transfer", color: "from-purple-500/12 to-fuchsia-500/12" },
+    { icon: <Building2 size={iconSize} />, label: "Bağımsız Bölümler", color: "from-cyan-500/12 to-blue-500/12" },
+    { icon: <History size={iconSize} />, label: "İşlem Hareketleri", color: "from-slate-500/12 to-gray-500/12" },
+    { icon: <UserCheck size={iconSize} />, label: "Alacak Listesi", color: "from-amber-500/12 to-yellow-500/12" },
+    { icon: <CalendarDays size={iconSize} />, label: "AİDAT ÇİZELGE", color: "from-indigo-500/12 to-blue-500/12" },
+    { icon: <BarChart3 size={iconSize} />, label: "AYLIK BİLANÇO", color: "from-violet-500/12 to-purple-500/12" },
+    { icon: <TrendingUp size={iconSize} />, label: "YILLIK BİLANÇO", color: "from-fuchsia-500/12 to-pink-500/12" },
   ];
 
   if (variant === 'grid') {
     return (
-      <div className="grid grid-cols-2 gap-2 pb-2 min-[360px]:grid-cols-3">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5 pb-1">
         {actions.map((action, idx) => (
           <button
             key={idx}
             onClick={() => onActionClick?.(action.label)}
-            className="flex flex-col items-center justify-center glass-panel rounded-[24px] p-3 h-[84px] active:bg-green-600/20 active:border-green-500/30 active:scale-95 transition-all border border-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.3)] group min-[360px]:h-[88px]"
+            className={`flex flex-col items-center justify-center bg-white/[0.03] backdrop-blur-md rounded-[20px] p-1.5 h-[82px] border border-white/10 shadow-lg active:scale-90 transition-all duration-300 group relative overflow-hidden`}
           >
-            <div className="text-[#22c55e] group-hover:text-green-400 group-hover:scale-110 transition-all duration-300 mb-2">
-              {action.icon}
+            <div className="absolute inset-0 bg-white/5 opacity-0 group-active:opacity-100 transition-opacity" />
+            <div className={`mb-1 transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]`}>
+              {React.cloneElement(action.icon as React.ReactElement, { 
+                className: action.color.split(' ')[0].replace('from-', 'text-').replace('/12', '')
+              })}
             </div>
-            <span className="text-[9px] font-black uppercase tracking-wide text-white/80 text-center leading-tight min-[360px]:text-[10px] min-[360px]:tracking-widest">
-              {action.label}
+            <span className="text-[10px] min-[360px]:text-[11px] font-bold uppercase tracking-tight text-white/90 text-center leading-[1.2]">
+              {action.label.includes(' ') && action.label.length > 10 
+                ? action.label.split(' ').map((word, i) => <React.Fragment key={i}>{word}<br/></React.Fragment>)
+                : action.label
+              }
             </span>
           </button>
         ))}
@@ -56,15 +66,17 @@ const ActionGrid: React.FC<ActionGridProps> = ({ variant = 'grid', onActionClick
         <button
           key={idx}
           onClick={() => onActionClick?.(action.label)}
-          className="flex items-center glass-panel rounded-2xl p-4 w-full active:bg-green-600/10 active:scale-[0.98] transition-all hover:bg-white/5 border border-white/5 shadow-lg group"
+          className={`flex items-center bg-white/[0.03] backdrop-blur-lg rounded-xl p-3 w-full border border-white/10 shadow-md active:scale-[0.97] transition-all group`}
         >
-          <div className="bg-green-500/10 p-2.5 rounded-xl mr-4 text-[#22c55e] group-hover:bg-green-500/20 transition-all">
-            {action.icon}
+          <div className={`p-2 rounded-lg mr-3 bg-white/10 group-hover:bg-white/20 transition-all shadow-inner`}>
+            {React.cloneElement(action.icon as React.ReactElement, { 
+              className: action.color.split(' ')[0].replace('from-', 'text-').replace('/12', '')
+            })}
           </div>
-          <span className="text-[14px] font-medium uppercase tracking-[0.1em] text-white/80">
+          <span className="text-[13px] font-semibold uppercase tracking-wider text-white/90">
             {action.label}
           </span>
-          <ChevronRight size={18} className="ml-auto opacity-20 group-hover:opacity-100 transition-all text-green-500" />
+          <ChevronRight size={18} className="ml-auto opacity-40 group-hover:opacity-100 transition-all text-[#22c55e] group-hover:translate-x-1" />
         </button>
       ))}
     </div>

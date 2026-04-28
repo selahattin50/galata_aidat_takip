@@ -103,7 +103,7 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
 
   return (
     <div className="animate-in slide-in-from-bottom-6 duration-500 pt-0 pb-60">
-      <div className="sticky top-0 z-[100] px-4 py-3.5 mb-3 bg-slate-900/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
+      <div className="px-4 py-6 mb-3 flex items-center justify-between">
         <button onClick={onClose} className="bg-white/5 p-2 rounded-xl border border-white/5 active:scale-90 transition-all"><ArrowLeft size={24} className="text-zinc-400" /></button>
         <h3 className="text-[18px] font-black uppercase tracking-[0.2em] text-red-500 text-center">GİDER KAYDI</h3>
         <div className="w-10" />

@@ -86,7 +86,7 @@ const MenuView: React.FC<MenuViewProps> = ({ onActionClick, onLogout, onClose })
           <LayoutDashboard size={32} className="text-green-500" strokeWidth={1.5} />
         </div>
         <h2 className="text-xl font-light tracking-[0.2em] text-white uppercase">Uygulama Menüsü</h2>
-        <p className="text-[9px] font-medium text-white/10 uppercase tracking-[0.4em] mt-1">Galata Apartmanı Dijital Panel</p>
+        <p className="text-[9px] font-medium text-white/10 uppercase tracking-[0.4em] mt-1">Yönetim Dijital Paneli</p>
       </div>
 
       <div className="space-y-6 px-2">

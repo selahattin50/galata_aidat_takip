@@ -64,10 +64,10 @@ const CarryOverView: React.FC<CarryOverViewProps> = ({ units, onCarryOver, onClo
 
   return (
     <div className="fixed inset-0 z-[400] bg-black/95 backdrop-blur-xl flex items-center justify-center px-4 animate-in fade-in duration-300">
-      <div className="bg-[#0f172a] w-full max-w-md rounded-[40px] border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="bg-[#1e293b] w-full max-w-md rounded-[40px] border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         
         {/* Header */}
-        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-emerald-500/5">
+        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a]">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
               <History className="text-emerald-400" size={20} />

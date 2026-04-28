@@ -76,14 +76,15 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
   };
 
   return (
-    <div className="pt-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-32">
-      <div className="flex items-center justify-center mb-6 relative px-2">
+    <div className="pt-0 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-32">
+      <div className="px-4 py-6 flex items-center justify-between mb-6">
+        <div className="w-10 h-10" /> {/* Placeholder for symmetry */}
         <h3 className="text-xs font-black uppercase tracking-[0.2em] text-green-500 text-center">DİJİTAL ARŞİV</h3>
         <button
           onClick={() => setShowAddModal(true)}
-          className="absolute right-0 bg-blue-600 p-3 rounded-2xl shadow-xl shadow-blue-900/40 active:scale-95 transition-all"
+          className="bg-blue-600 p-2.5 rounded-xl shadow-lg active:scale-90 transition-all border border-blue-500/50"
         >
-          <FilePlus size={24} className="text-white" />
+          <FilePlus size={20} className="text-white" />
         </button>
       </div>
 

@@ -29,7 +29,7 @@ const Header: React.FC<HeaderProps> = ({ info, onLogout, onMessagesClick, unread
   };
 
   return (
-    <div className="sticky top-0 z-[100] w-full px-6 pt-10 pb-4 flex flex-col items-center relative animate-in fade-in duration-700 bg-slate-900/80 backdrop-blur-xl border-b border-white/5 shadow-2xl">
+    <div className="sticky top-0 z-[100] w-full px-6 pt-10 pb-4 flex flex-col items-center relative animate-in fade-in duration-700">
       <div className="flex flex-col items-center">
         <h1 className="text-lg font-medium text-white uppercase tracking-[0.2em] leading-none mb-1">
           {info.name || 'GALATA AİDAT'}

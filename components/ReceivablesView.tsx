@@ -256,7 +256,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
                 <img src="${buildingLogo}" alt="Galata Logo" style="width:112px;height:112px;object-fit:contain;display:block;" />
               </div>
               <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;flex:1;">
-                <div style="width:100%;font-size:24px;font-weight:800;letter-spacing:0.2em;text-transform:uppercase;opacity:0.88;text-align:center;">${info?.name || 'GALATA APARTMANI'}</div>
+                <div style="width:100%;font-size:24px;font-weight:800;letter-spacing:0.2em;text-transform:uppercase;opacity:0.88;text-align:center;">${info?.name || 'YENİ YÖNETİM'}</div>
                 <div style="width:100%;margin-top:12px;font-size:50px;line-height:1.06;font-weight:900;text-align:center;">${cardTitle}</div>
               </div>
             </div>
@@ -447,7 +447,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
 
   return (
     <div className="relative pt-0 pb-24">
-      <div className="sticky top-0 z-[100] mb-3 flex items-center justify-between border-b border-white/5 bg-slate-900/90 px-4 py-3 shadow-2xl backdrop-blur-xl">
+      <div className="mb-3 flex items-center justify-between px-4 py-4">
         <button
           onClick={onClose}
           className="rounded-xl border border-white/5 bg-white/5 p-2 transition-all active:scale-90"

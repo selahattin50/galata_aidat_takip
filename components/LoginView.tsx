@@ -95,8 +95,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
     if (savedUser) {
       setUsername(savedUser);
     }
-    // Eski şifre kaydı kalmışsa güvenlik için temizle
-    localStorage.removeItem('galata_remembered_password');
+    const savedPassword = localStorage.getItem('galata_remembered_password');
+    if (savedPassword) {
+      setPassword(savedPassword);
+    }
   }, []);
 
   useAndroidBackHandler(() => {
@@ -146,12 +148,11 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
 
       if (rememberMe) {
         localStorage.setItem(REMEMBERED_USER_KEY, cleanUsername);
+        localStorage.setItem('galata_remembered_password', cleanPassword);
       } else {
         localStorage.removeItem(REMEMBERED_USER_KEY);
+        localStorage.removeItem('galata_remembered_password');
       }
-
-      // Şifreyi asla kaydetme
-      localStorage.removeItem('galata_remembered_password');
 
       onLogin(rememberMe);
     } catch (error: any) {
@@ -225,7 +226,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex items-center justify-center px-6 overflow-hidden">
+    <div className="fixed inset-0 z-[200] bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a] flex items-center justify-center px-6 overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-blue-600/10 rounded-full blur-[100px]" />
       <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-green-600/10 rounded-full blur-[100px]" />
 
@@ -243,7 +244,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
           </p>
         </div>
 
-        <div className="bg-[#1e293b]/70 backdrop-blur-3xl rounded-[40px] p-8 border border-white/20 shadow-2xl relative overflow-hidden">
+        <div className="bg-[#1e293b]/50 backdrop-blur-3xl rounded-[40px] p-8 border border-white/20 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
 
           <form onSubmit={handleLogin} className="space-y-6">

@@ -74,7 +74,7 @@ const IadeView: React.FC<IadeViewProps> = ({ units, info, onClose, onSave, curre
 
   return (
     <div className="animate-in slide-in-from-bottom-6 duration-500 pt-0 pb-60">
-      <div className="sticky top-0 z-[100] px-4 py-2.5 mb-2 bg-slate-900/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
+      <div className="px-4 py-6 mb-2 flex items-center justify-between">
         <button onClick={onClose} className="bg-white/5 p-2 rounded-xl active:scale-90 transition-all border border-white/5"><ArrowLeft size={24} className="text-zinc-400" /></button>
         <h3 className="text-[17px] font-black uppercase tracking-[0.2em] text-red-500 text-center">İADE İŞLEMİ</h3>
         <div className="w-10" />

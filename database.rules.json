@@ -25,14 +25,14 @@
       ".read": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
       ".write": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
       "$banId": {
-        ".read": "auth != null && (auth.token.email == 'selahattin50@gmail.com' || data.child('email').val() == auth.token.email)",
+        ".read": "auth != null",
         ".write": "auth != null && auth.token.email == 'selahattin50@gmail.com'"
       }
     },
 
     "_globalMessages": {
-      ".read": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
-      ".write": "auth != null && auth.token.email == 'selahattin50@gmail.com'"
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }

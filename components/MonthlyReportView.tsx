@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { ArrowLeft, ChevronDown, X, FileDown, Calendar, MessageCircle, Building, Check, Wallet, Inbox, Share2, Lock } from 'lucide-react';
 import { Transaction, Unit, FileEntry } from '../types';
@@ -49,7 +48,6 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
   const months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
   const years = [2024, 2025, 2026];
 
-  // Global Alacak/Kredi Bakiyesi hesaplama
   const { totalDebt, totalCredit, netDebt } = useMemo(() => {
     return units.reduce((acc, u) => {
       const debt = u.debt || 0;
@@ -97,13 +95,7 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
       return txMonth === selectedMonth && txYear === selectedYear && txVaultType === selectedVault;
     });
   }, [transactions, selectedMonth, selectedYear, selectedVault]);
-  /*
 
-    if (tx.type !== 'GELİR') return false;
-    return /KRED[İI]/i.test(tx.description);
-  };
-
-  */
   const reportData = useMemo(() => {
     const incomeGroups: Record<string, { total: number, count: number, minDate: string }> = {};
     const expenseGroups: Record<string, { total: number, count: number, minDate: string }> = {};
@@ -249,7 +241,7 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
+    <div className="fixed inset-0 z-[200] bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a] flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
       <div className="flex items-center justify-between px-4 pt-6 pb-2">
         <div className="flex items-center space-x-3">
           <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5">
@@ -276,27 +268,27 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
                 <FileDown size={14} className="text-red-500" />
               </div>
             </div>
-            <span className="text-[10px] font-black text-white uppercase tracking-widest">İndir</span>
+            <span className="text-[12px] font-black text-white uppercase tracking-widest">İndir</span>
           </button>
           <button onClick={() => generateAndHandlePdf('share')} disabled={isProcessing} className="h-12 bg-[#1e293b] rounded-xl border border-white/5 flex items-center p-2 space-x-3 active:bg-white/10 transition-all shadow-lg">
             <div className="w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center border border-blue-600/30">
               <Share2 size={18} className="text-white fill-white/20" />
             </div>
-            <span className="text-[10px] font-black text-white uppercase tracking-widest">Paylaş</span>
+            <span className="text-[12px] font-black text-white uppercase tracking-widest">Paylaş</span>
           </button>
         </div>
 
         <div className="grid grid-cols-3 gap-1.5 mb-4">
           <button onClick={() => setShowVaultPicker(!showVaultPicker)} className="bg-[#1e293b] h-9 rounded-lg px-2 flex items-center justify-between border border-white/5 shadow-inner">
-            <span className="text-[10px] font-bold text-white/70 uppercase truncate">{selectedVault === 'genel' ? 'Genel Gider' : 'Demirbaş'}</span>
+            <span className="text-[12px] font-black text-white/70 uppercase truncate">{selectedVault === 'genel' ? 'Genel Gider' : 'Demirbaş'}</span>
             <ChevronDown size={12} className="text-white/20" />
           </button>
           <button onClick={() => setShowYearPicker(true)} className="bg-[#1e293b] h-9 rounded-lg px-2 flex items-center justify-between border border-white/5 shadow-inner">
-            <span className="text-[9px] font-bold text-white/70 uppercase">{selectedYear}</span>
+            <span className="text-[12px] font-black text-white/70 uppercase">{selectedYear}</span>
             <ChevronDown size={12} className="text-white/20" />
           </button>
           <button onClick={() => setShowDatePicker(true)} className="bg-[#1e293b] h-9 rounded-lg px-2 flex items-center justify-between border border-white/5 shadow-inner">
-            <span className="text-[9px] font-bold text-white/70 uppercase truncate">{months[selectedMonth]}</span>
+            <span className="text-[12px] font-black text-white/70 uppercase truncate">{months[selectedMonth]}</span>
             <ChevronDown size={12} className="text-white/20" />
           </button>
         </div>
@@ -340,12 +332,12 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
 
         <div className="mb-4 flex flex-row space-x-2">
           <div className="flex-1 bg-white/5 rounded-xl border border-white/5 p-3 flex items-center justify-between shadow-inner">
-            <span className="text-[9px] font-black text-white uppercase tracking-wider">ALACAK BAKİYESİ</span>
-            <span className="text-[12px] font-black text-red-500 tracking-tight">{formatCurrency(netDebt).replace('₺', '')}</span>
+            <span className="text-[10px] font-black text-white uppercase tracking-wider">ALACAK BAKİYESİ</span>
+            <span className="text-[15px] font-black text-red-500 tracking-tight">{formatCurrency(netDebt).replace('₺', '')}</span>
           </div>
           <div className="flex-1 bg-white/5 rounded-xl border border-white/5 p-3 flex items-center justify-between shadow-inner">
-            <span className="text-[9px] font-black text-white uppercase tracking-wider">KREDİ BAKİYESİ</span>
-            <span className="text-[12px] font-black text-white tracking-tight">{formatCurrency(totalCredit).replace('₺', '')}</span>
+            <span className="text-[10px] font-black text-white uppercase tracking-wider">KREDİ BAKİYESİ</span>
+            <span className="text-[15px] font-black text-white tracking-tight">{formatCurrency(totalCredit).replace('₺', '')}</span>
           </div>
         </div>
 
@@ -389,20 +381,20 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
 
         <div className="space-y-2 px-1">
           <div className="bg-[#1e293b] rounded-xl h-10 px-4 flex items-center justify-between border border-white/5 shadow-md">
-            <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">ÖNCEKİ AYDAN DEVİR</span>
-            <span className="text-[12px] font-black text-white">{formatCurrency(previousDevir).replace('₺', '')}</span>
+            <span className="text-[11px] font-black text-white/60 uppercase tracking-widest">ÖNCEKİ AYDAN DEVİR</span>
+            <span className="text-[13px] font-black text-white">{formatCurrency(previousDevir).replace('₺', '')}</span>
           </div>
           <div className="bg-[#1e293b] rounded-xl h-10 px-4 flex items-center justify-between border border-white/5 shadow-md">
-            <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">GELİR TOPLAMI</span>
-            <span className="text-[12px] font-black text-white">{formatCurrency(totalIncomeWithDevir).replace('₺', '')}</span>
+            <span className="text-[11px] font-black text-white/60 uppercase tracking-widest">GELİR TOPLAMI</span>
+            <span className="text-[13px] font-black text-white">{formatCurrency(totalIncomeWithDevir).replace('₺', '')}</span>
           </div>
           <div className="bg-[#1e293b] rounded-xl h-10 px-4 flex items-center justify-between border border-white/5 shadow-md">
-            <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">GİDER TOPLAMI</span>
-            <span className="text-[12px] font-black text-white">{formatCurrency(totalExpense).replace('₺', '')}</span>
+            <span className="text-[11px] font-black text-white/60 uppercase tracking-widest">GİDER TOPLAMI</span>
+            <span className="text-[13px] font-black text-white">{formatCurrency(totalExpense).replace('₺', '')}</span>
           </div>
           <div className="bg-blue-900/40 rounded-xl h-12 px-5 flex items-center justify-between border border-blue-500/20 shadow-xl mt-4">
-            <span className="text-[11px] font-black text-white uppercase tracking-[0.2em]">KASA TOPLAMI</span>
-            <span className={`text-[16px] font-black tracking-tighter ${cashTotal >= 0 ? 'text-white' : 'text-red-500'}`}>{formatCurrency(cashTotal).replace('₺', '')}</span>
+            <span className="text-[13px] font-black text-white uppercase tracking-[0.2em]">KASA TOPLAMI</span>
+            <span className={`text-[18px] font-black tracking-tighter ${cashTotal >= 0 ? 'text-white' : 'text-red-500'}`}>{formatCurrency(cashTotal).replace('₺', '')}</span>
           </div>
         </div>
       </div>
