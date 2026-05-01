@@ -16,6 +16,7 @@ interface UnitsViewProps {
   onEditUnit: (unit: Unit) => void;
   onDeleteUnit: (id: string) => void;
   onAddFile: (name: string, category: FileEntry['category'], uri?: string, size?: number, fileName?: string) => void;
+  onClose: () => void;
   currentDate: Date;
 }
 
@@ -28,7 +29,7 @@ const INITIAL_FORM_DATA = {
   status: 'Malik' as 'Malik' | 'Kiracı'
 };
 
-const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddUnit, onEditUnit, onDeleteUnit, onAddFile, currentDate }) => {
+const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddUnit, onEditUnit, onDeleteUnit, onAddFile, onClose, currentDate }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
@@ -109,23 +110,36 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
     try {
       const months = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"];
       const currentMonthName = months[currentDate.getMonth()];
+      const sortedUnits = [...units].sort((a, b) => {
+        const aNo = parseInt(a.no);
+        const bNo = parseInt(b.no);
+        return (isNaN(aNo) || isNaN(bNo)) ? a.no.localeCompare(b.no) : aNo - bNo;
+      });
+      const rowHeight = Math.max(24, Math.min(34, Math.floor(575 / Math.max(sortedUnits.length, 1))));
+      const rowFontSize = Math.max(16, Math.min(22, rowHeight - 5));
+      const headerFontSize = Math.max(13, Math.min(17, rowFontSize - 1));
       const pdfContent = document.createElement('div');
       pdfContent.style.backgroundColor = '#ffffff';
-      pdfContent.style.padding = '20px';
-      pdfContent.style.width = '1200px';
+      pdfContent.style.boxSizing = 'border-box';
+      pdfContent.style.padding = '14px 16px';
+      pdfContent.style.width = '794px';
+      pdfContent.style.minHeight = '1123px';
       pdfContent.style.fontFamily = 'sans-serif';
       pdfContent.style.color = '#000';
+      pdfContent.style.display = 'flex';
+      pdfContent.style.flexDirection = 'column';
 
       const header = document.createElement('div');
       header.style.textAlign = 'center';
-      header.style.marginBottom = '30px';
+      header.style.marginBottom = '10px';
+      header.style.flex = '0 0 auto';
       header.innerHTML = `
-        <h1 style="font-size: 48px; font-weight: 900; color: #000; text-transform: uppercase; margin-bottom: 24px; white-space: nowrap;">
+        <h1 style="font-size: 23px; font-weight: 900; color: #000; text-transform: uppercase; margin: 0 0 8px; white-space: nowrap;">
           ${currentMonthName} AYI APARTMAN HESAP DURUM ÇİZELGESİ
         </h1>
-        <div style="border: 4px solid #000; margin-bottom: 20px; background-color: #fff; display: flex; align-items: center; justify-content: center; padding: 12px 0;">
+        <div style="border: 3px solid #000; background-color: #fff; display: flex; align-items: center; justify-content: center; padding: 7px 0;">
           <div style="text-align: center; white-space: nowrap;">
-            <p style="font-size: 45px; font-weight: 900; margin: 0; color: #000; line-height: 1;">${info.name.toUpperCase()} YÖNETİMİ</p>
+            <p style="font-size: 23px; font-weight: 900; margin: 0; color: #000; line-height: 1;">${info.name.toUpperCase()} YÖNETİMİ</p>
           </div>
         </div>
       `;
@@ -133,36 +147,35 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
 
       const table = document.createElement('table');
       table.style.width = '100%';
-      table.style.border = '4px solid #000';
+      table.style.border = '3px solid #000';
       table.style.borderCollapse = 'collapse';
+      table.style.tableLayout = 'fixed';
+      table.style.flex = '1 1 auto';
 
       const thead = document.createElement('thead');
       thead.innerHTML = `
-        <tr style="border-bottom: 3px solid #000; background-color: #f8f8f8;">
-          <th style="border-right: 1px solid #000; padding: 15px; text-align: center; width: 80px; font-size: 38px; font-weight: 900; color: #000; white-space: nowrap;">NO</th>
-          <th style="border-right: 1px solid #000; padding: 15px; text-align: left; font-size: 38px; font-weight: 900; color: #000; white-space: nowrap;">İKAMET EDEN</th>
-          <th style="border-right: 1px solid #000; padding: 15px; text-align: right; width: 300px; font-size: 38px; font-weight: 900; color: #22c55e; white-space: nowrap;">KREDİ BAKİYESİ</th>
-          <th style="padding: 15px; text-align: right; width: 300px; font-size: 38px; font-weight: 900; color: #ef4444; white-space: nowrap;">BORÇ BAKİYESİ</th>
+        <tr style="border-bottom: 2px solid #000; background-color: #f8f8f8;">
+          <th style="border-right: 1px solid #000; padding: 6px 5px; text-align: center; width: 44px; font-size: ${headerFontSize}px; font-weight: 900; color: #000; white-space: nowrap;">NO</th>
+          <th style="border-right: 1px solid #000; padding: 6px 7px; text-align: left; font-size: ${headerFontSize}px; font-weight: 900; color: #000; white-space: nowrap;">İKAMET EDEN</th>
+          <th style="border-right: 1px solid #000; padding: 6px 5px; text-align: center; width: 170px; font-size: ${headerFontSize}px; font-weight: 900; color: #22c55e; white-space: nowrap;">KREDİ BAKİYESİ</th>
+          <th style="padding: 6px 5px; text-align: center; width: 170px; font-size: ${headerFontSize}px; font-weight: 900; color: #ef4444; white-space: nowrap;">BORÇ BAKİYESİ</th>
         </tr>
       `;
       table.appendChild(thead);
 
       const tbody = document.createElement('tbody');
-      units.sort((a, b) => {
-        const aNo = parseInt(a.no);
-        const bNo = parseInt(b.no);
-        return (isNaN(aNo) || isNaN(bNo)) ? a.no.localeCompare(b.no) : aNo - bNo;
-      }).forEach((unit, index) => {
+      sortedUnits.forEach((unit, index) => {
         const row = document.createElement('tr');
         row.style.borderBottom = '1px solid #ccc';
         row.style.backgroundColor = index % 2 === 0 ? '#ffffff' : '#f2f3ff';
+        row.style.height = `${rowHeight}px`;
         row.innerHTML = `
-          <td style="border-right: 1px solid #000; padding: 10px; text-align: center; font-size: 35px; font-weight: bold; color: #000; white-space: nowrap;">${unit.no}</td>
-          <td style="border-right: 1px solid #000; padding: 10px; text-align: left; font-size: 35px; font-weight: bold; color: #000; white-space: nowrap;">
+          <td style="border-right: 1px solid #000; padding: 3px 6px; text-align: center; font-size: ${rowFontSize}px; font-weight: bold; color: #000; white-space: nowrap; line-height: 1;">${unit.no}</td>
+          <td style="border-right: 1px solid #000; padding: 3px 8px; text-align: left; font-size: ${rowFontSize}px; font-weight: bold; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1;">
             ${unit.tenantName || unit.ownerName} 
           </td>
-          <td style="border-right: 1px solid #000; padding: 10px; text-align: right; font-size: 35px; font-weight: bold; color: #22c55e; white-space: nowrap;">${unit.credit > 0 ? formatCurrency(unit.credit) : ''}</td>
-          <td style="padding: 10px; text-align: right; font-size: 35px; font-weight: bold; color: #ef4444; white-space: nowrap;">${unit.debt > 0 ? formatCurrency(unit.debt) : ''}</td>
+          <td style="border-right: 1px solid #000; padding: 3px 7px; text-align: right; font-size: ${rowFontSize}px; font-weight: bold; color: #22c55e; white-space: nowrap; line-height: 1;">${unit.credit > 0 ? formatCurrency(unit.credit) : ''}</td>
+          <td style="padding: 3px 7px; text-align: right; font-size: ${rowFontSize}px; font-weight: bold; color: #ef4444; white-space: nowrap; line-height: 1;">${unit.debt > 0 ? formatCurrency(unit.debt) : ''}</td>
         `;
         tbody.appendChild(row);
       });
@@ -170,39 +183,49 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
       pdfContent.appendChild(table);
 
       const footer = document.createElement('div');
-      footer.style.marginTop = '0px';
+      footer.style.marginTop = '8px';
+      footer.style.flex = '0 0 auto';
       footer.innerHTML = `
         <div style="display: flex; justify-content: flex-end;">
-          <div style="text-align: center; width: 350px;">
-            <div style="padding-top: 5px;">
-              <p style="font-size: 24px; font-weight: 900; margin: 0; color: #000;">YÖNETİM ONAYI</p>
-              <p style="font-size: 16px; margin: 0; font-style: italic; color: #000;">Kaşe / İmza</p>
+          <div style="text-align: center; width: 190px;">
+            <div style="padding-top: 2px;">
+              <p style="font-size: 14px; font-weight: 900; margin: 0; color: #000;">YÖNETİM ONAYI</p>
+              <p style="font-size: 10px; margin: 0; font-style: italic; color: #000;">Kaşe / İmza</p>
             </div>
           </div>
         </div>
-        <p style="font-size: 12px; font-weight: 700; margin: 14px 0 0; color: #334155; text-align: center;">Galata Aidat Takip Sistemi Tarafından Oluşturmuştur</p>
+        <p style="font-size: 9px; font-weight: 700; margin: 6px 0 0; color: #334155; text-align: center;">Galata Aidat Takip Sistemi Tarafından Oluşturmuştur</p>
       `;
       pdfContent.appendChild(footer);
 
+      pdfContent.style.position = 'fixed';
+      pdfContent.style.left = '-10000px';
+      pdfContent.style.top = '0';
       document.body.appendChild(pdfContent);
-      const canvas = await html2canvas(pdfContent, { scale: 3, useCORS: true, backgroundColor: '#ffffff', logging: false });
+      const canvas = await html2canvas(pdfContent, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: pdfContent.scrollWidth,
+        windowHeight: pdfContent.scrollHeight
+      });
       document.body.removeChild(pdfContent);
 
       const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pageMargin = 8;
+      const usableWidth = pdfWidth - pageMargin * 2;
+      const usableHeight = pdfHeight - pageMargin * 2;
+      const imgHeight = (canvas.height * usableWidth) / canvas.width;
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const imageWidth = imgHeight > usableHeight ? (usableWidth * usableHeight) / imgHeight : usableWidth;
+      const imageHeight = imgHeight > usableHeight ? usableHeight : imgHeight;
+      const xOffset = (pdfWidth - imageWidth) / 2;
+      const yOffset = (pdfHeight - imageHeight) / 2;
 
-      if (imgHeight > pdfHeight) {
-        const ratio = pdfHeight / imgHeight;
-        const scaledWidth = imgWidth * ratio;
-        const scaledHeight = pdfHeight;
-        const xOffset = (pdfWidth - scaledWidth) / 2;
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', xOffset, 0, scaledWidth, scaledHeight);
-      } else {
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, imgWidth, imgHeight);
-      }
+      pdf.addImage(imgData, 'JPEG', xOffset, yOffset, imageWidth, imageHeight);
 
       const fileName = `Aidat Cizelgesi.pdf`;
       const shouldShare = mode === 'share';
@@ -225,15 +248,19 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
       transactions={transactions}
       onClose={() => setSelectedUnit(null)}
       onUpdate={(u) => { onEditUnit(u); setSelectedUnit(u); }}
+      onDelete={(id) => { onDeleteUnit(id); setSelectedUnit(null); }}
       currentDate={currentDate}
     />;
   }
 
   return (
     <div className="relative pt-0 pb-10 animate-page-in">
-      <div className="px-4 pt-4 pb-4">
+      <div className="sticky top-0 z-30 px-4 pt-4 pb-2 bg-[#1e293b]/95 backdrop-blur-xl border-b border-white/5">
         <div className="flex items-center justify-between mb-4 mt-2">
           <div className="flex items-center space-x-3 flex-shrink-0">
+            <button onClick={onClose} className="bg-white/5 p-2 rounded-xl border border-white/5 active:scale-90 transition-all">
+              <ArrowLeft size={20} strokeWidth={3} className="text-zinc-400" />
+            </button>
             <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/5 shadow-inner">
               <Users className="text-white" size={24} />
             </div>
@@ -243,9 +270,9 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
             <button
               onClick={() => generateUnitsPdf('share')}
               disabled={isProcessingPdf}
-              className="w-10 h-10 bg-white/5 text-zinc-400 rounded-xl flex items-center justify-center active:scale-95 transition-all border border-white/10 shadow-lg hover:bg-white/10"
+              className="w-10 h-10 bg-blue-600/25 text-white rounded-xl flex items-center justify-center active:scale-95 transition-all border border-blue-500/40 shadow-[0_0_18px_rgba(37,99,235,0.24)] hover:bg-blue-600/35 disabled:opacity-50"
             >
-              <Share2 size={20} />
+              <Share2 size={20} strokeWidth={2.7} />
             </button>
             <button
               onClick={handleOpenAddModal}
@@ -257,7 +284,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
         </div>
       </div>
 
-      <div className="px-3 py-4">
+      <div className="px-3 pt-2 pb-4">
         <div className="grid grid-cols-1 gap-2">
           {filteredUnits.map((unit, index) => (
             <div
@@ -289,7 +316,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
                 </div>
                 <div className="text-right flex-shrink-0 pl-2 min-w-[74px]">
                   <div className="flex flex-col items-end gap-1.5 leading-none">
-                    <div className="text-[14px] font-black tracking-tighter text-green-500">
+                    <div className={`text-[14px] font-black tracking-tighter ${unit.credit > 0 ? 'text-green-500' : 'text-white'}`}>
                       ₺{formatCurrency(unit.credit).replace('₺', '')}
                     </div>
                     <div className="text-[14px] font-black tracking-tighter text-red-400">
@@ -311,7 +338,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 z-[300] bg-slate-950/95 backdrop-blur-2xl px-4 flex items-center justify-center animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[300] bg-slate-950/95 backdrop-blur-2xl px-4 flex items-start justify-center pt-16 animate-in fade-in duration-300">
           <div className="w-full max-w-sm">
             <div className="flex items-center justify-between mb-8 px-2">
               <div className="flex items-center space-x-3">

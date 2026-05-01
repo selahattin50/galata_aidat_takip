@@ -234,7 +234,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-24 h-24 rounded-[32px] bg-white/5 border border-white/10 mb-6 shadow-2xl relative group p-2">
             <div className="absolute inset-0 bg-blue-500/10 rounded-[32px] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-            <img src="/assets/logo.png" alt="Galata Logo" className="w-full h-full object-cover rounded-[24px] relative z-10" />
+            <img src="/assets/logo.png" alt="Galata Logo" className="w-full h-full object-contain relative z-10 drop-shadow-xl" />
           </div>
           <h1 className="text-3xl font-black uppercase tracking-[0.2em] bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400 mb-1 drop-shadow-2xl">
             GALATA AİDAT

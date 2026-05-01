@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import html2canvas from 'html2canvas';
-import { App as CapacitorApp } from '@capacitor/app';
-import { ArrowLeft, Phone, MessageCircle, Inbox, Loader2, Eye, X, CheckSquare, Square, Send, Eraser, RotateCcw, Check, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Phone, MessageCircle, Inbox, Loader2, Eye, X } from 'lucide-react';
 import { BuildingInfo, Unit } from '../types.ts';
 import { PDFService } from '../pdfService.ts';
 import { markExternalIntent } from '../externalIntentGuard';
-import buildingLogo from '../src/assets/logo.png';
+import buildingLogo from '../src/assets/logo-transparent.png';
 
 interface ReceivablesViewProps {
   units: Unit[];
@@ -18,15 +17,6 @@ type ReceivableCardMode = 'info' | 'reminder';
 
 const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose, currentDate }) => {
   const [sharingUnitId, setSharingUnitId] = useState<string | null>(null);
-  const [isBulkSharing, setIsBulkSharing] = useState(false);
-  const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
-  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
-  const [bulkSuccessIds, setBulkSuccessIds] = useState<string[]>([]);
-  const [bulkFailedIds, setBulkFailedIds] = useState<string[]>([]);
-  const [bulkQueueIds, setBulkQueueIds] = useState<string[]>([]);
-  const [bulkQueueIndex, setBulkQueueIndex] = useState(0);
-  const [bulkWaitingReturn, setBulkWaitingReturn] = useState(false);
-  const [bulkSkippedCount, setBulkSkippedCount] = useState(0);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
@@ -58,32 +48,6 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
 
   const getUnitPhone = (unit: Unit) => unit.tenantPhone || unit.phone;
 
-  useEffect(() => {
-    const selectableIds = sortedDebtors.filter((unit) => !!getUnitPhone(unit)).map((unit) => unit.id);
-    setSelectedUnitIds((prev) => (prev.length === 0 ? selectableIds : prev.filter((id) => selectableIds.includes(id))));
-  }, [units]);
-
-  useEffect(() => {
-    const listener = CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
-      if (!isActive || !isBulkSharing || !bulkWaitingReturn || bulkQueueIds.length === 0) {
-        return;
-      }
-
-      const nextIndex = bulkQueueIndex;
-      if (nextIndex >= bulkQueueIds.length) {
-        finishBulkShare(bulkSuccessIds, bulkFailedIds, bulkSkippedCount);
-        return;
-      }
-
-      setBulkWaitingReturn(false);
-      await runBulkShareStep(bulkQueueIds, nextIndex, getCardMode(), bulkSkippedCount, bulkSuccessIds, bulkFailedIds);
-    });
-
-    return () => {
-      listener.then((handle) => handle.remove());
-    };
-  }, [isBulkSharing, bulkWaitingReturn, bulkQueueIds, bulkQueueIndex, bulkSuccessIds, bulkFailedIds, bulkSkippedCount, info, units]);
-
   const getCardMode = (): ReceivableCardMode => {
     const isBulkMessageEnabled = info?.isBulkMessageEnabled !== false;
     const bulkMessageInfoDay = Math.min(28, Math.max(1, Number(info?.bulkMessageInfoDay) || 1));
@@ -99,25 +63,28 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
     return currentDate.getDate() >= bulkMessageReminderDay ? 'reminder' : 'info';
   };
 
-  const activeCardMode = getCardMode();
-  const activeCardModeLabel = activeCardMode === 'reminder' ? 'M2 AIDAT HATIRLATMA' : 'M1 AIDAT OLUSTURULDU';
-  const activeCardModeDescription =
-    activeCardMode === 'reminder'
-      ? 'Bugun odeme yapilmadi karti gonderilir.'
-      : 'Bugun aidat olusturuldu karti gonderilir.';
+  const getMonthAidatTitle = () => {
+    const monthName = currentDate.toLocaleDateString('tr-TR', { month: 'long' });
+    return `${toTitleCase(monthName)} Ayı Aidatı Oluşturuldu`;
+  };
+
+  const getMonthName = () => {
+    const monthName = currentDate.toLocaleDateString('tr-TR', { month: 'long' });
+    return toTitleCase(monthName);
+  };
+
+  const getCreatedAidatTitle = () => {
+    return `${getMonthName()} Ay\u0131 Aidat Olu\u015Fturuldu`;
+  };
+
+  const getBuildingShareName = () => {
+    return sanitizeFileName(info?.name || 'YONETIM') || 'YONETIM';
+  };
+
   const currencySymbol = '\u20BA';
   const uiText = {
     title: 'ALACAK L\u0130STES\u0130',
     preview: 'Kart \u00d6nizleme',
-    panelTitle: 'KART G\u00d6NDER\u0130M\u0130',
-    selectedPrefix: 'Se\u00e7ilen',
-    selectedSuffix: 'bor\u00e7luya kendi kart\u0131 g\u00f6nderilsin',
-    sending: 'G\u00d6NDER\u0130L\u0130YOR',
-    send: 'G\u00d6NDER',
-    selectAll: 'T\u00dcM\u00dcN\u00dc SE\u00c7',
-    clear: 'TEM\u0130ZLE',
-    success: 'BA\u015eARILI',
-    remaining: 'KALANLARI G\u00d6NDER',
   };
 
   const handleCall = (phoneNumber?: string) => {
@@ -129,99 +96,6 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
     window.open(`tel:${phoneNumber.replace(/\s/g, '')}`);
   };
 
-  const toggleUnitSelection = (unitId: string) => {
-    setSelectedUnitIds((prev) =>
-      prev.includes(unitId) ? prev.filter((id) => id !== unitId) : [...prev, unitId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    const selectableIds = sortedDebtors.filter((unit) => !!getUnitPhone(unit)).map((unit) => unit.id);
-    setSelectedUnitIds(selectableIds);
-  };
-
-  const handleClearSelection = () => {
-    setSelectedUnitIds([]);
-  };
-
-  const handleRetryFailed = async () => {
-    if (bulkFailedIds.length === 0) {
-      alert('Tekrar denenecek hatali gonderim yok.');
-      return;
-    }
-
-    setSelectedUnitIds(bulkFailedIds);
-    await handleBulkWhatsApp(bulkFailedIds);
-  };
-
-  const finishBulkShare = (successIds: string[], failedIds: string[], skippedCount: number) => {
-    setSelectedUnitIds([...failedIds]);
-    setBulkFailedIds(failedIds);
-    setSharingUnitId(null);
-    setIsBulkSharing(false);
-    setBulkProgress(null);
-    setBulkQueueIds([]);
-    setBulkQueueIndex(0);
-    setBulkWaitingReturn(false);
-    setBulkSkippedCount(0);
-    alert(`Toplu kart gonderimi tamamlandi.\nBasarili: ${successIds.length}\nTelefonu olmayan: ${skippedCount}\nHatali: ${failedIds.length}`);
-  };
-
-  const runBulkShareStep = async (
-    queueIds: string[],
-    index: number,
-    mode: ReceivableCardMode,
-    skippedCount: number,
-    currentSuccessIds: string[],
-    currentFailedIds: string[]
-  ) => {
-    if (index >= queueIds.length) {
-      finishBulkShare(currentSuccessIds, currentFailedIds, skippedCount);
-      return;
-    }
-
-    const unit = sortedDebtors.find((item) => item.id === queueIds[index]);
-
-    if (!unit) {
-      const nextFailedIds = currentFailedIds.includes(queueIds[index])
-        ? currentFailedIds
-        : [...currentFailedIds, queueIds[index]];
-      setBulkFailedIds(nextFailedIds);
-      const nextIndex = index + 1;
-      setBulkQueueIndex(nextIndex);
-      if (nextIndex >= queueIds.length) {
-        finishBulkShare(currentSuccessIds, nextFailedIds, skippedCount);
-      }
-      return;
-    }
-
-    setBulkProgress({ current: index + 1, total: queueIds.length });
-    setSharingUnitId(unit.id);
-
-    try {
-      await shareCardToUnit(unit, mode);
-      const nextSuccessIds = currentSuccessIds.includes(unit.id)
-        ? currentSuccessIds
-        : [...currentSuccessIds, unit.id];
-      setBulkSuccessIds(nextSuccessIds);
-      setBulkFailedIds((prev) => prev.filter((id) => id !== unit.id));
-      setBulkQueueIndex(index + 1);
-      setBulkWaitingReturn(true);
-    } catch (error) {
-      console.error('Toplu hatirlatma karti paylasma hatasi:', error);
-      const nextFailedIds = currentFailedIds.includes(unit.id)
-        ? currentFailedIds
-        : [...currentFailedIds, unit.id];
-      setBulkFailedIds(nextFailedIds);
-      const nextIndex = index + 1;
-      setBulkQueueIndex(nextIndex);
-      if (nextIndex >= queueIds.length) {
-        finishBulkShare(currentSuccessIds, nextFailedIds, skippedCount);
-        return;
-      }
-      await runBulkShareStep(queueIds, nextIndex, mode, skippedCount, currentSuccessIds, nextFailedIds);
-    }
-  };
 
   const createReminderCard = async (
     name: string,
@@ -233,11 +107,28 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
     mode: ReceivableCardMode
   ) => {
     const isReminder = mode === 'reminder';
-    const cardTitle = isReminder ? 'Aidat Hat\u0131rlatma' : 'Aidat Bilgilendirme';
+    const cardTitleHtml = isReminder
+      ? 'Aidat Hat\u0131rlatma'
+      : `<span style="display:block;font-size:44px;line-height:1.04;">${getMonthName()} Ay\u0131</span><span style="display:block;margin-top:6px;font-size:44px;line-height:1.04;">Aidat Olu\u015Fturuldu</span>`;
     const statusTitle = isReminder ? 'Durum' : 'Bilgilendirme';
     const statusText = isReminder
       ? '\u00D6demenizi hen\u00FCz yapmad\u0131\u011F\u0131n\u0131z g\u00F6r\u00FClmektedir.'
-      : 'Bu aya ait aidat borcunuz olu\u015Fturulmu\u015Ftur.';
+      : `${getMonthName()} Ay\u0131 Aidat Borcunuz Olu\u015Fturulmu\u015Ftur.`;
+    const duesAmountText = `${currencySymbol}${formatCurrency(duesAmount)}`;
+    const previousDebtText = formatCurrency(previousDebt);
+    const creditText = formatCurrency(credit);
+    const totalDebtText = formatCurrency(totalDebt);
+    const getSummaryAmountFontSize = (value: string, featured = false) => {
+      const length = value.length;
+      if (length >= 12) return featured ? 33 : 31;
+      if (length >= 10) return featured ? 37 : 35;
+      if (length >= 9) return featured ? 40 : 37;
+      return featured ? 45 : 40;
+    };
+    const duesAmountFontSize = getSummaryAmountFontSize(duesAmountText);
+    const previousDebtFontSize = getSummaryAmountFontSize(previousDebtText);
+    const creditFontSize = getSummaryAmountFontSize(creditText);
+    const totalDebtFontSize = getSummaryAmountFontSize(totalDebtText, true);
 
     const card = document.createElement('div');
     card.style.width = '1080px';
@@ -252,53 +143,67 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
         <div style="background:#1f3b4d;color:#ffffff;padding:34px 40px;">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:20px;">
             <div style="display:flex;align-items:center;gap:24px;flex:1;">
-              <div style="width:132px;height:132px;border-radius:28px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
-                <img src="${buildingLogo}" alt="Galata Logo" style="width:112px;height:112px;object-fit:contain;display:block;" />
+              <div style="width:132px;height:132px;border-radius:28px;background:transparent;border:0;display:flex;align-items:center;justify-content:center;overflow:visible;flex-shrink:0;">
+                <img src="${buildingLogo}" alt="Galata Logo" style="width:132px;height:132px;object-fit:contain;display:block;filter:drop-shadow(0 8px 14px rgba(0,0,0,0.28));" />
               </div>
               <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;flex:1;">
-                <div style="width:100%;font-size:24px;font-weight:800;letter-spacing:0.2em;text-transform:uppercase;opacity:0.88;text-align:center;">${info?.name || 'YENİ YÖNETİM'}</div>
-                <div style="width:100%;margin-top:12px;font-size:50px;line-height:1.06;font-weight:900;text-align:center;">${cardTitle}</div>
+                <div style="width:100%;font-size:24px;font-weight:800;letter-spacing:0.2em;text-transform:uppercase;opacity:0.88;text-align:center;">${info?.name || 'YÖNETİM'}</div>
+                <div style="width:100%;margin-top:12px;font-size:50px;line-height:1.06;font-weight:900;text-align:center;">${cardTitleHtml}</div>
               </div>
             </div>
-            <div style="min-width:170px;padding:14px 18px;border-radius:18px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.14);text-align:right;">
-              <div style="font-size:18px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;opacity:0.88;">Daire No</div>
-              <div style="margin-top:8px;font-size:36px;font-weight:900;">${unitNo}</div>
-            </div>
+            <svg width="168" height="132" viewBox="0 0 168 132" style="display:block;flex-shrink:0;filter:drop-shadow(0 10px 24px rgba(0,0,0,0.12));" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="unitBadgeBg" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="rgba(255,255,255,0.20)" />
+                  <stop offset="100%" stop-color="rgba(255,255,255,0.07)" />
+                </linearGradient>
+                <linearGradient id="unitBadgeStroke" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="rgba(255,255,255,0.42)" />
+                  <stop offset="100%" stop-color="rgba(255,255,255,0.14)" />
+                </linearGradient>
+              </defs>
+              <rect x="1" y="1" width="166" height="130" rx="25" fill="url(#unitBadgeBg)" stroke="url(#unitBadgeStroke)" stroke-width="1.5" />
+              <rect x="8" y="8" width="152" height="116" rx="21" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1" />
+              <path d="M25 16 H143" stroke="rgba(255,255,255,0.28)" stroke-width="2" stroke-linecap="round" opacity="0.55" />
+              <rect x="18" y="54" width="132" height="56" rx="17" fill="rgba(15,23,42,0.18)" stroke="rgba(255,255,255,0.10)" />
+              <text x="84" y="39" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="19" font-weight="900" letter-spacing="1.2" fill="rgba(255,255,255,0.92)">DAİRE NO</text>
+              <text x="84" y="84" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="44" font-weight="900" fill="#ffffff">${unitNo}</text>
+            </svg>
           </div>
         </div>
 
         <div style="padding:34px 40px 38px 40px;">
           <div style="display:grid;grid-template-columns:minmax(0,1fr) 370px;grid-template-areas:'name summary' 'due summary';gap:22px;align-items:stretch;">
             <div style="grid-area:name;min-height:168px;background:#f8fafc;border:1px solid #dde5ee;border-radius:22px;padding:26px 28px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
-              <div style="font-size:22px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#64748b;">&#304;sim</div>
+              <div style="font-size:22px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#64748b;">İsim</div>
               <div style="margin-top:14px;font-size:50px;line-height:1.1;font-weight:900;color:#0f172a;">${name}</div>
             </div>
 
             <div style="grid-area:summary;min-height:328px;background:#fff8f8;border:1px solid #f2d4d4;border-radius:22px;padding:22px 24px;box-sizing:border-box;display:grid;grid-template-rows:1fr 1fr 1fr 1fr;">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #f2d4d4;">
-                <div style="font-size:40px;line-height:1;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#dc2626;white-space:nowrap;">Aidat</div>
-                <div style="font-size:40px;line-height:1;font-weight:900;color:#dc2626;white-space:nowrap;">&#8378;${formatCurrency(duesAmount)}</div>
+                <div style="font-size:40px;line-height:1;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#dc2626;white-space:nowrap;">AİDAT</div>
+                <div style="font-size:${duesAmountFontSize}px;line-height:1;font-weight:900;color:#dc2626;white-space:nowrap;">${duesAmountText}</div>
               </div>
 
               <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #f2d4d4;">
-                <div style="font-size:40px;line-height:1;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#7c3aed;white-space:nowrap;">Ge&#231;mi&#351;</div>
-                <div style="font-size:40px;line-height:1;font-weight:900;color:#7c3aed;white-space:nowrap;">${formatCurrency(previousDebt)}</div>
+                <div style="font-size:40px;line-height:1;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#7c3aed;white-space:nowrap;">Geçmiş</div>
+                <div style="font-size:${previousDebtFontSize}px;line-height:1;font-weight:900;color:#7c3aed;white-space:nowrap;">${previousDebtText}</div>
               </div>
 
               <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #f2d4d4;">
-                <div style="font-size:40px;line-height:1;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#b45309;white-space:nowrap;">Kredi</div>
-                <div style="font-size:40px;line-height:1;font-weight:900;color:#b45309;white-space:nowrap;">${formatCurrency(credit)}</div>
+                <div style="font-size:40px;line-height:1;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#b45309;white-space:nowrap;">KREDİ</div>
+                <div style="font-size:${creditFontSize}px;line-height:1;font-weight:900;color:#b45309;white-space:nowrap;">${creditText}</div>
               </div>
 
               <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
-                <div style="font-size:45px;line-height:1;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#b91c1c;white-space:nowrap;">Bor&#231;</div>
-                <div style="font-size:45px;line-height:1;font-weight:950;color:#dc2626;white-space:nowrap;">${formatCurrency(totalDebt)}</div>
+                <div style="font-size:45px;line-height:1;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#b91c1c;white-space:nowrap;">Borç</div>
+                <div style="font-size:${totalDebtFontSize}px;line-height:1;font-weight:950;color:#dc2626;white-space:nowrap;">${totalDebtText}</div>
               </div>
             </div>
 
             <div style="grid-area:due;min-height:140px;background:#fffdf7;border:1px solid #ece1bc;border-radius:22px;padding:26px 28px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
-              <div style="font-size:22px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#7c5c10;">Son &#214;deme Tarihi</div>
-              <div style="margin-top:12px;font-size:40px;font-weight:900;color:#111827;">Ay&#305;n 20'si</div>
+              <div style="font-size:22px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#7c5c10;">Son Ödeme Tarihi</div>
+              <div style="margin-top:12px;font-size:40px;font-weight:900;color:#111827;">Ayın 20'si</div>
             </div>
           </div>
 
@@ -308,9 +213,9 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
           </div>
 
           <div style="margin-top:20px;background:#f8fafc;border:1px solid #dde5ee;border-radius:22px;padding:28px 10px;zoom:1.14;">
-            <div style="font-size:22px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#475569;">&#214;deme Bilgileri</div>
+            <div style="font-size:22px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#475569;">Ödeme Bilgileri</div>
             <div style="margin-top:16px;font-size:36px;line-height:1.15;font-weight:900;color:#0f172a;white-space:nowrap;">IBAN: ${info?.iban || 'Belirtilmedi'}</div>
-            <div style="margin-top:14px;font-size:31px;font-weight:800;color:#1f2937;">ALICI : ${info?.ibanReceiver || 'Belirtilmedi'}</div>
+            <div style="margin-top:14px;font-size:31px;font-weight:800;color:#1f2937;">Alıcı : ${info?.ibanReceiver || 'Belirtilmedi'}</div>
           </div>
 
           <div style="margin-top:18px;text-align:center;">
@@ -337,12 +242,6 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
 
   const shareCardToUnit = async (unit: Unit, mode: ReceivableCardMode) => {
     const activeName = toTitleCase(unit.tenantName || unit.ownerName);
-    const phoneNumber = getUnitPhone(unit);
-
-    if (!phoneNumber) {
-      throw new Error('Telefon numarasi kayitli degil.');
-    }
-
     const duesAmt = info?.duesAmount || 0;
     const netDebt = Math.max(0, unit.debt - unit.credit);
     const previousDebt = Math.max(0, unit.debt - duesAmt - unit.credit);
@@ -355,18 +254,14 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
       unit.no,
       mode
     );
-    const fileName = `${mode === 'reminder' ? 'Aidat Hatirlatma' : 'Aidat Olusturuldu'}.png`;
-    await PDFService.saveAndShareImage(imageDataUrl, fileName, phoneNumber);
+    const safeName = sanitizeFileName(activeName) || 'Daire';
+    const cardTitle = mode === 'reminder' ? 'Aidat Hatirlatma' : getCreatedAidatTitle();
+    const shareTitle = `${getBuildingShareName()}_${sanitizeFileName(cardTitle)}`;
+    const fileName = `${shareTitle}_${unit.no}_${safeName}.png`;
+    await PDFService.saveAndShareImage(imageDataUrl, fileName);
   };
 
-  const handleWhatsApp = async (unit: Unit, name: string) => {
-    const phoneNumber = getUnitPhone(unit);
-
-    if (!phoneNumber) {
-      alert('Telefon numarasi kayitli degil.');
-      return;
-    }
-
+  const handleWhatsApp = async (unit: Unit) => {
     setSharingUnitId(unit.id);
 
     try {
@@ -374,42 +269,10 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
       await shareCardToUnit(unit, mode);
     } catch (error) {
       console.error('Hatirlatma karti paylasma hatasi:', error);
-      alert('Hatirlatma karti paylasilirken bir hata olustu.');
+      alert('Kart paylasim ekrani acilamadi. Lutfen tekrar deneyin.');
     } finally {
       setSharingUnitId(null);
     }
-  };
-
-  const handleBulkWhatsApp = async (targetUnitIds?: string[]) => {
-    const idsToSend = Array.isArray(targetUnitIds) ? targetUnitIds : selectedUnitIds;
-    const selectedUnits = sortedDebtors.filter((unit) => idsToSend.includes(unit.id));
-
-    if (selectedUnits.length === 0) {
-      alert('Lutfen once kart gonderilecek borclulari secin.');
-      return;
-    }
-
-    const unitsWithPhone = selectedUnits.filter((unit) => !!getUnitPhone(unit));
-
-    if (unitsWithPhone.length === 0) {
-      alert('Secilen borclularin hicbirinde telefon numarasi yok.');
-      return;
-    }
-
-    const queueIds = unitsWithPhone.map((unit) => unit.id);
-    const skippedCount = selectedUnits.length - unitsWithPhone.length;
-
-    setIsBulkSharing(true);
-    setBulkProgress({ current: 0, total: queueIds.length });
-    setBulkSuccessIds([]);
-    setBulkFailedIds([]);
-    setBulkQueueIds(queueIds);
-    setBulkQueueIndex(0);
-    setBulkWaitingReturn(false);
-    setBulkSkippedCount(skippedCount);
-
-    alert('Toplu kart gonderimi baslatildi. Her paylasimdan sonra uygulamaya geri donersen siradaki kisi otomatik acilir.');
-    await runBulkShareStep(queueIds, 0, getCardMode(), skippedCount, [], []);
   };
 
   const handlePreviewCard = async () => {
@@ -446,7 +309,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
   };
 
   return (
-    <div className="relative pt-0 pb-24">
+    <div className="relative pt-0 pb-8">
       <div className="mb-3 flex items-center justify-between px-4 py-4">
         <button
           onClick={onClose}
@@ -489,81 +352,71 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
             sortedDebtors.map((unit) => {
                 const activeName = toTitleCase(unit.tenantName || unit.ownerName);
                 const isSharing = sharingUnitId === unit.id;
-                const isSelected = selectedUnitIds.includes(unit.id);
-                const hasPhone = !!getUnitPhone(unit);
-                const isBulkSuccess = bulkSuccessIds.includes(unit.id);
-                const isBulkFailed = bulkFailedIds.includes(unit.id);
 
                 return (
-                  <div
-                    key={unit.id}
-                    className={`glass-panel group flex min-h-[58px] items-center rounded-[16px] border px-2.5 py-1.5 transition-all hover:bg-white/10 ${isBulkSuccess ? 'border-emerald-500/40 bg-emerald-500/[0.08]' : isBulkFailed ? 'border-amber-500/40 bg-amber-500/[0.08]' : isSelected ? 'border-red-500/40 bg-red-500/[0.06]' : 'border-red-500/25 bg-red-500/[0.03]'}`}
-                  >
-                    <div className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 shadow-inner">
-                      <span className="text-[20px] font-black leading-none text-white">{unit.no}</span>
-                    </div>
-
-                    {(isBulkSuccess || isBulkFailed) && (
-                      <div className={`mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${isBulkSuccess ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300' : 'border-amber-500/30 bg-amber-500/15 text-amber-200'}`}>
-                        {isBulkSuccess ? <Check size={15} /> : <AlertTriangle size={15} />}
+                    <div
+                      key={unit.id}
+                      className="glass-panel group flex min-h-[58px] items-center rounded-[16px] border border-red-500/25 bg-red-500/[0.03] px-2.5 py-1.5 transition-all active:scale-[0.98]"
+                    >
+                      <div className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 shadow-inner">
+                        <span className="text-[20px] font-black leading-none text-white">{unit.no}</span>
                       </div>
-                    )}
 
-                    <div className="min-w-0 flex-1">
-                      <span className="block truncate text-[12px] font-bold uppercase leading-tight tracking-tight text-white/90">
-                        {activeName}
-                      </span>
-                      <div className="mt-0.5 flex items-center space-x-2 overflow-hidden whitespace-nowrap">
-                        <span
-                          className={`shrink-0 text-[7px] font-black uppercase leading-none tracking-tighter ${unit.tenantName ? 'text-orange-500' : 'text-blue-500'}`}
-                        >
-                          {unit.tenantName ? 'KIRACI' : 'MALIK'}
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-[12px] font-bold uppercase leading-tight tracking-tight text-white/90">
+                          {activeName}
                         </span>
-                        <div className="flex shrink-0 items-center space-x-1">
-                          <span className="text-[11px] font-bold tracking-tight text-green-500">
-                            {unit.tenantName && unit.tenantPhone ? (
-                              unit.tenantPhone
-                            ) : unit.phone ? (
-                              unit.phone
-                            ) : (
-                              <span className="text-[8px] font-black uppercase tracking-wider text-white/20">
-                                TEL YOK
-                              </span>
-                            )}
+                        <div className="mt-0.5 flex items-center space-x-2 overflow-hidden whitespace-nowrap">
+                          <span
+                            className={`shrink-0 text-[7px] font-black uppercase leading-none tracking-tighter ${unit.tenantName ? 'text-orange-500' : 'text-blue-500'}`}
+                          >
+                            {unit.tenantName ? 'KIRACI' : 'MALIK'}
                           </span>
-                          <Phone size={8} className="shrink-0 text-green-500" />
+                          <div className="flex shrink-0 items-center space-x-1">
+                            <span className="text-[11px] font-bold tracking-tight text-green-500">
+                              {unit.tenantName && unit.tenantPhone ? (
+                                unit.tenantPhone
+                              ) : unit.phone ? (
+                                unit.phone
+                              ) : (
+                                <span className="text-[8px] font-black uppercase tracking-wider text-white/20">
+                                  TEL YOK
+                                </span>
+                              )}
+                            </span>
+                            <Phone size={8} className="shrink-0 text-green-500" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="ml-1.5 flex items-center space-x-1.5">
+                        <div className="text-right">
+                          <span className="text-[15px] font-black leading-none tracking-tighter text-red-500">
+                            {currencySymbol}{formatCurrency(unit.debt)}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2 border-l border-white/5 pl-2">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleWhatsApp(unit); }}
+                            disabled={isSharing}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg shadow-green-500/20 transition-all hover:shadow-green-500/40 active:scale-90 disabled:cursor-wait disabled:opacity-70"
+                          >
+                            {isSharing ? <Loader2 size={14} className="animate-spin" /> : <MessageCircle size={14} />}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleCall(unit.tenantPhone || unit.phone); }}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-blue-500/40 active:scale-90"
+                          >
+                            <Phone size={14} />
+                          </button>
                         </div>
                       </div>
                     </div>
-
-                    <div className="ml-1.5 flex items-center space-x-1.5">
-                      <div className="text-right">
-                        <span className="text-[15px] font-black leading-none tracking-tighter text-red-500">
-                          {currencySymbol}{formatCurrency(unit.debt)}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-2 border-l border-white/5 pl-2">
-                        <button
-                          onClick={() => handleWhatsApp(unit, activeName)}
-                          disabled={isSharing || isBulkSharing || !hasPhone}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg shadow-green-500/20 transition-all hover:shadow-green-500/40 active:scale-90 disabled:cursor-wait disabled:opacity-70"
-                        >
-                          {isSharing ? <Loader2 size={14} className="animate-spin" /> : <MessageCircle size={14} />}
-                        </button>
-                        <button
-                          onClick={() => handleCall(unit.tenantPhone || unit.phone)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-blue-500/40 active:scale-90"
-                        >
-                          <Phone size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-          )}
+                  );
+                })
+            )}
+          </div>
         </div>
-      </div>
 
       {previewImageUrl && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">

@@ -30,6 +30,7 @@ import RegisterView from './components/RegisterView.tsx';
 import FilesView from './components/FilesView.tsx';
 import MenuView from './components/MenuView.tsx';
 import MessagesView from './components/MessagesView.tsx';
+import { appConfirm } from './components/AppDialog.tsx';
 import { BuildingInfo, ActiveTab, Transaction, Unit, BoardMember, FileEntry, BalanceSummary, AppMessage } from './types.ts';
 import { db } from './databaseService';
 import { auth } from './firebaseConfig';
@@ -64,6 +65,57 @@ const DEFAULT_BUILDING_INFO: BuildingInfo = {
 };
 
 const INITIAL_UNITS: Unit[] = [];
+
+type VaultType = 'genel' | 'demirbas';
+
+const getTransactionVault = (tx: Transaction): VaultType => {
+  const description = (tx.description || '').toLocaleLowerCase('tr-TR');
+  return description.includes('demirbas') || description.includes('demirbaş') ? 'demirbas' : 'genel';
+};
+
+const isCreditBalanceTransaction = (tx: Transaction) => /KRED[İI]/i.test(tx.description || '');
+
+const normalizeTransactionText = (value: string) =>
+  value
+    .toLocaleUpperCase('tr-TR')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/İ/g, 'I')
+    .replace(/İ/g, 'I')
+    .replace(/Ğ/g, 'G')
+    .replace(/Ü/g, 'U')
+    .replace(/Ş/g, 'S')
+    .replace(/Ö/g, 'O')
+    .replace(/Ç/g, 'C');
+
+const isAutoDuesTransaction = (tx: Transaction) => {
+  if (!tx || tx.type !== 'BORÇLANDIRMA' || !tx.unitId) return false;
+  if (tx.periodMonth === undefined || tx.periodYear === undefined) return false;
+
+  const parts = (tx.date || '').split('.').map(Number);
+  const isFirstDayOfPeriod = parts.length === 3 &&
+    parts[0] === 1 &&
+    parts[1] === tx.periodMonth + 1 &&
+    parts[2] === tx.periodYear;
+  if (!isFirstDayOfPeriod) return false;
+
+  const description = normalizeTransactionText(tx.description || '');
+  if (!description.includes('AIDAT') || !description.includes('BORCU')) return false;
+  if (description.includes('DAIRE') || description.includes('NOLU') || description.includes('MALIK') || description.includes('KIRACI')) return false;
+
+  return /^\s*\d{1,2}\.?\s*AY\s+AIDAT(\s+TAHSILATI)?\s+BORCU(\s+\[GENEL\])?\s*$/.test(description);
+};
+
+const getTransferDirection = (tx: Transaction): { from: VaultType; to: VaultType } | null => {
+  if (tx.type !== 'TRANSFER') return null;
+  const description = (tx.description || '').toLocaleUpperCase('tr-TR');
+  const generalIndex = description.indexOf('GENEL');
+  const demirbasIndex = Math.max(description.indexOf('DEMİRBAŞ'), description.indexOf('DEMIRBAS'));
+  if (generalIndex === -1 || demirbasIndex === -1) return null;
+  return generalIndex < demirbasIndex
+    ? { from: 'genel', to: 'demirbas' }
+    : { from: 'demirbas', to: 'genel' };
+};
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -113,6 +165,7 @@ const App: React.FC = () => {
   const [boardMembers, setBoardMembers] = useState<BoardMember[]>([]);
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [messages, setMessages] = useState<AppMessage[]>([]);
+  const [createSiteCredits, setCreateSiteCredits] = useState(0);
   const [userSites, setUserSites] = useState<{ id: string, name: string }[]>([]);
   const [activeSiteId, setActiveSiteId] = useState<string>(() => localStorage.getItem('galata_active_site_id') || 'main');
 
@@ -127,28 +180,10 @@ const App: React.FC = () => {
     const currentMonthKey = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
     
     if (now.getDate() === 1 && buildingInfo.lastAutoDuesMonth !== currentMonthKey) {
-      const newTransactions: Transaction[] = [];
       const duesAmount = buildingInfo.duesAmount || 0;
       if (duesAmount <= 0) return;
 
-      units.forEach(unit => {
-        if (buildingInfo.isManagerExempt && unit.id === buildingInfo.managerUnitId) return;
-        newTransactions.push({
-          id: Math.random().toString(36).slice(2),
-          type: 'BORÇLANDIRMA',
-          amount: duesAmount,
-          description: `${now.getMonth() + 1}. AY AİDAT BORCU [genel]`,
-          unitId: unit.id,
-          date: now.toLocaleDateString('tr-TR'),
-          periodMonth: now.getMonth(),
-          periodYear: now.getFullYear()
-        });
-      });
-
-      if (newTransactions.length > 0) {
-        setTransactions(p => [...newTransactions, ...p]);
-        setBuildingInfo(p => ({ ...p, lastAutoDuesMonth: currentMonthKey }));
-      }
+      setBuildingInfo(p => ({ ...p, lastAutoDuesMonth: currentMonthKey }));
     }
   }, [currentDate, isAuthenticated, isLoading, buildingInfo, units]);
 
@@ -200,6 +235,7 @@ const App: React.FC = () => {
 
         if (bannedData && currentUser.email !== ADMIN_EMAIL) { alert('Hesabınız yasaklanmıştır.'); handleLogout(); return; }
         if (!userProfile && currentUser.email !== ADMIN_EMAIL) { alert('Hesabınız silinmiştir.'); handleLogout(); return; }
+        setCreateSiteCredits(currentUser.email === ADMIN_EMAIL ? Number.MAX_SAFE_INTEGER : Math.max(0, Number(userProfile?.createSiteCredits || 0)));
 
         if (info) {
           setBuildingInfo(info);
@@ -211,7 +247,17 @@ const App: React.FC = () => {
         if (unitsData?.length > 0) setUnits(unitsData);
         else db.saveUnits(INITIAL_UNITS);
 
-        setTransactions(transactionsData || []);
+        const loadedTransactions = transactionsData || [];
+        const autoDuesTransactions = loadedTransactions.filter(isAutoDuesTransaction);
+        const cleanedTransactions = loadedTransactions.filter(tx => !isAutoDuesTransaction(tx));
+
+        if (autoDuesTransactions.length > 0) {
+          await Promise.all(autoDuesTransactions.map(tx => db.deleteTransaction(tx.id).catch(error => {
+            console.error('Otomatik aidat hareketi silinemedi:', tx.id, error);
+          })));
+        }
+
+        setTransactions(cleanedTransactions);
         setBoardMembers(boardData || []);
         setFiles(filesData || []);
         setMessages(messagesData || []);
@@ -302,36 +348,68 @@ const App: React.FC = () => {
       if (isExempt) return { ...unit, credit: 0, debt: 0 };
 
       const unitTransactions = transactions.filter(tx => tx.unitId === unit.id);
-      const totalIncome = unitTransactions.filter(tx => tx.type === 'GELİR' && !tx.description.includes('(KREDİ)')).reduce((s, t) => s + t.amount, 0);
-      const totalManualDebt = unitTransactions.filter(tx => tx.type === 'BORÇLANDIRMA').reduce((s, t) => s + t.amount, 0);
+      const generalTransactions = unitTransactions.filter(tx => getTransactionVault(tx) === 'genel');
+      const demirbasTransactions = unitTransactions.filter(tx => getTransactionVault(tx) === 'demirbas');
+      const totalIncome = generalTransactions.filter(tx => tx.type === 'GELİR' && !isCreditBalanceTransaction(tx)).reduce((s, t) => s + t.amount, 0);
+      const totalExpense = generalTransactions.filter(tx => tx.type === 'GİDER').reduce((s, t) => s + t.amount, 0);
+      const totalManualDebt = generalTransactions.filter(tx => tx.type === 'BORÇLANDIRMA').reduce((s, t) => s + t.amount, 0);
+      const totalDemirbasIncome = demirbasTransactions.filter(tx => tx.type === 'GELİR' && !isCreditBalanceTransaction(tx)).reduce((s, t) => s + t.amount, 0);
+      const totalDemirbasExpense = demirbasTransactions.filter(tx => tx.type === 'GİDER').reduce((s, t) => s + t.amount, 0);
+      const totalDemirbasDebt = demirbasTransactions.filter(tx => tx.type === 'BORÇLANDIRMA').reduce((s, t) => s + t.amount, 0);
       const duesValue = buildingInfo.duesAmount || 0;
 
       let paidDues = 0; let unpaidDues = 0;
       if (duesValue > 0) {
         for (let m = 0; m <= currentMonthIdx; m++) {
-          const hasManual = unitTransactions.some(tx => tx.type === 'BORÇLANDIRMA' && tx.periodMonth === m && tx.periodYear === currentYear);
-          if (!hasManual) {
-            const paid = unitTransactions.some(tx => tx.type === 'GELİR' && tx.periodMonth === m && tx.periodYear === currentYear);
+          const hasManualDues = generalTransactions.some(tx =>
+            tx.type === 'BORÇLANDIRMA' &&
+            tx.periodMonth === m &&
+            tx.periodYear === currentYear &&
+            tx.description.toUpperCase().includes('AİDAT')
+          );
+          if (!hasManualDues) {
+            const paid = generalTransactions.some(tx => tx.type === 'GELİR' && tx.periodMonth === m && tx.periodYear === currentYear);
             if (paid) paidDues += duesValue; else unpaidDues += duesValue;
           }
         }
       }
-      return { ...unit, credit: Math.max(0, totalIncome - paidDues), debt: totalManualDebt + unpaidDues };
+      return {
+        ...unit,
+        credit: Math.max(0, totalIncome - totalExpense - paidDues),
+        debt: totalManualDebt + unpaidDues,
+        demirbasCredit: Math.max(0, totalDemirbasIncome - totalDemirbasExpense),
+        demirbasDebt: totalDemirbasDebt
+      };
     });
   }, [units, transactions, buildingInfo, currentDate]);
 
   const balance: BalanceSummary = useMemo(() => {
-    const totalIncome = transactions.filter(tx => tx.type === 'GELİR' && !tx.description.includes('(KREDİ)')).reduce((s, t) => s + t.amount, 0);
-    const totalExpense = transactions.filter(tx => tx.type === 'GİDER').reduce((s, t) => s + t.amount, 0);
-    const mevcut = totalIncome - totalExpense;
-    const alacak = unitsWithBalances.reduce((s, u) => s + Math.max(0, u.debt - u.credit), 0);
+    const cashByVault = transactions.reduce((acc, tx) => {
+      const transfer = getTransferDirection(tx);
+      if (transfer) {
+        acc[transfer.from] -= tx.amount;
+        acc[transfer.to] += tx.amount;
+        return acc;
+      }
+
+      if (isCreditBalanceTransaction(tx)) return acc;
+      const vault = getTransactionVault(tx);
+      if (tx.type === 'GELİR') acc[vault] += tx.amount;
+      if (tx.type === 'GİDER') acc[vault] -= tx.amount;
+      return acc;
+    }, { genel: 0, demirbas: 0 });
+
+    const mevcut = cashByVault.genel;
+    const demirbasMevcut = cashByVault.demirbas;
+    const alacakBakiyesi = unitsWithBalances.reduce((s, u) => s + Math.max(0, u.debt - u.credit), 0);
+    const demirbasAlacakBakiyesi = unitsWithBalances.reduce((s, u) => s + Math.max(0, (u.demirbasDebt || 0) - (u.demirbasCredit || 0)), 0);
     
     const now = currentDate;
     const monthlyCollected = transactions.filter(tx => tx.type === 'GELİR' && tx.periodMonth === now.getMonth() && tx.periodYear === now.getFullYear()).reduce((s, t) => s + t.amount, 0);
     const activeUnits = units.filter(u => !(buildingInfo?.isManagerExempt && u.id === buildingInfo?.managerUnitId)).length;
     const monthlyTarget = activeUnits * (buildingInfo.duesAmount || 0);
 
-    return { mevcutBakiye: mevcut, alacakBakiyesi: alacak, toplam: mevcut + alacak, demirbasKasasi: 0, monthlyCollected, monthlyRemainingDebt: Math.max(0, monthlyTarget - monthlyCollected) };
+    return { mevcutBakiye: mevcut, alacakBakiyesi: alacakBakiyesi, toplam: mevcut + alacakBakiyesi, demirbasKasasi: demirbasMevcut, demirbasAlacakBakiyesi, monthlyCollected, monthlyRemainingDebt: Math.max(0, monthlyTarget - monthlyCollected) };
   }, [unitsWithBalances, transactions, buildingInfo, units, currentDate]);
 
   const handleLogin = (rem: boolean) => {
@@ -354,9 +432,18 @@ const App: React.FC = () => {
 
   const handleEditUnit = (u: Unit) => setUnits(p => p.map(x => x.id === u.id ? u : x));
 
+  const handleDeleteUnit = async (id: string) => {
+    if (await appConfirm('Bu daireyi ve ilgili tüm bilgilerini silmek istediğinizden emin misiniz?')) {
+      const updatedUnits = units.filter(u => u.id !== id);
+      setUnits(updatedUnits);
+      if (isAuthenticated) await db.saveUnits(updatedUnits);
+    }
+  };
+
   const handleAddTransaction = async (amount: number, description: string, type: any, vault: any = 'genel', date?: string, unitId?: string, periodMonth?: number, periodYear?: number) => {
     const formattedDate = date ? (date.includes('-') ? date.split('-').reverse().join('.') : date) : currentDate.toLocaleDateString('tr-TR');
-    const newTx: Transaction = { id: Math.random().toString(36).slice(2), type, amount, description: `${description} [${vault}]`, unitId, date: formattedDate, periodMonth, periodYear };
+    const finalDesc = description.includes('[') ? description : `${description} [${vault}]`;
+    const newTx: Transaction = { id: Math.random().toString(36).slice(2), type, amount, description: finalDesc, unitId, date: formattedDate, periodMonth, periodYear };
     const updated = [newTx, ...transactions];
     setTransactions(updated);
     if (isAuthenticated && !isLoading) {
@@ -410,6 +497,8 @@ const App: React.FC = () => {
   };
 
   const themeClass = "bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a]";
+  const fixedSubViews = ['gider', 'borclandir', 'iade'];
+  const isFixedSubView = activeSubView ? fixedSubViews.includes(activeSubView) : false;
 
   return (
     <div className={`fixed inset-0 ${themeClass} text-white font-['Outfit'] select-none overflow-hidden flex flex-col`}>
@@ -418,14 +507,14 @@ const App: React.FC = () => {
 
       <main className="flex-1 relative overflow-hidden">
         {activeSubView ? (
-          <div className={`absolute inset-0 ${themeClass} z-[50] overflow-y-auto custom-scrollbar`}>
+          <div className={`absolute inset-0 ${themeClass} z-[50] custom-scrollbar ${isFixedSubView ? 'overflow-hidden' : 'overflow-y-auto'}`}>
             {activeSubView === 'tahsilat' && <TahsilatView currentDate={currentDate} units={unitsWithBalances} info={buildingInfo} transactions={transactions} onClose={() => setActiveSubView(null)} onSave={(a, desc, v, dt, uId, m, y) => handleAddTransaction(a, desc, 'GELİR', v, dt, uId, m, y)} />}
             {activeSubView === 'gider' && <GiderView currentDate={currentDate} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt) => handleAddTransaction(a, d, 'GİDER', v, dt)} />}
             {activeSubView === 'borclandir' && <BorclandirView currentDate={currentDate} units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt, uId, m, y) => handleAddTransaction(a, d, 'BORÇLANDIRMA', v, dt, uId, m, y)} />}
             {activeSubView === 'gelir' && <GelirView currentDate={currentDate} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt) => handleAddTransaction(a, d, 'GELİR', v, dt)} />}
             {activeSubView === 'iade' && <IadeView currentDate={currentDate} units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt, uId) => handleAddTransaction(a, d, 'GİDER', v, dt, uId)} />}
             {activeSubView === 'transfer' && <TransferView currentDate={currentDate} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt) => handleAddTransaction(a, d, 'TRANSFER', v, dt)} />}
-            {activeSubView === 'units' && <UnitsView currentDate={currentDate} units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddUnit={handleAddUnit} onEditUnit={handleEditUnit} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} />}
+            {activeSubView === 'units' && <UnitsView currentDate={currentDate} units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddUnit={handleAddUnit} onEditUnit={handleEditUnit} onDeleteUnit={handleDeleteUnit} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} />}
             {activeSubView === 'history' && <TransactionsView currentDate={currentDate} transactions={transactions} units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} onDeleteTransaction={async (id) => { setTransactions(p => p.filter(x => x.id !== id)); if (isAuthenticated) await db.deleteTransaction(id); }} onUpdateTransaction={tx => setTransactions(p => p.map(x => x.id === tx.id ? tx : x))} />}
             {activeSubView === 'receivables' && <ReceivablesView currentDate={currentDate} units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} />}
             {activeSubView === 'aidat-cizelge' && <AidatCizelgeView currentDate={currentDate} units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddDues={() => { }} />}
@@ -438,11 +527,11 @@ const App: React.FC = () => {
           <div className={`h-full overflow-y-auto px-4 custom-scrollbar ${themeClass}`}>
             {activeTab === 'menu' && <MenuView onActionClick={(sv, tab) => { if (tab) setActiveTab(tab); else setActiveSubView(sv); }} onLogout={handleLogout} onClose={() => setActiveTab('home')} />}
             {activeTab === 'settings' && <SettingsView buildingInfo={buildingInfo} onUpdateBuildingInfo={setBuildingInfo} units={unitsWithBalances} onResetMoney={() => setTransactions([])} onClose={() => setActiveTab('home')} onAddTransactions={(newTxs) => setTransactions(prev => [...newTxs, ...prev])} />}
-            {activeTab === 'sessions' && <SessionsView activeSiteId={activeSiteId} userSites={userSites} onSelectSite={(id) => { setActiveSiteId(id); localStorage.setItem('galata_active_site_id', id); setActiveTab('home'); }} onCreateSite={async (name) => { const currentUser = auth.currentUser; if (currentUser) { const newId = 'site_' + Math.random().toString(36).slice(2); await db.addSiteToUser(currentUser.uid, newId, name); const initialInfo = { ...DEFAULT_BUILDING_INFO, name: name }; db.setCurrentSession(`users/${currentUser.uid}/sites/${newId}`); await db.saveBuildingInfo(initialInfo); setUserSites(p => [...p, { id: newId, name }]); setActiveSiteId(newId); localStorage.setItem('galata_active_site_id', newId); setActiveTab('home'); } }} onDeleteSite={async (id) => { const currentUser = auth.currentUser; if (currentUser && userSites.length > 1) { await db.removeSiteFromUser(currentUser.uid, id); setUserSites(p => p.filter(s => s.id !== id)); if (activeSiteId === id) { const nextSite = userSites.find(s => s.id !== id); if (nextSite) { setActiveSiteId(nextSite.id); localStorage.setItem('galata_active_site_id', nextSite.id); } } } else alert("Son kalan siteyi silemezsiniz."); }} onUpdateUnits={async (newCount: number) => { setUnits(prev => { const currentCount = prev.length; if (newCount > currentCount) { const added = Array.from({ length: newCount - currentCount }, (_, i) => ({ id: (currentCount + i + 1).toString(), no: (currentCount + i + 1).toString(), ownerName: "", phone: "", credit: 0, debt: 0, status: "Malik", type: "3+1", m2: 100, huzurHakki: "YOK" })); return [...prev, ...added]; } else if (newCount < currentCount) return prev.slice(0, newCount); return prev; }); }} info={buildingInfo} units={unitsWithBalances} onClose={() => setActiveTab('home')} onUpdateInfo={setBuildingInfo} />}
+            {activeTab === 'sessions' && <SessionsView activeSiteId={activeSiteId} userSites={userSites} createSiteCredits={createSiteCredits} onSelectSite={(id) => { setActiveSiteId(id); localStorage.setItem('galata_active_site_id', id); setActiveTab('home'); }} onCreateSite={async (name) => { const currentUser = auth.currentUser; if (currentUser) { const newId = 'site_' + Math.random().toString(36).slice(2); await db.addSiteToUser(currentUser.uid, newId, name); const initialInfo = { ...DEFAULT_BUILDING_INFO, name: name }; db.setCurrentSession(`users/${currentUser.uid}/sites/${newId}`); await db.saveBuildingInfo(initialInfo); if (currentUser.email !== ADMIN_EMAIL) { const currentProfile = await db.getDataDirect(`_userProfiles/${currentUser.uid}`).catch(() => null); const nextCredits = Math.max(0, Number(currentProfile?.createSiteCredits || createSiteCredits) - 1); await db.saveDataDirect(`_userProfiles/${currentUser.uid}`, { ...(currentProfile || {}), email: currentUser.email, createSiteCredits: nextCredits, canCreateSites: nextCredits > 0 }); setCreateSiteCredits(nextCredits); } setUserSites(p => [...p, { id: newId, name }]); setActiveSiteId(newId); localStorage.setItem('galata_active_site_id', newId); setActiveTab('home'); } }} onDeleteSite={async (id) => { const currentUser = auth.currentUser; if (currentUser && userSites.length > 1) { await db.removeSiteFromUser(currentUser.uid, id); setUserSites(p => p.filter(s => s.id !== id)); if (activeSiteId === id) { const nextSite = userSites.find(s => s.id !== id); if (nextSite) { setActiveSiteId(nextSite.id); localStorage.setItem('galata_active_site_id', nextSite.id); } } } else alert("Son kalan siteyi silemezsiniz."); }} onUpdateUnits={async (newCount: number) => { setUnits(prev => { const currentCount = prev.length; if (newCount > currentCount) { const added = Array.from({ length: newCount - currentCount }, (_, i) => ({ id: (currentCount + i + 1).toString(), no: (currentCount + i + 1).toString(), ownerName: "", phone: "", credit: 0, debt: 0, status: "Malik", type: "3+1", m2: 100, huzurHakki: "YOK" })); return [...prev, ...added]; } else if (newCount < currentCount) return prev.slice(0, newCount); return prev; }); }} info={buildingInfo} units={unitsWithBalances} onClose={() => setActiveTab('home')} onUpdateInfo={setBuildingInfo} />}
             {activeTab === 'home' && (
-              <div className="h-full flex flex-col pt-1 pb-20 space-y-1 overflow-hidden touch-none">
+              <div className="home-shell flex min-h-full flex-col gap-1 pt-1">
                 <SummaryCard balance={balance} />
-                <div className="flex-1 min-h-0 flex flex-col justify-center py-1">
+                <div className="flex min-h-[270px] flex-1 flex-col justify-center py-1">
                   <ActionGrid variant="grid" onActionClick={a => { const m: any = { 'Tahsilat': 'tahsilat', 'Gider': 'gider', 'Borçlandır': 'borclandir', 'Gelir': 'gelir', 'İade': 'iade', 'Transfer': 'transfer', 'Bağımsız Bölümler': 'units', 'İşlem Hareketleri': 'history', 'Alacak Listesi': 'receivables', 'AİDAT ÇİZELGE': 'aidat-cizelge', 'AYLIK BİLANÇO': 'monthly-report', 'YILLIK BİLANÇO': 'yearly-report' }; if (m[a]) setActiveSubView(m[a]); }} />
                 </div>
                 <div className="flex-shrink-0">

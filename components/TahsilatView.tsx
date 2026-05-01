@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, ChevronDown, CheckCircle2, Save, Home, Loader2, User, UserCheck, Calendar } from 'lucide-react';
+import { ArrowLeft, ChevronDown, CheckCircle2, Save, Home, Loader2, User, UserCheck, Wallet, Briefcase } from 'lucide-react';
 import { Unit, BuildingInfo, Transaction } from '../types.ts';
 import DatePickerModal from './DatePickerModal';
 
@@ -22,11 +22,13 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
   const [amount, setAmount] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>(now.toISOString().split('T')[0]);
   const [selectedPayerType, setSelectedPayerType] = useState<'Malik' | 'Kiracı'>('Kiracı');
+  const [selectedVault, setSelectedVault] = useState<'genel' | 'demirbas'>('genel');
   const [paymentMethod, setPaymentMethod] = useState<'EFT/Havale' | 'Elden Ödeme' | 'Kredi Bakiyesinden'>('EFT/Havale');
   const [showPaymentMethodList, setShowPaymentMethodList] = useState(false);
   const [showUnitGrid, setShowUnitGrid] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [warningMessage, setWarningMessage] = useState('');
 
   const selectedUnit = useMemo(() => units.find(u => u.id === selectedUnitId), [units, selectedUnitId]);
 
@@ -60,6 +62,15 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
     const isManualAmountCollection = !debtItem;
 
     if (!selectedUnitId || isNaN(finalAmount) || finalAmount <= 0) return;
+
+    if (paymentMethod === 'Kredi Bakiyesinden' && selectedUnit) {
+      const availableCredit = selectedVault === 'genel' ? selectedUnit.credit : (selectedUnit.demirbasCredit || 0);
+      if (availableCredit < finalAmount) {
+        setWarningMessage("Kredi bakiyesi yapılacak tahsilatı karşılamıyor.");
+        return;
+      }
+    }
+
     setIsSaving(true);
     await new Promise(r => setTimeout(r, 600));
 
@@ -69,8 +80,9 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
 
     const finalMonth = debtItem ? debtItem.month : undefined;
     const finalYear = debtItem ? debtItem.year : undefined;
+    const finalVault = debtItem ? 'genel' : selectedVault;
 
-    onSave(finalAmount, description, 'genel', selectedDate, selectedUnitId, finalMonth, finalYear);
+    onSave(finalAmount, description, finalVault, selectedDate, selectedUnitId, finalMonth, finalYear);
     setIsSaving(false);
     setIsSuccess(true);
   };
@@ -125,15 +137,15 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
 
       <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4 pb-32">
         <section>
-          <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-2 block ml-1">1. DAİRE SEÇİMİ</label>
+          <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">1. DAİRE SEÇİMİ</label>
           <div className="rounded-2xl border border-white/10 overflow-hidden shadow-2xl transition-all bg-[#111827]">
-            <button onClick={() => setShowUnitGrid(!showUnitGrid)} className="w-full min-h-[64px] py-2 flex items-center justify-between px-4 active:scale-[0.98] transition-all">
-              <div className="flex items-center space-x-4 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center shadow-xl shrink-0">
-                  <Home size={20} className="text-green-500" />
+            <button onClick={() => setShowUnitGrid(!showUnitGrid)} className="w-full min-h-[50px] py-1.5 flex items-center justify-between px-4 active:scale-[0.98] transition-all">
+              <div className="flex items-center space-x-3 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center shadow-xl shrink-0">
+                  <Home size={18} className="text-green-500" />
                 </div>
                 <div className="flex flex-col text-left min-w-0">
-                  <span className={`text-[13px] font-black uppercase tracking-[0.1em] leading-none truncate ${selectedUnit ? 'text-white' : 'text-blue-500'}`}>
+                  <span className={`text-[15px] font-black uppercase tracking-tighter leading-none truncate ${selectedUnit ? 'text-white' : 'text-blue-500'}`}>
                     {selectedUnit ? (selectedUnit.tenantName || selectedUnit.ownerName || '').toUpperCase() : 'DAİRE SEÇİNİZ...'}
                   </span>
                 </div>
@@ -222,6 +234,28 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
         )}
 
         {selectedUnit && (
+          <section className="animate-in fade-in zoom-in-95 duration-300">
+            <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">TAHSİLAT KASASI</label>
+            <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
+              <button
+                onClick={() => setSelectedVault('genel')}
+                className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${selectedVault === 'genel' ? 'bg-green-500/10 border-green-500/40 text-green-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}
+              >
+                <Wallet size={18} />
+                <span className="text-[12px] font-black uppercase tracking-widest">GENEL GİDER</span>
+              </button>
+              <button
+                onClick={() => setSelectedVault('demirbas')}
+                className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${selectedVault === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}
+              >
+                <Briefcase size={18} />
+                <span className="text-[12px] font-black uppercase tracking-widest">DEMİRBAŞ</span>
+              </button>
+            </div>
+          </section>
+        )}
+
+        {selectedUnit && (
           <div className="animate-in fade-in zoom-in-95 duration-500 space-y-4">
             <section className="bg-[#111827] rounded-[28px] p-5 border border-white/10 shadow-2xl space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -238,7 +272,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
                     placeholder="0.00"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-full h-12 bg-black/40 border border-white/10 rounded-xl px-4 text-xl font-black text-green-500 text-center outline-none focus:border-green-500/30 transition-all shadow-inner"
+                    className="w-full h-[46px] bg-black/40 border border-white/10 rounded-xl px-3 text-[22px] font-black text-green-500 text-center outline-none focus:border-green-500/30 transition-all shadow-inner"
                   />
                 </div>
               </div>
@@ -281,6 +315,26 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
           </div>
         )}
       </div>
+
+      {warningMessage && (
+        <div className="fixed inset-0 z-[500] bg-black/70 backdrop-blur-sm flex items-center justify-center px-6 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm overflow-hidden rounded-[26px] border border-blue-400/25 bg-[#17233a] shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
+            <div className="h-1 w-full bg-gradient-to-r from-blue-500/60 via-emerald-400/60 to-blue-500/60" />
+            <div className="p-5">
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-300/80">Bilgilendirme</p>
+              <p className="mt-3 text-[15px] font-black leading-snug text-white">
+                {warningMessage}
+              </p>
+              <button
+                onClick={() => setWarningMessage('')}
+                className="mt-5 ml-auto flex h-11 items-center justify-center rounded-2xl bg-blue-600 px-6 text-[11px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all"
+              >
+                TAMAM
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -3,6 +3,7 @@ export interface BalanceSummary {
   mevcutBakiye: number;
   alacakBakiyesi: number;
   demirbasKasasi: number;
+  demirbasAlacakBakiyesi: number;
   toplam: number;
   monthlyCollected: number;
   monthlyRemainingDebt: number;
@@ -55,6 +56,8 @@ export interface Unit {
   tenantPhone?: string; // Kiracı Telefonu
   credit: number;
   debt: number;
+  demirbasCredit?: number;
+  demirbasDebt?: number;
   type?: string; // e.g., "3+1"
   m2?: number; // e.g., 100
   huzurHakki?: string; // e.g., "YOK" or "VAR"
