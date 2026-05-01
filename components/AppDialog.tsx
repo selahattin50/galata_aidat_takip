@@ -27,7 +27,7 @@ export const appAlert = (message: unknown, title = 'Bilgilendirme') => {
   });
 };
 
-export const appConfirm = (message: unknown, title = 'Onay') => {
+export const appConfirm = (message: unknown, title = 'Onay', confirmText = 'ONAYLA') => {
   if (!openDialog) {
     return Promise.resolve(window.confirm(String(message ?? '')));
   }
@@ -37,7 +37,7 @@ export const appConfirm = (message: unknown, title = 'Onay') => {
       kind: 'confirm',
       title,
       message: String(message ?? ''),
-      confirmText: 'ONAYLA',
+      confirmText,
       cancelText: 'VAZGEÇ',
       resolve
     });

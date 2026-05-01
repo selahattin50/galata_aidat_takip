@@ -433,11 +433,15 @@ const App: React.FC = () => {
   const handleEditUnit = (u: Unit) => setUnits(p => p.map(x => x.id === u.id ? u : x));
 
   const handleDeleteUnit = async (id: string) => {
-    if (await appConfirm('Bu daireyi ve ilgili tüm bilgilerini silmek istediğinizden emin misiniz?')) {
+    const unitToDelete = units.find(u => u.id === id);
+    const label = unitToDelete ? `Daire ${unitToDelete.no} - ${unitToDelete.ownerName || 'İsimsiz'}` : 'Bu daire';
+    if (await appConfirm(`${label} silinecek.\n\nBu işlem geri alınamaz. Silmek istediğinizden emin misiniz?`, 'Silme Onayı', 'SİL')) {
       const updatedUnits = units.filter(u => u.id !== id);
       setUnits(updatedUnits);
       if (isAuthenticated) await db.saveUnits(updatedUnits);
+      return true;
     }
+    return false;
   };
 
   const handleAddTransaction = async (amount: number, description: string, type: any, vault: any = 'genel', date?: string, unitId?: string, periodMonth?: number, periodYear?: number) => {
@@ -544,7 +548,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {!activeSubView && activeTab !== 'settings' && (
+      {!activeSubView && (
         <BottomNav activeTab={activeTab} onTabChange={t => { setActiveTab(t); setActiveSubView(null); }} />
       )}
       </div>

@@ -4,6 +4,7 @@ import { FileText, FilePlus, Search, X, Trash2, File, ImageIcon, FileCode, Chevr
 import { FileEntry } from '../types.ts';
 import { useAndroidBackHandler } from '../appBackButton';
 import DatePickerModal from './DatePickerModal';
+import { appConfirm } from './AppDialog';
 
 interface FilesViewProps {
   files: FileEntry[];
@@ -44,6 +45,15 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
     if (onOpenFile) {
       await onOpenFile(file);
     }
+  };
+
+  const handleDeleteFile = async (file: FileEntry) => {
+    const confirmed = await appConfirm(
+      `${file.name} arşivden silinecek.\n\nBu işlem geri alınamaz. Silmek istediğinizden emin misiniz?`,
+      'Silme Onayı',
+      'SİL'
+    );
+    if (confirmed) onDeleteFile(file.id);
   };
 
   const filteredFiles = files.filter(f => {
@@ -167,7 +177,7 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDeleteFile(file.id);
+                    handleDeleteFile(file);
                   }}
                   className="p-2.5 bg-red-500/10 rounded-xl hover:bg-red-500/20 transition-all active:scale-90 border border-red-500/20"
                   title="Sil"

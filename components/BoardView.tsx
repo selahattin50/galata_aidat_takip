@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { ChevronLeft, UserPlus, Phone, MessageCircle, ShieldCheck, X, Trash2, User, ArrowLeft } from 'lucide-react';
 import { BoardMember } from '../types.ts';
 import { markExternalIntent } from '../externalIntentGuard';
+import { appConfirm } from './AppDialog';
 
 interface BoardViewProps {
   members: BoardMember[];
@@ -46,6 +47,15 @@ const BoardView: React.FC<BoardViewProps> = ({ members, onClose, onAddMember, on
     setName('');
     setPhone('');
     setShowAddForm(false);
+  };
+
+  const handleDeleteMember = async (member: BoardMember) => {
+    const confirmed = await appConfirm(
+      `${member.name} yönetim kurulu listesinden silinecek.\n\nBu işlem geri alınamaz. Silmek istediğinizden emin misiniz?`,
+      'Silme Onayı',
+      'SİL'
+    );
+    if (confirmed) onDeleteMember(member.id);
   };
 
   return (
@@ -108,7 +118,7 @@ const BoardView: React.FC<BoardViewProps> = ({ members, onClose, onAddMember, on
                   <Phone size={14} className="text-green-500" />
                 </button>
                 <button 
-                  onClick={() => onDeleteMember(member.id)}
+                  onClick={() => handleDeleteMember(member)}
                   className="p-2 bg-red-500/10 rounded-xl hover:bg-red-500/20 transition-all opacity-0 group-hover:opacity-100 active:scale-90"
                 >
                   <Trash2 size={14} className="text-red-500" />

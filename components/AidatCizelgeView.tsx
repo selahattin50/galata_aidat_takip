@@ -73,9 +73,9 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
           </div>
 
           <div className="relative">
-            <button onClick={() => setIsYearPickerOpen(!isYearPickerOpen)} className="h-9 bg-white/5 rounded-xl px-3 flex items-center border border-white/5">
-              <span className="text-white font-black text-xs tracking-widest">{selectedYear}</span>
-              <ChevronDown size={14} className={`ml-2 text-white/40 transition-transform ${isYearPickerOpen ? 'rotate-180' : ''}`} />
+            <button onClick={() => setIsYearPickerOpen(!isYearPickerOpen)} className="h-9 w-auto bg-white/5 rounded-xl px-2.5 flex items-center border border-white/5">
+              <span className="text-white font-black text-[17px] leading-none tracking-[0.1em]">{selectedYear}</span>
+              <ChevronDown size={14} className={`ml-1.5 text-white/40 transition-transform ${isYearPickerOpen ? 'rotate-180' : ''}`} />
             </button>
             {isYearPickerOpen && (
               <div className="absolute top-full right-0 mt-2 w-28 bg-[#1e293b] border border-white/10 rounded-2xl shadow-2xl z-[70] overflow-hidden">

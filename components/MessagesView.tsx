@@ -3,6 +3,7 @@ import { ArrowLeft, Send, Trash2, MessageCircle, Loader2, ShieldCheck } from 'lu
 import { AppMessage } from '../types';
 import { db } from '../databaseService';
 import { auth } from '../firebaseConfig';
+import { appConfirm } from './AppDialog';
 
 interface MessagesViewProps {
     onClose: () => void;
@@ -30,6 +31,15 @@ const MessagesView: React.FC<MessagesViewProps> = ({ onClose, messages, onSendMe
         await onSendMessage(content.trim());
         setContent('');
         setIsSending(false);
+    };
+
+    const handleDeleteMessage = async (msg: AppMessage) => {
+        const confirmed = await appConfirm(
+            `Bu mesaj silinecek.\n\n"${msg.content.slice(0, 80)}${msg.content.length > 80 ? '...' : ''}"\n\nSilmek istediğinizden emin misiniz?`,
+            'Silme Onayı',
+            'SİL'
+        );
+        if (confirmed) onDeleteMessage(msg.id);
     };
 
     const formatDate = (dateStr: string) => {
@@ -94,7 +104,7 @@ const MessagesView: React.FC<MessagesViewProps> = ({ onClose, messages, onSendMe
 
                                         {isAdmin && (
                                             <button
-                                                onClick={() => onDeleteMessage(msg.id)}
+                                                onClick={() => handleDeleteMessage(msg)}
                                                 className="text-red-400 hover:text-red-300 active:scale-90 p-1 rounded transition-all ml-4"
                                             >
                                                 <Trash2 size={14} />

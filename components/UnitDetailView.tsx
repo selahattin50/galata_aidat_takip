@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useMemo } from 'react';
-import { ArrowLeft, Edit3, X, Save, Phone, Info, UserCheck, User, Home, Trash2, Calendar, ArrowRight, FileText, Loader2 } from 'lucide-react';
-import { Unit, BuildingInfo, Transaction } from '../types.ts';
+import { ArrowLeft, Edit3, X, Save, Phone, Info, UserCheck, User, Home, Trash2, Calendar, ArrowRight, FileText, Loader2, Plus } from 'lucide-react';
+import { Unit, BuildingInfo, Transaction, OwnerHistory, TenantHistory } from '../types.ts';
 import { PDFService } from '../pdfService';
 import { createUnitStatementPdf } from './reportPdfUtils';
 import PdfActionButton from './PdfActionButton';
@@ -13,13 +13,17 @@ interface UnitDetailViewProps {
   transactions: Transaction[];
   onClose: () => void;
   onUpdate: (unit: Unit) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => boolean | Promise<boolean>;
   currentDate: Date;
 }
 
 const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transactions, onClose, onUpdate, onDelete, currentDate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ ...unit });
+  const [historyModal, setHistoryModal] = useState<null | 'owner' | 'tenant'>(null);
+  const [isAddingHistory, setIsAddingHistory] = useState(false);
+  const [historyForm, setHistoryForm] = useState({ name: '', phone: '', startDate: currentDate.toISOString().split('T')[0] });
+  const [showDeleteMenu, setShowDeleteMenu] = useState(false);
 
   const [showReport, setShowReport] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -43,6 +47,169 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+  };
+
+  const getTodayIso = () => currentDate.toISOString().split('T')[0];
+
+  const formatHistoryDate = (date?: string) => {
+    if (!date) return '';
+    const [year, month, day] = date.split('-');
+    if (!year || !month || !day) return date;
+    return `${day}/${month}/${year}`;
+  };
+
+  const createHistoryId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const getOwnerHistory = (): OwnerHistory[] => {
+    if (editForm.ownerHistory?.length) return editForm.ownerHistory;
+    if (!editForm.ownerName) return [];
+    return [{
+      id: 'current-owner',
+      name: editForm.ownerName,
+      phone: editForm.phone || '',
+      startDate: getTodayIso(),
+      isCurrent: true
+    }];
+  };
+
+  const getTenantHistory = (): TenantHistory[] => {
+    if (editForm.tenantHistory?.length) return editForm.tenantHistory;
+    if (!editForm.tenantName) return [];
+    return [{
+      id: 'current-tenant',
+      name: editForm.tenantName,
+      phone: editForm.tenantPhone || '',
+      startDate: getTodayIso(),
+      isCurrent: true
+    }];
+  };
+
+  const openHistoryModal = (type: 'owner' | 'tenant') => {
+    setHistoryModal(type);
+    setIsAddingHistory(false);
+    setHistoryForm({ name: '', phone: '', startDate: getTodayIso() });
+  };
+
+  const handleAddHistoryPerson = () => {
+    const name = toTitleCase(historyForm.name.trim());
+    if (!historyModal || !name) return;
+
+    const phone = historyForm.phone.trim();
+    const startDate = historyForm.startDate || getTodayIso();
+
+    setEditForm(prev => {
+      if (historyModal === 'owner') {
+        const existingHistory = prev.ownerHistory?.length
+          ? prev.ownerHistory
+          : prev.ownerName
+            ? [{
+              id: createHistoryId(),
+              name: prev.ownerName,
+              phone: prev.phone || '',
+              startDate,
+              isCurrent: true
+            } as OwnerHistory]
+            : [];
+
+        const ownerHistory = [
+          ...existingHistory.map(item => item.isCurrent ? { ...item, isCurrent: false, endDate: startDate } : item),
+          { id: createHistoryId(), name, phone, startDate, isCurrent: true }
+        ];
+
+        return {
+          ...prev,
+          ownerName: name,
+          phone,
+          ownerHistory,
+          status: prev.tenantName ? 'Kiracı' : 'Malik'
+        };
+      }
+
+      const existingHistory = prev.tenantHistory?.length
+        ? prev.tenantHistory
+        : prev.tenantName
+          ? [{
+            id: createHistoryId(),
+            name: prev.tenantName,
+            phone: prev.tenantPhone || '',
+            startDate,
+            isCurrent: true
+          } as TenantHistory]
+          : [];
+
+      const tenantHistory = [
+        ...existingHistory.map(item => item.isCurrent ? { ...item, isCurrent: false, endDate: startDate } : item),
+        { id: createHistoryId(), name, phone, startDate, isCurrent: true }
+      ];
+
+      return {
+        ...prev,
+        tenantName: name,
+        tenantPhone: phone,
+        tenantHistory,
+        status: 'Kiracı'
+      };
+    });
+
+    setHistoryForm({ name: '', phone: '', startDate: getTodayIso() });
+    setIsAddingHistory(false);
+  };
+
+  const handleClearPerson = async (type: 'owner' | 'tenant') => {
+    const isOwner = type === 'owner';
+    const label = isOwner ? 'Malik' : 'Kiracı';
+    const confirmed = await appConfirm(
+      `${label} bilgisi silinecek.\n\nMevcut ${label.toLocaleLowerCase('tr-TR')} geçmişte pasif kayıt olarak kalacak. Devam etmek istiyor musunuz?`,
+      'Silme Onayı',
+      'SİL'
+    );
+    if (!confirmed) return;
+
+    const today = getTodayIso();
+    setEditForm(prev => {
+      if (isOwner) {
+        const existingHistory = prev.ownerHistory?.length
+          ? prev.ownerHistory
+          : prev.ownerName
+            ? [{
+              id: createHistoryId(),
+              name: prev.ownerName,
+              phone: prev.phone || '',
+              startDate: today,
+              isCurrent: true
+            } as OwnerHistory]
+            : [];
+
+        return {
+          ...prev,
+          ownerName: '',
+          phone: '',
+          ownerHistory: existingHistory.map(item => item.isCurrent ? { ...item, isCurrent: false, endDate: today } : item),
+          status: prev.tenantName ? 'Kiracı' : 'Malik'
+        };
+      }
+
+      const existingHistory = prev.tenantHistory?.length
+        ? prev.tenantHistory
+        : prev.tenantName
+          ? [{
+            id: createHistoryId(),
+            name: prev.tenantName,
+            phone: prev.tenantPhone || '',
+            startDate: today,
+            isCurrent: true
+          } as TenantHistory]
+          : [];
+
+      return {
+        ...prev,
+        tenantName: '',
+        tenantPhone: '',
+        tenantHistory: existingHistory.map(item => item.isCurrent ? { ...item, isCurrent: false, endDate: today } : item),
+        status: 'Malik'
+      };
+    });
+    setShowDeleteMenu(false);
   };
 
   const getMonthStatus = (mIdx: number) => {
@@ -187,19 +354,19 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
           {isEditing ? (
             <div className="flex items-center space-x-2">
               <button
-                onClick={async () => {
-                  if (await appConfirm('Bu daireyi tamamen silmek istediğinizden emin misiniz?')) {
-                    onDelete(unit.id);
-                  }
-                }}
+                onClick={() => setShowDeleteMenu(true)}
                 className="bg-red-600/20 p-2 rounded-xl text-red-500 border border-red-500/30 active:scale-90 transition-all mr-2"
               >
                 <Trash2 size={20} />
               </button>
-              <button onClick={() => setIsEditing(false)} className="bg-white/5 p-2 rounded-xl text-zinc-400 border border-white/5">
-                <X size={20} />
+              <button
+                onClick={() => setIsEditing(false)}
+                className="h-10 px-3 rounded-xl bg-red-500/10 text-red-300 border border-red-500/30 text-[11px] font-black uppercase tracking-wider flex items-center space-x-1.5 active:scale-95 transition-all"
+              >
+                <X size={17} />
+                <span>İPTAL</span>
               </button>
-              <button onClick={handleQuickUpdate} className="bg-green-600 px-5 py-2.5 rounded-xl text-[12px] font-black uppercase tracking-widest flex items-center space-x-2 shadow-lg">
+              <button onClick={handleQuickUpdate} className="h-10 px-4 rounded-xl bg-green-500/10 text-green-300 border border-green-500/30 text-[11px] font-black uppercase tracking-wider flex items-center space-x-1.5 shadow-lg active:scale-95 transition-all">
                 <Save size={18} />
                 <span>KAYDET</span>
               </button>
@@ -217,12 +384,22 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
         {/* ANA BİLGİ VE DÜZENLEME ALANI */}
         <section className="space-y-3">
           {isEditing ? (
-            <div className="space-y-3 animate-in fade-in duration-300">
+            <div className="space-y-3">
               {/* Malik Giriş Alanı */}
               <div className="bg-[#1e293b]/60 backdrop-blur-xl rounded-[24px] p-4 border border-blue-500/20 shadow-xl">
-                <div className="flex items-center space-x-2 mb-3">
-                  <User size={14} className="text-blue-400" />
-                  <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">MALİK BİLGİLERİ</span>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="flex items-center space-x-2">
+                    <User size={14} className="text-blue-400" />
+                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">MALİK BİLGİLERİ</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openHistoryModal('owner')}
+                    className="h-8 px-3 rounded-xl bg-blue-500/15 border border-blue-400/25 text-blue-200 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 active:scale-95 transition-all"
+                  >
+                    <Plus size={13} />
+                    <span>Yeni Ekle</span>
+                  </button>
                 </div>
                 <div className="space-y-2.5">
                   <div className="bg-black/20 p-2.5 rounded-xl border border-white/5">
@@ -248,9 +425,19 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
 
               {/* Kiracı Giriş Alanı */}
               <div className="bg-[#1e293b]/40 backdrop-blur-xl rounded-[24px] p-4 border border-orange-500/20 shadow-xl">
-                <div className="flex items-center space-x-2 mb-3">
-                  <UserCheck size={14} className="text-orange-400" />
-                  <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest">KİRACI BİLGİLERİ</span>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="flex items-center space-x-2">
+                    <UserCheck size={14} className="text-orange-400" />
+                    <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest">KİRACI BİLGİLERİ</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openHistoryModal('tenant')}
+                    className="h-8 px-3 rounded-xl bg-orange-500/15 border border-orange-400/25 text-orange-200 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 active:scale-95 transition-all"
+                  >
+                    <Plus size={13} />
+                    <span>Yeni Ekle</span>
+                  </button>
                 </div>
                 <div className="space-y-2.5">
                   <div className="bg-black/20 p-2.5 rounded-xl border border-white/5">
@@ -345,8 +532,8 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
             <p className="text-[22px] font-black text-green-500 leading-none">₺{formatCurrency(unit.credit)}</p>
           </div>
           <div className="bg-red-500/10 rounded-[20px] p-4 border border-red-500/30 shadow-2xl">
-            <h3 className="text-[9px] font-black text-red-400/70 tracking-[0.15em] uppercase mb-2">Aidat Borcu</h3>
-            <p className="text-[22px] font-black text-red-400 leading-none">₺{formatCurrency(unit.debt)}</p>
+            <h3 className="text-[9px] font-black text-[#ff3b3b]/80 tracking-[0.15em] uppercase mb-2">Aidat Borcu</h3>
+            <p className="text-[22px] font-black text-[#ff3b3b] leading-none">₺{formatCurrency(unit.debt)}</p>
           </div>
         </section>
 
@@ -408,6 +595,216 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
         </section>
       </div>
 
+      {showDeleteMenu && (
+        <div className="fixed inset-0 z-[390] bg-black/70 backdrop-blur-md flex items-end min-[520px]:items-center justify-center p-4 animate-in fade-in">
+          <div className="w-full max-w-sm rounded-[28px] bg-[#0f172a] border border-white/10 shadow-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+              <div>
+                <h3 className="text-[15px] font-black text-white uppercase tracking-widest">Silme Seçimi</h3>
+                <p className="text-[11px] font-bold text-white/45 mt-1">Silmek istediğiniz bölümü seçin.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeleteMenu(false)}
+                className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 text-white/60 flex items-center justify-center active:scale-95 transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <button
+                type="button"
+                onClick={() => handleClearPerson('owner')}
+                disabled={!editForm.ownerName && !editForm.phone}
+                className="w-full rounded-2xl border border-blue-400/25 bg-blue-500/10 px-4 py-4 text-left active:scale-[0.98] transition-all disabled:opacity-35"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-blue-500/15 border border-blue-400/25 flex items-center justify-center text-blue-300">
+                    <User size={21} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-black text-blue-200 uppercase tracking-wider">Malik Bilgisini Sil</p>
+                    <p className="text-[11px] font-bold text-white/45 truncate">{editForm.ownerName || 'Malik kaydı yok'}</p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleClearPerson('tenant')}
+                disabled={!editForm.tenantName && !editForm.tenantPhone}
+                className="w-full rounded-2xl border border-orange-400/25 bg-orange-500/10 px-4 py-4 text-left active:scale-[0.98] transition-all disabled:opacity-35"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-orange-500/15 border border-orange-400/25 flex items-center justify-center text-orange-300">
+                    <UserCheck size={21} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-black text-orange-200 uppercase tracking-wider">Kiracı Bilgisini Sil</p>
+                    <p className="text-[11px] font-bold text-white/45 truncate">{editForm.tenantName || 'Kiracı kaydı yok'}</p>
+                  </div>
+                </div>
+              </button>
+
+              <div className="h-px bg-white/10 my-1" />
+
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowDeleteMenu(false);
+                  await onDelete(unit.id);
+                }}
+                className="w-full rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-4 text-left active:scale-[0.98] transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-red-500/15 border border-red-500/25 flex items-center justify-center text-red-300">
+                    <Trash2 size={21} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-black text-red-200 uppercase tracking-wider">Daireyi Tamamen Sil</p>
+                    <p className="text-[11px] font-bold text-white/45">Tüm daire kaydı silinir.</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {historyModal && (() => {
+        const isOwner = historyModal === 'owner';
+        const entries = (isOwner ? getOwnerHistory() : getTenantHistory())
+          .slice()
+          .sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent));
+        const accentClass = isOwner
+          ? 'border-blue-400/25 bg-blue-500/10 text-blue-200'
+          : 'border-orange-400/25 bg-orange-500/10 text-orange-200';
+        const activeCardClass = isOwner
+          ? 'bg-blue-600/20 border-blue-400/30'
+          : 'bg-orange-600/20 border-orange-400/30';
+
+        return (
+          <div className="fixed inset-0 z-[380] bg-black/70 backdrop-blur-md flex items-end min-[520px]:items-center justify-center p-4 animate-in fade-in">
+            <div className="w-full max-w-xl max-h-[88vh] overflow-hidden rounded-[28px] bg-[#0f172a] border border-white/10 shadow-2xl flex flex-col">
+              <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0 ${accentClass}`}>
+                    {isOwner ? <Home size={23} /> : <UserCheck size={23} />}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-[18px] font-black text-white uppercase tracking-wide leading-tight">
+                      {isOwner ? 'Malikler' : 'Kiracılar'}
+                    </h3>
+                    <p className="text-[12px] font-bold text-white/45 leading-snug">
+                      Eski kayıt pasif olur, yeni kayıt aktif olur.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistoryModal(null);
+                    setIsAddingHistory(false);
+                  }}
+                  className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 text-white/60 flex items-center justify-center active:scale-95 transition-all shrink-0"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+                {entries.length === 0 ? (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center">
+                    <p className="text-[12px] font-black text-white/35 uppercase tracking-widest">Kayıt Yok</p>
+                  </div>
+                ) : (
+                  entries.map(item => (
+                    <div
+                      key={item.id}
+                      className={`rounded-[22px] border p-4 flex items-center justify-between gap-3 ${item.isCurrent ? activeCardClass : 'bg-white/[0.03] border-white/10 opacity-70'}`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[15px] font-black text-white leading-tight break-words">{item.name}</p>
+                        <p className="text-[12px] font-bold text-white/50 mt-1">
+                          {formatHistoryDate(item.startDate)}
+                          {item.endDate ? ` - ${formatHistoryDate(item.endDate)}` : ''}
+                        </p>
+                        {item.phone && <p className="text-[12px] font-bold text-green-400 mt-1">{item.phone}</p>}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className={`inline-flex px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border ${item.isCurrent ? 'bg-green-500/15 border-green-400/30 text-green-300' : 'bg-white/5 border-white/10 text-white/35'}`}>
+                          {item.isCurrent ? 'Aktif' : 'Pasif'}
+                        </span>
+                        {item.isCurrent && (
+                          <p className="text-[12px] font-black text-white mt-2 leading-tight">
+                            Mevcut<br />{isOwner ? 'Malik' : 'Kiracı'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+
+                {isAddingHistory && (
+                  <div className="rounded-[22px] border border-green-400/25 bg-green-500/10 p-4 space-y-3 animate-in slide-in-from-bottom-2">
+                    <div className="grid gap-3 min-[520px]:grid-cols-2">
+                      <div className="bg-black/20 p-3 rounded-xl border border-white/10">
+                        <label className="text-[8px] font-black text-white/35 uppercase block mb-1">Ad Soyad</label>
+                        <input
+                          className="bg-transparent text-sm font-black text-white w-full outline-none"
+                          value={historyForm.name}
+                          placeholder={isOwner ? 'Yeni malik adı' : 'Yeni kiracı adı'}
+                          onChange={(e) => setHistoryForm({ ...historyForm, name: toTitleCase(e.target.value) })}
+                        />
+                      </div>
+                      <div className="bg-black/20 p-3 rounded-xl border border-white/10">
+                        <label className="text-[8px] font-black text-white/35 uppercase block mb-1">Telefon</label>
+                        <input
+                          className="bg-transparent text-sm font-bold text-green-400 w-full outline-none"
+                          value={historyForm.phone}
+                          placeholder="Telefon"
+                          onChange={(e) => setHistoryForm({ ...historyForm, phone: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="bg-black/20 p-3 rounded-xl border border-white/10">
+                      <label className="text-[8px] font-black text-white/35 uppercase block mb-1">Başlangıç Tarihi</label>
+                      <input
+                        type="date"
+                        className="bg-transparent text-sm font-black text-white w-full outline-none"
+                        value={historyForm.startDate}
+                        onChange={(e) => setHistoryForm({ ...historyForm, startDate: e.target.value })}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddHistoryPerson}
+                      disabled={!historyForm.name.trim()}
+                      className="w-full h-12 rounded-2xl bg-green-600 text-white text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg disabled:opacity-40 disabled:active:scale-100 active:scale-95 transition-all"
+                    >
+                      <Save size={17} />
+                      <span>Kaydet</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingHistory(true)}
+                  className="w-full h-14 rounded-2xl bg-green-600 text-white text-[13px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
+                >
+                  <Plus size={18} />
+                  <span>Yeni Ekle</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Rapor (Bilanço) Overlay */}
       {showReport && (
         <div className="fixed inset-0 z-[400] bg-[#0f172a] flex flex-col animate-in slide-in-from-right duration-300">
@@ -462,7 +859,7 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
                         <div key={i} className="flex flex-col border-b border-white/5 pb-2">
                           <div className="flex justify-between items-baseline">
                             <span className="text-[11px] font-black text-white pr-1 leading-tight uppercase">{ex.description.split('[')[0]}</span>
-                            <span className="text-[11px] font-black text-red-400 shrink-0">₺{formatCurrency(ex.amount)}</span>
+                            <span className="text-[11px] font-black text-[#ff3b3b] shrink-0">₺{formatCurrency(ex.amount)}</span>
                           </div>
                           <span className="text-[8px] font-bold text-white/30 mt-1">{ex.date}</span>
                         </div>

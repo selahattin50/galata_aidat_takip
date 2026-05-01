@@ -317,7 +317,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
         >
           <ArrowLeft size={20} className="text-zinc-400" />
         </button>
-        <h3 className="text-center text-[12px] font-black uppercase tracking-[0.2em] text-green-500">
+        <h3 className="text-center text-[12px] font-black uppercase tracking-[0.2em] text-[#ff3b3b]">
           {uiText.title}
         </h3>
         <button
@@ -331,8 +331,8 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
       </div>
 
       <div className="animate-in slide-in-from-bottom-6 px-0 duration-500">
-        <div className="glass-panel mb-3 flex justify-center rounded-[24px] border border-red-500/10 bg-gradient-to-br from-red-500/5 to-transparent px-4 py-3">
-          <p className="flex w-full items-center justify-center overflow-hidden whitespace-nowrap text-center text-[16px] font-black leading-none tracking-tight text-red-500">
+        <div className="glass-panel mb-3 flex justify-center rounded-[24px] border border-red-500/20 bg-gradient-to-br from-red-500/10 to-transparent px-4 py-3">
+          <p className="flex w-full items-center justify-center overflow-hidden whitespace-nowrap text-center text-[16px] font-black leading-none tracking-tight text-[#ff3b3b]">
             <span className="mr-2 text-white/75">TOPLAM ALACAK</span>
             <span>
               {currencySymbol}
@@ -391,7 +391,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
 
                       <div className="ml-1.5 flex items-center space-x-1.5">
                         <div className="text-right">
-                          <span className="text-[15px] font-black leading-none tracking-tighter text-red-500">
+                          <span className="text-[15px] font-black leading-none tracking-tighter text-[#ff3b3b]">
                             {currencySymbol}{formatCurrency(unit.debt)}
                           </span>
                         </div>

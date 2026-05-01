@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   HandCoins, UserPlus, RotateCcw, TrendingUp, TrendingDown,
@@ -8,7 +7,8 @@ import {
 interface ActionItem {
   icon: React.ReactNode;
   label: string;
-  color: string;
+  tone: string;
+  iconClass: string;
 }
 
 interface ActionGridProps {
@@ -17,20 +17,20 @@ interface ActionGridProps {
 }
 
 const ActionGrid: React.FC<ActionGridProps> = ({ variant = 'grid', onActionClick }) => {
-  const iconSize = 24; // Biraz daha kompakt ikonlar
+  const iconSize = 24;
   const actions: ActionItem[] = [
-    { icon: <HandCoins size={iconSize} />, label: "Tahsilat", color: "from-emerald-500/12 to-teal-500/12" },
-    { icon: <UserPlus size={iconSize} />, label: "Borçlandır", color: "from-blue-500/12 to-indigo-500/12" },
-    { icon: <RotateCcw size={iconSize} />, label: "İade", color: "from-rose-500/12 to-pink-500/12" },
-    { icon: <TrendingUp size={iconSize} />, label: "Gelir", color: "from-green-500/12 to-emerald-500/12" },
-    { icon: <TrendingDown size={iconSize} />, label: "Gider", color: "from-orange-500/12 to-amber-500/12" },
-    { icon: <ArrowLeftRight size={iconSize} />, label: "Transfer", color: "from-purple-500/12 to-fuchsia-500/12" },
-    { icon: <Building2 size={iconSize} />, label: "Bağımsız Bölümler", color: "from-cyan-500/12 to-blue-500/12" },
-    { icon: <History size={iconSize} />, label: "İşlem Hareketleri", color: "from-slate-500/12 to-gray-500/12" },
-    { icon: <UserCheck size={iconSize} />, label: "Alacak Listesi", color: "from-amber-500/12 to-yellow-500/12" },
-    { icon: <CalendarDays size={iconSize} />, label: "AİDAT ÇİZELGE", color: "from-indigo-500/12 to-blue-500/12" },
-    { icon: <BarChart3 size={iconSize} />, label: "AYLIK BİLANÇO", color: "from-violet-500/12 to-purple-500/12" },
-    { icon: <TrendingUp size={iconSize} />, label: "YILLIK BİLANÇO", color: "from-fuchsia-500/12 to-pink-500/12" },
+    { icon: <HandCoins size={iconSize} />, label: "Tahsilat", tone: "bg-green-500/10 border-green-500/45 text-green-500", iconClass: "text-green-500" },
+    { icon: <UserPlus size={iconSize} />, label: "Borçlandır", tone: "bg-blue-500/10 border-blue-400/45 text-blue-300", iconClass: "text-blue-300" },
+    { icon: <RotateCcw size={iconSize} />, label: "İade", tone: "bg-rose-500/10 border-rose-400/45 text-rose-300", iconClass: "text-rose-300" },
+    { icon: <TrendingUp size={iconSize} />, label: "Gelir", tone: "bg-green-500/10 border-green-500/45 text-green-500", iconClass: "text-green-500" },
+    { icon: <TrendingDown size={iconSize} />, label: "Gider", tone: "bg-orange-500/10 border-orange-400/45 text-orange-300", iconClass: "text-orange-300" },
+    { icon: <ArrowLeftRight size={iconSize} />, label: "Transfer", tone: "bg-purple-500/10 border-purple-400/45 text-purple-300", iconClass: "text-purple-300" },
+    { icon: <Building2 size={iconSize} />, label: "Bağımsız Bölümler", tone: "bg-cyan-500/10 border-cyan-400/45 text-cyan-300", iconClass: "text-cyan-300" },
+    { icon: <History size={iconSize} />, label: "İşlem Hareketleri", tone: "bg-slate-400/10 border-slate-300/35 text-slate-300", iconClass: "text-slate-300" },
+    { icon: <UserCheck size={iconSize} />, label: "Alacak Listesi", tone: "bg-amber-500/10 border-amber-400/45 text-amber-300", iconClass: "text-amber-300" },
+    { icon: <CalendarDays size={iconSize} />, label: "AİDAT ÇİZELGE", tone: "bg-indigo-500/10 border-indigo-400/45 text-indigo-300", iconClass: "text-indigo-300" },
+    { icon: <BarChart3 size={iconSize} />, label: "AYLIK BİLANÇO", tone: "bg-violet-500/10 border-violet-400/45 text-violet-300", iconClass: "text-violet-300" },
+    { icon: <TrendingUp size={iconSize} />, label: "YILLIK BİLANÇO", tone: "bg-fuchsia-500/10 border-fuchsia-400/45 text-fuchsia-300", iconClass: "text-fuchsia-300" },
   ];
 
   if (variant === 'grid') {
@@ -40,17 +40,17 @@ const ActionGrid: React.FC<ActionGridProps> = ({ variant = 'grid', onActionClick
           <button
             key={idx}
             onClick={() => onActionClick?.(action.label)}
-            className={`flex min-h-[64px] flex-col items-center justify-center bg-white/[0.03] backdrop-blur-md rounded-[18px] p-1.5 h-[clamp(64px,10.2dvh,92px)] border border-white/10 shadow-lg active:scale-90 transition-all duration-300 group relative overflow-hidden`}
+            className={`flex min-h-[64px] flex-col items-center justify-center backdrop-blur-md rounded-[18px] p-1.5 h-[clamp(64px,10.2dvh,92px)] border shadow-lg active:scale-90 transition-all duration-300 group relative overflow-hidden ${action.tone}`}
           >
             <div className="absolute inset-0 bg-white/5 opacity-0 group-active:opacity-100 transition-opacity" />
-            <div className={`mb-0.5 min-[380px]:mb-1 transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]`}>
-              {React.cloneElement(action.icon as React.ReactElement, { 
-                className: action.color.split(' ')[0].replace('from-', 'text-').replace('/12', '')
+            <div className="mb-0.5 min-[380px]:mb-1 transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">
+              {React.cloneElement(action.icon as React.ReactElement, {
+                className: action.iconClass
               })}
             </div>
-            <span className="text-[9px] min-[360px]:text-[10px] min-[420px]:text-[11px] font-bold uppercase tracking-tight text-white/90 text-center leading-[1.12]">
-              {action.label.includes(' ') && action.label.length > 10 
-                ? action.label.split(' ').map((word, i) => <React.Fragment key={i}>{word}<br/></React.Fragment>)
+            <span className="text-[9px] min-[360px]:text-[10px] min-[420px]:text-[11px] font-bold uppercase tracking-tight text-current text-center leading-[1.12]">
+              {action.label.includes(' ') && action.label.length > 10
+                ? action.label.split(' ').map((word, i) => <React.Fragment key={i}>{word}<br /></React.Fragment>)
                 : action.label
               }
             </span>
@@ -66,17 +66,17 @@ const ActionGrid: React.FC<ActionGridProps> = ({ variant = 'grid', onActionClick
         <button
           key={idx}
           onClick={() => onActionClick?.(action.label)}
-          className={`flex items-center bg-white/[0.03] backdrop-blur-lg rounded-xl p-3 w-full border border-white/10 shadow-md active:scale-[0.97] transition-all group`}
+          className={`flex items-center backdrop-blur-lg rounded-xl p-3 w-full border shadow-md active:scale-[0.97] transition-all group ${action.tone}`}
         >
-          <div className={`p-2 rounded-lg mr-3 bg-white/10 group-hover:bg-white/20 transition-all shadow-inner`}>
-            {React.cloneElement(action.icon as React.ReactElement, { 
-              className: action.color.split(' ')[0].replace('from-', 'text-').replace('/12', '')
+          <div className="p-2 rounded-lg mr-3 bg-white/10 group-hover:bg-white/20 transition-all shadow-inner">
+            {React.cloneElement(action.icon as React.ReactElement, {
+              className: action.iconClass
             })}
           </div>
-          <span className="text-[13px] font-semibold uppercase tracking-wider text-white/90">
+          <span className="text-[13px] font-semibold uppercase tracking-wider text-current">
             {action.label}
           </span>
-          <ChevronRight size={18} className="ml-auto opacity-40 group-hover:opacity-100 transition-all text-[#22c55e] group-hover:translate-x-1" />
+          <ChevronRight size={18} className="ml-auto opacity-50 group-hover:opacity-100 transition-all text-current group-hover:translate-x-1" />
         </button>
       ))}
     </div>

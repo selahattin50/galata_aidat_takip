@@ -14,7 +14,7 @@ interface UnitsViewProps {
   info: BuildingInfo;
   onAddUnit: (unit: Omit<Unit, 'id' | 'debt' | 'credit'>) => void;
   onEditUnit: (unit: Unit) => void;
-  onDeleteUnit: (id: string) => void;
+  onDeleteUnit: (id: string) => boolean | Promise<boolean>;
   onAddFile: (name: string, category: FileEntry['category'], uri?: string, size?: number, fileName?: string) => void;
   onClose: () => void;
   currentDate: Date;
@@ -248,7 +248,11 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
       transactions={transactions}
       onClose={() => setSelectedUnit(null)}
       onUpdate={(u) => { onEditUnit(u); setSelectedUnit(u); }}
-      onDelete={(id) => { onDeleteUnit(id); setSelectedUnit(null); }}
+      onDelete={async (id) => {
+        const deleted = await onDeleteUnit(id);
+        if (deleted) setSelectedUnit(null);
+        return deleted;
+      }}
       currentDate={currentDate}
     />;
   }
@@ -319,7 +323,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
                     <div className={`text-[14px] font-black tracking-tighter ${unit.credit > 0 ? 'text-green-500' : 'text-white'}`}>
                       ₺{formatCurrency(unit.credit).replace('₺', '')}
                     </div>
-                    <div className="text-[14px] font-black tracking-tighter text-red-400">
+                    <div className="text-[14px] font-black tracking-tighter text-[#ff3b3b]">
                       ₺{formatCurrency(unit.debt).replace('₺', '')}
                     </div>
                   </div>
@@ -338,7 +342,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 z-[300] bg-slate-950/95 backdrop-blur-2xl px-4 flex items-start justify-center pt-16 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[300] bg-gradient-to-br from-slate-700/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl px-4 flex items-start justify-center pt-16 animate-in fade-in duration-300">
           <div className="w-full max-w-sm">
             <div className="flex items-center justify-between mb-8 px-2">
               <div className="flex items-center space-x-3">
@@ -347,51 +351,51 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
                 </div>
                 <div>
                   <h3 className="text-[15px] font-black text-white uppercase tracking-widest leading-none">YENİ DAİRE</h3>
-                  <p className="text-[9px] text-zinc-500 font-bold mt-1.5 uppercase tracking-[0.2em]">Kayıt oluşturun</p>
+                  <p className="text-[9px] text-white/55 font-bold mt-1.5 uppercase tracking-[0.2em]">Kayıt oluşturun</p>
                 </div>
               </div>
               <button onClick={handleCloseAddModal} className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/5 text-zinc-400"><X size={20} /></button>
             </div>
-            <form onSubmit={handleAddSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-1">
-                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-2 block px-1">DAİRE NO</label>
+            <form onSubmit={handleAddSubmit} className="space-y-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="min-w-0">
+                  <label className="text-[9px] font-black text-white/55 uppercase tracking-widest mb-2 block px-1">DAİRE NO</label>
                   <div className="relative">
-                    <Home className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
-                    <input type="text" required placeholder="No" value={formData.no} onChange={(e) => setFormData({ ...formData, no: normalizeUnitNo(e.target.value) })} className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-white text-[14px] font-black focus:outline-none focus:border-blue-500/50 transition-all" />
+                    <Home className="absolute left-4 top-1/2 -translate-y-1/2 text-white/35" size={18} />
+                    <input type="text" required placeholder="No" value={formData.no} onChange={(e) => setFormData({ ...formData, no: normalizeUnitNo(e.target.value) })} className="w-full h-11 bg-slate-900/35 border border-white/10 rounded-2xl pl-9 pr-3 text-white placeholder:text-white/65 text-[15px] font-black shadow-inner focus:outline-none focus:border-blue-400/50 transition-all" />
                   </div>
                 </div>
-                <div className="col-span-1">
-                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-2 block px-1">DURUM</label>
-                  <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 h-14">
-                    <button type="button" onClick={() => setFormData({ ...formData, status: 'Malik' })} className={`flex-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${formData.status === 'Malik' ? 'bg-blue-600 text-white shadow-lg' : 'text-zinc-500'}`}>Malik</button>
-                    <button type="button" onClick={() => setFormData({ ...formData, status: 'Kiracı' })} className={`flex-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${formData.status === 'Kiracı' ? 'bg-amber-500 text-white shadow-lg' : 'text-zinc-500'}`}>Kiracı</button>
+                <div className="col-span-2 min-w-0">
+                  <label className="text-[9px] font-black text-white/55 uppercase tracking-widest mb-2 block px-1">DURUM</label>
+                  <div className="grid grid-cols-2 w-full gap-2 h-11">
+                    <button type="button" onClick={() => setFormData({ ...formData, status: 'Malik' })} className={`w-full rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${formData.status === 'Malik' ? 'bg-blue-500/10 border-blue-400/60 text-blue-100 shadow-lg' : 'bg-slate-900/25 border-white/10 text-white/60'}`}>Malik</button>
+                    <button type="button" onClick={() => setFormData({ ...formData, status: 'Kiracı' })} className={`w-full rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${formData.status === 'Kiracı' ? 'bg-emerald-500/10 border-emerald-400/60 text-emerald-100 shadow-lg' : 'bg-slate-900/25 border-white/10 text-white/60'}`}>Kiracı</button>
                   </div>
                 </div>
               </div>
               <div>
-                <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-2 block px-1">MALİK ADI SOYADI</label>
+                <label className="text-[9px] font-black text-white/55 uppercase tracking-widest mb-2 block px-1">MALİK ADI SOYADI</label>
                 <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
-                  <input type="text" required placeholder="Tam İsim..." value={formData.ownerName} onChange={(e) => setFormData({ ...formData, ownerName: e.target.value })} className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-white text-[13px] font-bold focus:outline-none focus:border-blue-500/50 transition-all" />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/35" size={18} />
+                  <input type="text" required placeholder="Tam İsim..." value={formData.ownerName} onChange={(e) => setFormData({ ...formData, ownerName: e.target.value })} className="w-full h-11 bg-slate-900/35 border border-white/10 rounded-2xl pl-11 pr-4 text-white placeholder:text-white/65 text-[15px] font-bold shadow-inner focus:outline-none focus:border-blue-400/50 transition-all" />
                 </div>
               </div>
               <div>
-                <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-2 block px-1">MALİK TELEFON</label>
+                <label className="text-[9px] font-black text-white/55 uppercase tracking-widest mb-2 block px-1">MALİK TELEFON</label>
                 <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
-                  <input type="tel" placeholder="05..." value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-white text-[13px] font-bold focus:outline-none focus:border-blue-500/50 transition-all" />
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-white/35" size={18} />
+                  <input type="tel" placeholder="05..." value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full h-11 bg-slate-900/35 border border-white/10 rounded-2xl pl-11 pr-4 text-white placeholder:text-white/65 text-[15px] font-bold shadow-inner focus:outline-none focus:border-blue-400/50 transition-all" />
                 </div>
               </div>
               {formData.status === 'Kiracı' && (
-                <div className="space-y-4">
-                  <input type="text" required placeholder="Kiracı İsmi..." value={formData.tenantName} onChange={(e) => setFormData({ ...formData, tenantName: e.target.value })} className="w-full h-14 bg-amber-500/5 border border-amber-500/10 rounded-2xl px-4 text-white text-[13px] font-bold focus:outline-none focus:border-amber-500/50 transition-all" />
-                  <input type="tel" placeholder="Kiracı Tel..." value={formData.tenantPhone} onChange={(e) => setFormData({ ...formData, tenantPhone: e.target.value })} className="w-full h-14 bg-amber-500/5 border border-amber-500/10 rounded-2xl px-4 text-white text-[13px] font-bold focus:outline-none focus:border-amber-500/50 transition-all" />
+                <div className="space-y-3">
+                  <input type="text" required placeholder="Kiracı İsmi..." value={formData.tenantName} onChange={(e) => setFormData({ ...formData, tenantName: e.target.value })} className="w-full h-11 bg-slate-900/35 border border-amber-300/15 rounded-2xl px-4 text-white placeholder:text-white/65 text-[15px] font-bold shadow-inner focus:outline-none focus:border-amber-300/45 transition-all" />
+                  <input type="tel" placeholder="Kiracı Tel..." value={formData.tenantPhone} onChange={(e) => setFormData({ ...formData, tenantPhone: e.target.value })} className="w-full h-11 bg-slate-900/35 border border-amber-300/15 rounded-2xl px-4 text-white placeholder:text-white/65 text-[15px] font-bold shadow-inner focus:outline-none focus:border-amber-300/45 transition-all" />
                 </div>
               )}
-              <button type="submit" disabled={isSaving} className={`w-full h-14 rounded-2xl flex items-center justify-center space-x-3 transition-all active:scale-[0.98] shadow-2xl mt-8 ${saveSuccess ? 'bg-green-600' : 'bg-blue-600'}`}>
-                {isSaving ? <Loader2 className="animate-spin text-white" size={24} /> : saveSuccess ? <Check className="text-white" size={24} /> : <Plus className="text-white" size={24} />}
-                <span className="text-white text-[12px] font-black uppercase tracking-[0.2em]">{saveSuccess ? 'BAŞARILI' : 'KAYDET'}</span>
+              <button type="submit" disabled={isSaving} className={`w-full h-11 rounded-2xl border flex items-center justify-center space-x-3 transition-all active:scale-[0.98] shadow-xl mt-5 ${saveSuccess ? 'bg-emerald-500/10 border-emerald-400/60 text-emerald-100' : 'bg-blue-500/10 border-blue-400/60 text-blue-100'}`}>
+                {isSaving ? <Loader2 className="animate-spin text-current" size={24} /> : saveSuccess ? <Check className="text-current" size={24} /> : <Plus className="text-current" size={24} />}
+                <span className="text-current text-[12px] font-black uppercase tracking-[0.2em]">{saveSuccess ? 'BAŞARILI' : 'KAYDET'}</span>
               </button>
             </form>
           </div>
