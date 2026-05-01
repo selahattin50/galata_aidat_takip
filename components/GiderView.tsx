@@ -14,51 +14,51 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
 
   const handleCategorySelect = (catLabel: string) => {
     const newDesc = `${catLabel.toUpperCase()}`;
-    
-    setSt(prev => ({ 
-      ...prev, 
+
+    setSt(prev => ({
+      ...prev,
       cat: catLabel,
-      desc: newDesc 
+      desc: newDesc
     }));
     setShowCatList(false);
   };
 
   const handleProcess = async () => {
-    const a = parseFloat(st.amt); 
+    const a = parseFloat(st.amt);
     console.log('🔴 GiderView handleProcess başladı:', { cat: st.cat, amount: a, desc: st.desc, vault: st.v, date: st.dt });
-    
+
     if (!a || a <= 0) {
       console.log('🔴 GiderView: Tutar geçersiz');
       alert("Lütfen geçerli bir tutar giriniz.");
       return;
     }
-    
+
     if (!st.cat) {
       console.log('🔴 GiderView: Kategori seçilmedi');
       alert("Lütfen gider kalemi seçiniz.");
       return;
     }
-    
-    setLoading(true); 
+
+    setLoading(true);
     console.log('🔴 GiderView: setLoading(true)');
-    
+
     try {
       console.log('🔴 GiderView: onSave çağrılıyor...');
       await onSave(a, st.desc, st.v as any, st.dt);
-      
+
       console.log('🔴 GiderView: onSave tamamlandı, success ekranı gösterilecek');
-      
+
       setReceiptData({
         amount: a,
         description: st.desc,
         vault: st.v,
         date: new Date(st.dt).toLocaleDateString('tr-TR')
       });
-      
+
       setLoading(false);
       setIsSuccess(true);
       console.log('🔴 GiderView: Success state set edildi');
-      
+
     } catch (error) {
       console.error('🔴 GiderView: HATA OLUŞTU:', error);
       setLoading(false);
@@ -87,7 +87,7 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
                 <span className="text-[13px] font-black text-white">{receiptData.date} ({receiptData.vault})</span>
             </div>
         </div>
-        <button 
+        <button
             onClick={() => {
               console.log('🔴 GiderView success button tıklandı, kaydedilmiş data:', receiptData);
               onClose();
@@ -102,9 +102,9 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
   }
 
   return (
-    <div className="animate-in slide-in-from-bottom-6 duration-500 pt-0 pb-60">
+    <div className="scroll-stable-form h-full overflow-hidden pt-0 pb-4">
       <div className="px-4 py-6 mb-3 flex items-center justify-between">
-        <button onClick={onClose} className="bg-white/5 p-2 rounded-xl border border-white/5 active:scale-90 transition-all"><ArrowLeft size={24} className="text-zinc-400" /></button>
+        <button onClick={onClose} className="bg-white/5 p-2 rounded-xl border border-white/5 transition-colors"><ArrowLeft size={24} className="text-zinc-400" /></button>
         <h3 className="text-[18px] font-black uppercase tracking-[0.2em] text-red-500 text-center">GİDER KAYDI</h3>
         <div className="w-10" />
       </div>
@@ -112,12 +112,12 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
       <div className="space-y-6 px-1">
         <section>
           <label className="text-[10px] font-black tracking-widest text-white/30 uppercase mb-3 block ml-1">KASA SEÇİMİ</label>
-          <div className="grid grid-cols-2 gap-2.5 bg-white/5 p-1.5 rounded-2xl border border-white/5">
-            <button onClick={() => setSt({ ...st, v: 'genel' })} className={`h-12 rounded-xl flex items-center justify-center space-x-2 transition-all ${st.v === 'genel' ? 'bg-green-500 shadow-lg text-white' : 'text-white/20'}`}>
-              <Wallet size={16} /><span className="text-[11px] font-black uppercase">Genel Gider</span>
+          <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
+            <button onClick={() => setSt({ ...st, v: 'genel' })} className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${st.v === 'genel' ? 'bg-green-500/10 border-green-500/40 text-green-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}>
+              <Wallet size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Genel Gider</span>
             </button>
-            <button onClick={() => setSt({ ...st, v: 'demirbas' })} className={`h-12 rounded-xl flex items-center justify-center space-x-2 transition-all ${st.v === 'demirbas' ? 'bg-blue-600 shadow-lg text-white' : 'text-white/20'}`}>
-              <Briefcase size={16} /><span className="text-[11px] font-black uppercase">Demirbaş</span>
+            <button onClick={() => setSt({ ...st, v: 'demirbas' })} className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${st.v === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}>
+              <Briefcase size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Demirbaş</span>
             </button>
           </div>
         </section>
@@ -126,36 +126,36 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
           <label className="text-[10px] font-black tracking-widest text-white/30 uppercase mb-3 block ml-1">TARİH VE TUTAR</label>
           <div className="grid grid-cols-2 gap-3">
             <DatePickerModal value={st.dt} onChange={v => setSt({ ...st, dt: v })} />
-            <input 
-              type="number" 
-              placeholder="0.00" 
-              value={st.amt} 
-              onChange={e => setSt({ ...st, amt: e.target.value })} 
-              className="bg-black/40 w-full h-[52px] rounded-2xl px-4 text-xl font-black text-red-500 border border-white/10 outline-none focus:border-red-500/50 transition-all" 
+            <input
+              type="number"
+              placeholder="0.00"
+              value={st.amt}
+              onChange={e => setSt({ ...st, amt: e.target.value })}
+              className="bg-black/40 w-full h-[46px] rounded-xl px-3 text-[22px] font-black text-red-500 border border-white/10 outline-none focus:border-red-500/50 transition-all"
             />
           </div>
         </section>
 
         <section className="relative group">
           <label className="text-[10px] font-black tracking-widest text-white/30 uppercase mb-3 block text-center">GİDER KALEMİ</label>
-          <button 
+          <button
             onClick={() => setShowCatList(!showCatList)}
-            className="w-full bg-[#1e293b] rounded-2xl h-14 flex items-center justify-between px-5 border border-white/10 hover:bg-[#2d3a4f] hover:border-red-500/50 active:bg-white/5 transition-all shadow-xl"
+            className="w-full bg-[#1e293b] rounded-2xl h-[50px] flex items-center justify-between px-4 border border-white/10 transition-colors shadow-xl"
           >
             <div className="flex items-center space-x-3 truncate">
               <span className="text-xl shrink-0">📂</span>
-              <span className={`text-[13px] font-black uppercase tracking-wider truncate transition-colors ${st.cat ? 'text-white' : 'text-white/20 group-hover:text-white/40'}`}>
+              <span className={`text-[15px] font-black uppercase tracking-wider truncate transition-colors ${st.cat ? 'text-white' : 'text-white/20 group-hover:text-white/40'}`}>
                 {st.cat || 'TÜR SEÇ...'}
               </span>
             </div>
             <ChevronDown size={20} className={`text-white/30 shrink-0 transition-transform duration-300 ${showCatList ? 'rotate-180' : ''}`} />
           </button>
-          
+
           {showCatList && (
             <div className="absolute top-full left-0 right-0 z-[110] mt-2 bg-[#1e293b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
               <div className="max-h-[220px] overflow-y-auto no-scrollbar">
                 {expenseCategories.map((cat, idx) => (
-                  <button 
+                  <button
                     key={idx}
                     onClick={() => handleCategorySelect(cat)}
                     className={`w-full py-3.5 px-4 text-left flex items-center space-x-3 border-b border-white/5 last:border-0 hover:bg-red-500/20 active:bg-white/5 transition-colors group ${st.cat === cat ? 'bg-red-500/10' : ''}`}
@@ -172,21 +172,21 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
           )}
         </section>
 
-        <section className="bg-slate-800/40 rounded-[24px] p-5 border border-white/5 shadow-2xl">
+        <section className="bg-slate-800/40 rounded-[24px] p-3 border border-white/5 shadow-2xl">
           <label className="text-[10px] font-black tracking-widest text-white/20 uppercase mb-2 block ml-1">AÇIKLAMA</label>
-          <input 
-            type="text" 
-            placeholder="Açıklama giriniz..." 
-            value={st.desc} 
-            onChange={e => setSt({ ...st, desc: e.target.value })} 
-            className="w-full h-[52px] bg-black/20 rounded-xl px-4 text-[13px] font-black text-white border border-white/5 outline-none" 
+          <input
+            type="text"
+            placeholder="Açıklama giriniz..."
+            value={st.desc}
+            onChange={e => setSt({ ...st, desc: e.target.value })}
+            className="w-full h-[46px] bg-black/20 rounded-xl px-3 text-[15px] font-black text-white border border-white/5 outline-none"
           />
         </section>
 
-        <button 
-          onClick={handleProcess} 
-          disabled={!st.amt || loading} 
-          className={`w-full h-16 rounded-[28px] flex items-center justify-center space-x-4 transition-all shadow-xl active:scale-95 ${st.amt ? 'bg-red-600 shadow-[0_15px_30px_rgba(220,38,38,0.3)]' : 'bg-white/5 opacity-20 cursor-not-allowed'}`}
+        <button
+          onClick={handleProcess}
+          disabled={!st.amt || loading}
+          className={`w-full h-16 rounded-[28px] flex items-center justify-center space-x-4 transition-colors shadow-xl ${st.amt ? 'bg-red-600 shadow-[0_15px_30px_rgba(220,38,38,0.3)]' : 'bg-white/5 opacity-20 cursor-not-allowed'}`}
         >
           {loading ? <Loader2 className="animate-spin" size={24} /> : (
             <>

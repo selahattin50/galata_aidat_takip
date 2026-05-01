@@ -12,7 +12,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ balance }) => {
   const [vaultType, setVaultType] = useState<'genel' | 'demirbas'>('genel');
 
   const currentMevcut = vaultType === 'genel' ? balance.mevcutBakiye : balance.demirbasKasasi;
-  const currentAlacak = vaultType === 'genel' ? balance.alacakBakiyesi : 0;
+  const currentAlacak = vaultType === 'genel' ? balance.alacakBakiyesi : balance.demirbasAlacakBakiyesi;
   const currentToplam = currentMevcut + currentAlacak;
 
   const chartData = [

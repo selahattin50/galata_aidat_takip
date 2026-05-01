@@ -61,24 +61,24 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
       <div className="space-y-5 px-1">
         <section>
           <label className="text-[10px] font-black tracking-widest text-white/30 uppercase mb-3 block ml-1">KASA SEÇİMİ</label>
-          <div className="grid grid-cols-2 gap-1.5 bg-white/5 p-1.5 rounded-2xl border border-white/5">
+          <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
             <button
               onClick={() => setSourceVault('genel')}
-              className={`h-12 rounded-xl flex items-center justify-center space-x-2 transition-all ${
-                sourceVault === 'genel' ? 'bg-green-500 shadow-lg text-white' : 'text-white/20'
+              className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${
+                sourceVault === 'genel' ? 'bg-green-500/10 border-green-500/40 text-green-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'
               }`}
             >
-              <Wallet size={16} />
-              <span className="text-[11px] font-black uppercase">Genel</span>
+              <Wallet size={18} />
+              <span className="text-[12px] font-black uppercase tracking-widest">Genel Gider</span>
             </button>
             <button
               onClick={() => setSourceVault('demirbas')}
-              className={`h-12 rounded-xl flex items-center justify-center space-x-2 transition-all ${
-                sourceVault === 'demirbas' ? 'bg-blue-600 shadow-lg text-white' : 'text-white/20'
+              className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${
+                sourceVault === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'
               }`}
             >
-              <Briefcase size={16} />
-              <span className="text-[11px] font-black uppercase">Demirbaş</span>
+              <Briefcase size={18} />
+              <span className="text-[12px] font-black uppercase tracking-widest">Demirbaş</span>
             </button>
           </div>
 
@@ -107,7 +107,7 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
 
         <section>
           <label className="text-[10px] font-black tracking-widest text-white/30 uppercase mb-3 block ml-1">TRANSFER DETAYI</label>
-          <div className="glass-panel rounded-[24px] p-4 space-y-4 border border-white/10 shadow-xl">
+          <div className="glass-panel rounded-[24px] p-3 space-y-3 border border-white/10 shadow-xl">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-black tracking-widest text-white/20 uppercase mb-2 block ml-1">İŞLEM TARİHİ</label>
@@ -123,7 +123,7 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full h-[52px] bg-black/40 rounded-xl px-4 text-[20px] font-black text-indigo-400 border border-white/10 outline-none focus:border-indigo-500/40 transition-all shadow-inner"
+                  className="w-full h-[46px] bg-black/40 rounded-xl px-3 text-[22px] font-black text-indigo-400 border border-white/10 outline-none focus:border-indigo-500/40 transition-all shadow-inner"
                 />
               </div>
             </div>
@@ -135,7 +135,7 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
                 placeholder="Örn: Kasa dengeleme"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full h-12 bg-black/20 rounded-xl px-4 text-[12px] font-bold text-white border border-white/5 outline-none"
+                className="w-full h-[46px] bg-black/20 rounded-xl px-3 text-[15px] font-bold text-white border border-white/5 outline-none"
               />
             </div>
           </div>

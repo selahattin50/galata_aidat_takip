@@ -70,7 +70,7 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({ value, onChange, clas
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`flex items-center justify-between bg-black/20 w-full h-[52px] rounded-xl px-3 text-[15px] font-bold text-white border border-white/5 active:scale-95 transition-all ${className}`}
+        className={`flex items-center justify-between bg-black/20 w-full h-[46px] rounded-xl px-3 text-[17px] font-bold text-white border border-white/5 active:scale-95 transition-all ${className}`}
       >
         <span className={selected ? 'text-white' : 'text-white/30'}>{displayValue}</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-white/30 shrink-0">

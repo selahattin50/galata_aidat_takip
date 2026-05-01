@@ -5,10 +5,32 @@ import { registerPlugin } from '@capacitor/core';
 import { markExternalIntent } from './externalIntentGuard';
 
 export interface WhatsAppSharePlugin {
-  shareToWhatsApp(options: { phoneNumber: string; filePath: string; mimeType?: string }): Promise<void>;
+  shareToWhatsApp(options: { phoneNumber: string; filePath: string; mimeType?: string; text?: string }): Promise<void>;
 }
 
 const WhatsAppShare = registerPlugin<WhatsAppSharePlugin>('WhatsAppShare');
+
+const formatPhoneForWhatsApp = (phoneNumber: string) => {
+  let digits = phoneNumber.replace(/\D/g, '');
+
+  if (digits.startsWith('00')) {
+    digits = digits.substring(2);
+  }
+
+  if (digits.startsWith('0')) {
+    digits = `90${digits.substring(1)}`;
+  }
+
+  if (digits.length === 10) {
+    digits = `90${digits}`;
+  }
+
+  if (!digits.startsWith('90') && digits.length > 0) {
+    digits = `90${digits}`;
+  }
+
+  return digits;
+};
 
 export interface SavedPDFInfo {
   uri: string;
@@ -49,74 +71,45 @@ export class PDFService {
    */
   private static async saveAndShareNative(base64Data: string, fileName: string, fileSize: number, shouldShare: boolean, phoneNumber?: string): Promise<SavedPDFInfo> {
     try {
-      // Android 11+ için özel izin kontrolü gerekebilir, ancak Directory.Data 
-      // genelde izin gerektirmeden uygulama özel klasörüne yazar.
-
       // PDF'i kalıcı depolamaya kaydet (Uygulama özel klasörü)
       const savedFile = await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: Directory.Data, // Directory.Documents yerine Directory.Data kullanmak daha uyumlu
+        directory: Directory.Data,
       });
 
       console.log('PDF kaydedildi:', savedFile.uri);
-      console.log('Dosya adı:', fileName);
-      console.log('Telefon numarası:', phoneNumber);
 
       // Sadece paylaşma isteniyorse dialogu aç
       if (shouldShare) {
-        // Eğer telefon numarası varsa, WhatsApp'a direkt paylaş
         if (phoneNumber && phoneNumber.length > 0) {
-          console.log('WhatsApp ile paylaşım başlatılıyor...');
-          console.log('Telefon numarası:', phoneNumber);
-
           try {
-            // Telefon numarasını uluslararası formata çevir
-            let formattedPhone = phoneNumber;
-            // Eğer 0 ile başlıyorsa, 90 ile değiştir (Türkiye)
-            if (formattedPhone.startsWith('0')) {
-              formattedPhone = '90' + formattedPhone.substring(1);
-            }
-            // Eğer + veya 90 ile başlamıyorsa, 90 ekle
-            if (!formattedPhone.startsWith('90') && !formattedPhone.startsWith('+')) {
-              formattedPhone = '90' + formattedPhone;
-            }
+            const formattedPhone = formatPhoneForWhatsApp(phoneNumber);
 
-            console.log('Formatlanmış telefon:', formattedPhone);
-
-            // Native WhatsApp plugin ile paylaş
             markExternalIntent();
             await WhatsAppShare.shareToWhatsApp({
               phoneNumber: formattedPhone,
               filePath: savedFile.uri
             });
-
-            console.log('WhatsApp paylaşımı başarılı');
           } catch (error) {
             console.error('WhatsApp paylaşma hatası:', error);
-            // Hata olursa normal paylaşma dialogunu göster
             markExternalIntent();
             await Share.share({
               title: 'PDF Paylaş',
-              text: fileName,
               url: savedFile.uri,
               dialogTitle: 'PDF dosyasını paylaş',
             });
           }
         } else {
-          // Telefon numarası yoksa normal paylaşma
           markExternalIntent();
           await Share.share({
             title: 'PDF Paylaş',
-            text: fileName,
             url: savedFile.uri,
             dialogTitle: 'PDF dosyasını paylaş',
           });
         }
-        console.log('İşlem tamamlandı');
       }
 
-      // Dosya adını ve URI'yi döndür
       return { uri: savedFile.uri, size: fileSize, fileName: fileName };
     } catch (error) {
       console.error('Native PDF kaydetme hatası:', error);
@@ -146,7 +139,6 @@ export class PDFService {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
-        // "data:application/pdf;base64," kısmını kaldır
         const base64Data = base64String.split(',')[1];
         resolve(base64Data);
       };
@@ -155,20 +147,12 @@ export class PDFService {
     });
   }
 
-  /**
-   * jsPDF instance'ından direkt kaydet ve paylaş
-   * @param pdf - jsPDF instance
-   * @param fileName - Dosya adı
-   * @param shouldShare - Paylaşma dialogunu aç (varsayılan: true)
-   * @param phoneNumber - WhatsApp için telefon numarası (opsiyonel)
-   * @returns Kaydedilen dosya bilgileri (uri ve boyut)
-   */
   static async saveAndShareFromJsPDF(pdf: any, fileName: string, shouldShare: boolean = true, phoneNumber?: string): Promise<SavedPDFInfo> {
     const blob = pdf.output('blob');
     return await this.saveAndSharePDF(blob, fileName, shouldShare, phoneNumber);
   }
 
-  static async saveAndShareImage(dataUrl: string, fileName: string, phoneNumber?: string): Promise<SavedPDFInfo> {
+  static async saveAndShareImage(dataUrl: string, fileName: string, phoneNumber?: string, text?: string): Promise<SavedPDFInfo> {
     try {
       const base64Data = dataUrl.split(',')[1];
       const mimeType = dataUrl.match(/^data:(.*?);base64,/)?.[1] || 'image/png';
@@ -182,39 +166,30 @@ export class PDFService {
         });
 
         if (phoneNumber && phoneNumber.length > 0) {
-          let formattedPhone = phoneNumber.replace(/\s+/g, '');
-          if (formattedPhone.startsWith('0')) {
-            formattedPhone = '90' + formattedPhone.substring(1);
-          }
-          if (!formattedPhone.startsWith('90') && !formattedPhone.startsWith('+')) {
-            formattedPhone = '90' + formattedPhone;
-          }
+          const formattedPhone = formatPhoneForWhatsApp(phoneNumber);
 
           try {
             markExternalIntent();
-            await WhatsAppShare.shareToWhatsApp({
-              phoneNumber: formattedPhone.replace('+', ''),
+            const shareOptions: { phoneNumber: string; filePath: string; mimeType: string; text?: string } = {
+              phoneNumber: formattedPhone,
               filePath: savedFile.uri,
-              mimeType,
-            });
+              mimeType
+            };
+            if (text) shareOptions.text = text;
+            await WhatsAppShare.shareToWhatsApp(shareOptions);
           } catch (shareError) {
-            console.error('WhatsApp görsel paylaşma hatası, genel paylaşıma dönülüyor:', shareError);
-            markExternalIntent();
-            await Share.share({
-              title: 'Hatırlatma Kartı',
-              text: fileName,
-              url: savedFile.uri,
-              dialogTitle: 'Kartı paylaş',
-            });
+            console.error('WhatsApp görsel paylaşma hatası:', shareError);
+            throw shareError;
           }
         } else {
           markExternalIntent();
-          await Share.share({
+          const shareOptions: { title: string; url: string; dialogTitle: string; text?: string } = {
             title: 'Hatırlatma Kartı',
-            text: fileName,
             url: savedFile.uri,
             dialogTitle: 'Kartı paylaş',
-          });
+          };
+          if (text) shareOptions.text = text;
+          await Share.share(shareOptions);
         }
 
         return { uri: savedFile.uri, size: approximateSize, fileName };
@@ -229,11 +204,6 @@ export class PDFService {
     }
   }
 
-  /**
-   * Kaydedilmiş PDF'i aç
-   * @param uri - Dosya URI'si
-   * @param fileName - Dosya adı (opsiyonel)
-   */
   static async openPDF(uri: string, fileName?: string): Promise<void> {
     try {
       if (!uri) {
@@ -241,11 +211,6 @@ export class PDFService {
       }
 
       if (Capacitor.isNativePlatform()) {
-        console.log('PDF açılıyor - URI:', uri);
-        console.log('Dosya adı:', fileName);
-
-        // Android'de FileOpener plugin'i yerine Share kullan ama sadece PDF uygulamaları için
-        // Bu sayede kullanıcı PDF görüntüleyici seçebilir
         try {
           const { FileOpener } = await import('@capacitor-community/file-opener');
           markExternalIntent();
@@ -264,13 +229,11 @@ export class PDFService {
           });
         }
       } else {
-        // Web tarayıcısında yeni sekmede aç
         window.open(uri, '_blank');
       }
     } catch (error) {
       console.error('PDF açma hatası:', error);
       const errorMsg = error instanceof Error ? error.message : 'Bilinmeyen hata';
-      // Kullanıcı iptal ettiyse sessizce geç
       if (errorMsg.toLowerCase().includes('cancel')) {
         return;
       }

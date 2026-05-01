@@ -18,24 +18,26 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
   ] as const;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 w-full flex justify-between items-center px-6 py-4 pb-8 safe-area-bottom z-50">
+    <nav className="app-bottom-nav fixed bottom-0 left-0 right-0 z-50 w-full border-t border-white/5 bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a] px-3 pt-2.5">
+      <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-1">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onTabChange(tab.id as ActiveTab)}
-          className={`flex flex-col items-center space-y-1.5 transition-all duration-300 ${
+          className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1 transition-all duration-300 ${
             activeTab === tab.id ? 'text-white scale-110' : 'text-white/30'
           }`}
         >
           {tab.icon}
-          <span className={`text-[9px] font-bold uppercase tracking-wider ${activeTab === tab.id ? 'opacity-100' : 'opacity-60'}`}>
+          <span className={`max-w-full truncate text-[8px] min-[360px]:text-[9px] font-bold uppercase tracking-wide ${activeTab === tab.id ? 'opacity-100' : 'opacity-60'}`}>
             {tab.label}
           </span>
           {activeTab === tab.id && (
-            <div className="w-5 h-0.5 bg-white rounded-full absolute -bottom-1 shadow-[0_0_8px_white]"></div>
+            <div className="absolute bottom-0 h-0.5 w-5 rounded-full bg-white shadow-[0_0_8px_white]"></div>
           )}
         </button>
       ))}
+      </div>
     </nav>
   );
 };

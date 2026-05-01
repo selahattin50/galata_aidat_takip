@@ -4,6 +4,7 @@ import { db } from '../databaseService';
 import { auth } from '../firebaseConfig';
 import { useAndroidBackHandler } from '../appBackButton';
 import { PROTECTED_ADMIN_PROFILE, isProtectedAdminEmail } from '../adminProfile';
+import { appConfirm } from './AppDialog';
 
 interface User {
   uid?: string;
@@ -14,6 +15,8 @@ interface User {
   createdAt: string;
   role?: string;
   buildingName?: string;
+  canCreateSites?: boolean;
+  createSiteCredits?: number;
 }
 
 interface UserProfileRecord {
@@ -23,6 +26,8 @@ interface UserProfileRecord {
   createdAt?: string;
   role?: string;
   buildingName?: string;
+  canCreateSites?: boolean;
+  createSiteCredits?: number;
 }
 
 interface UserManagementViewProps {
@@ -128,7 +133,9 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
       phone: isProtectedAdminEmail(resolvedEmail) ? PROTECTED_ADMIN_PROFILE.phone : (rawUserData?.phone || userProfile?.phone || ''),
       createdAt: rawUserData?.createdAt || userProfile?.createdAt || '',
       role: rawUserData?.role || userProfile?.role || profile?.role || (isProtectedAdminEmail(resolvedEmail) ? PROTECTED_ADMIN_PROFILE.role : 'Yönetici'),
-      buildingName: profile?.name || userProfile?.buildingName || ''
+      buildingName: profile?.name || userProfile?.buildingName || '',
+      createSiteCredits: isProtectedAdminEmail(resolvedEmail) ? Number.MAX_SAFE_INTEGER : Math.max(0, Number(userProfile?.createSiteCredits || rawUserData?.createSiteCredits || (userProfile?.canCreateSites || rawUserData?.canCreateSites ? 1 : 0))),
+      canCreateSites: isProtectedAdminEmail(resolvedEmail) || Math.max(0, Number(userProfile?.createSiteCredits || rawUserData?.createSiteCredits || (userProfile?.canCreateSites || rawUserData?.canCreateSites ? 1 : 0))) > 0
     };
   };
 
@@ -194,7 +201,9 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
             phone: isProtectedAdminEmail(usersData[uid].email) ? PROTECTED_ADMIN_PROFILE.phone : usersData[uid].phone,
             createdAt: usersData[uid].createdAt,
             role: usersData[uid].role || (isProtectedAdminEmail(usersData[uid].email) ? PROTECTED_ADMIN_PROFILE.role : 'Yönetici'),
-            buildingName: usersData[uid].buildingName || ''
+            buildingName: usersData[uid].buildingName || '',
+            createSiteCredits: isProtectedAdminEmail(usersData[uid].email) ? Number.MAX_SAFE_INTEGER : Math.max(0, Number(usersData[uid].createSiteCredits || (usersData[uid].canCreateSites ? 1 : 0))),
+            canCreateSites: isProtectedAdminEmail(usersData[uid].email) || Math.max(0, Number(usersData[uid].createSiteCredits || (usersData[uid].canCreateSites ? 1 : 0))) > 0
           }));
           finalUsers = [...finalUsers, ...profileList];
           setDebugInfo(`_userProfiles: ${profileList.length} kullanıcı bulundu.`);
@@ -317,6 +326,8 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
                 ? `${existing.buildingName} • ${u.buildingName}` 
                 : u.buildingName;
             }
+            existing.createSiteCredits = Math.max(Number(existing.createSiteCredits || 0), Number(u.createSiteCredits || 0));
+            existing.canCreateSites = existing.canCreateSites || u.canCreateSites === true || Number(existing.createSiteCredits || 0) > 0;
           } else {
             userMap.set(key, { ...u, email: emailToUse });
           }
@@ -366,7 +377,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
   };
 
   const handleUnbanUser = async (email: string) => {
-    if (window.confirm(`${email} üzerindeki banı kaldırmak istediğinize emin misiniz?`)) {
+    if (await appConfirm(`${email} üzerindeki banı kaldırmak istediğinize emin misiniz?`)) {
       try {
         const emailKey = email.replace(/[.@]/g, '_');
         await db.deleteDataDirect(`_bannedUsers/${emailKey}`);
@@ -390,7 +401,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await appConfirm(
       type === 'ban'
         ? `${user.email} hesabını banlayıp silmek istediğinize emin misiniz?`
         : `${user.email} hesabını silmek istediğinize emin misiniz?`
@@ -444,6 +455,75 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
     setShowDeleteModal(true);
   };
 
+  const handleGrantSitePermission = async (user: User) => {
+    if (isProtectedAdmin(user)) return;
+
+    const uid = user.uid && !user.uid.startsWith('UID:') ? user.uid : '';
+    if (!uid) {
+      alert('Bu kullanıcı için UID bulunamadı. Önce kullanıcı bulut verilerini yenileyin.');
+      return;
+    }
+
+    const confirmed = await appConfirm(
+      `${user.email} kullanıcısına sadece 1 yeni oturum ekleme hakkı verilsin mi?`
+    );
+    if (!confirmed) return;
+
+    try {
+      const existingProfile = await db.getDataDirect(`_userProfiles/${uid}`).catch(() => null);
+      const nextCredits = Math.max(0, Number(existingProfile?.createSiteCredits || user.createSiteCredits || 0)) + 1;
+      await db.saveDataDirect(`_userProfiles/${uid}`, {
+        ...(existingProfile || {}),
+        email: user.email,
+        name: user.name,
+        phone: user.phone || existingProfile?.phone || '',
+        createdAt: user.createdAt || existingProfile?.createdAt || new Date().toISOString(),
+        role: user.role || existingProfile?.role || 'Yönetici',
+        buildingName: user.buildingName || existingProfile?.buildingName || '',
+        createSiteCredits: nextCredits,
+        canCreateSites: nextCredits > 0
+      });
+
+      setUsers(prev => prev.map(item => {
+        const sameUser = (item.uid && item.uid === uid) || item.email === user.email;
+        return sameUser ? { ...item, createSiteCredits: nextCredits, canCreateSites: nextCredits > 0 } : item;
+      }));
+
+      alert('Sadece bu kullanıcıya 1 yeni oturum ekleme hakkı verildi.');
+    } catch (error) {
+      console.error('Oturum izni güncellenemedi:', error);
+      alert('Oturum izni güncellenemedi.');
+    }
+  };
+
+  const handleClearSitePermission = async (user: User) => {
+    if (isProtectedAdmin(user)) return;
+    const uid = user.uid && !user.uid.startsWith('UID:') ? user.uid : '';
+    if (!uid) return;
+
+    if (!(await appConfirm(`${user.email} kullanıcısının kalan oturum ekleme hakları sıfırlansın mı?`))) return;
+
+    try {
+      const existingProfile = await db.getDataDirect(`_userProfiles/${uid}`).catch(() => null);
+      await db.saveDataDirect(`_userProfiles/${uid}`, {
+        ...(existingProfile || {}),
+        email: user.email,
+        name: user.name,
+        phone: user.phone || existingProfile?.phone || '',
+        createdAt: user.createdAt || existingProfile?.createdAt || new Date().toISOString(),
+        role: user.role || existingProfile?.role || 'Yönetici',
+        buildingName: user.buildingName || existingProfile?.buildingName || '',
+        createSiteCredits: 0,
+        canCreateSites: false
+      });
+      setUsers(prev => prev.map(item => ((item.uid && item.uid === uid) || item.email === user.email) ? { ...item, createSiteCredits: 0, canCreateSites: false } : item));
+      alert('Kullanıcının oturum ekleme hakkı sıfırlandı.');
+    } catch (error) {
+      console.error('Oturum hakkı sıfırlanamadı:', error);
+      alert('Oturum hakkı sıfırlanamadı.');
+    }
+  };
+
   const handleMigrate = async () => {
     if (!migrationSource || !migrationTarget) {
       alert('Lütfen kaynak ve hedef bilgilerini eksiksiz girin.');
@@ -455,7 +535,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
       return;
     }
 
-    const confirmed = window.confirm(`${migrationSource} verilerini ${migrationTarget} hesabına aktarmak istediğinize emin misiniz? Bu işlem mevcut verilerin üzerine yazabilir.`);
+    const confirmed = await appConfirm(`${migrationSource} verilerini ${migrationTarget} hesabına aktarmak istediğinize emin misiniz? Bu işlem mevcut verilerin üzerine yazabilir.`);
     if (!confirmed) return;
 
     try {
@@ -609,8 +689,8 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
             </h4>
             <p className="text-[12px] text-white/60 mb-4 font-medium">Bulut veritabanındaki tüm verileri tarar.</p>
             <button
-              onClick={() => {
-                const confirmed = window.confirm('Bulut veritabanındaki tüm dalları taramak istiyor musunuz? Bu işlem yetki durumuna bağlıdır.');
+              onClick={async () => {
+                const confirmed = await appConfirm('Bulut veritabanındaki tüm dalları taramak istiyor musunuz? Bu işlem yetki durumuna bağlıdır.');
                 if (confirmed) loadUsers({ showCloudSummary: true });
               }}
               disabled={isLoading}
@@ -701,6 +781,14 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
                         {user.role || 'Yönetici'}
                         {user.buildingName ? ` • ${user.buildingName}` : ''}
                       </p>
+                      <p className={`text-[9px] font-black uppercase tracking-[0.18em] mt-2 ${user.canCreateSites ? 'text-blue-300' : 'text-white/25'}`}>
+                        {user.canCreateSites ? `KALAN OTURUM HAKKI: ${user.createSiteCredits || 0}` : 'EK OTURUM İZNİ KAPALI'}
+                      </p>
+                      {user.canCreateSites && (
+                        <p className="text-[8px] font-bold text-blue-200/50 uppercase tracking-widest mt-1">
+                          Her hak sadece 1 oturum içindir
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -709,13 +797,31 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
                       <span className="text-[10px] font-black tracking-[0.2em] uppercase text-emerald-300">SİZ</span>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => handleDeleteUser(user)}
-                      title="Kullanıcıyı sil veya banla"
-                      className="bg-red-600/10 hover:bg-red-600/20 border-red-500/20 active:scale-90 p-2.5 rounded-xl border transition-all"
-                    >
-                      <Trash2 size={16} className="text-red-400" />
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleGrantSitePermission(user)}
+                        title="1 yeni oturum hakkı ver"
+                        className="h-10 px-3 rounded-xl border transition-all text-[9px] font-black uppercase tracking-widest bg-blue-600/20 border-blue-400/30 text-blue-200"
+                      >
+                        1 HAK VER
+                      </button>
+                      {user.canCreateSites && (
+                        <button
+                          onClick={() => handleClearSitePermission(user)}
+                          title="Kalan oturum haklarını sıfırla"
+                          className="h-10 px-3 rounded-xl border transition-all text-[9px] font-black uppercase tracking-widest bg-white/5 border-white/10 text-white/45"
+                        >
+                          SIFIRLA
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteUser(user)}
+                        title="Kullanıcıyı sil veya banla"
+                        className="bg-red-600/10 hover:bg-red-600/20 border-red-500/20 active:scale-90 p-2.5 rounded-xl border transition-all"
+                      >
+                        <Trash2 size={16} className="text-red-400" />
+                      </button>
+                    </div>
                   )}
                 </div>
 

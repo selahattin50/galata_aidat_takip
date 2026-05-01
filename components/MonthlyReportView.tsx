@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { ArrowLeft, ChevronDown, X, FileDown, Calendar, MessageCircle, Building, Check, Wallet, Inbox, Share2, Lock } from 'lucide-react';
+import { ArrowLeft, ChevronDown, X, Calendar, MessageCircle, Building, Check, Wallet, Inbox, Lock } from 'lucide-react';
 import { Transaction, Unit, FileEntry } from '../types';
 import { PDFService } from '../pdfService';
 import { useAndroidBackHandler } from '../appBackButton';
 import { createFinancialReportPdf } from './reportPdfUtils';
+import PdfActionButton from './PdfActionButton';
 
 interface MonthlyReportViewProps {
   transactions: Transaction[];
@@ -50,15 +51,15 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
 
   const { totalDebt, totalCredit, netDebt } = useMemo(() => {
     return units.reduce((acc, u) => {
-      const debt = u.debt || 0;
-      const credit = u.credit || 0;
+      const debt = selectedVault === 'genel' ? (u.debt || 0) : (u.demirbasDebt || 0);
+      const credit = selectedVault === 'genel' ? (u.credit || 0) : (u.demirbasCredit || 0);
       return {
         totalDebt: acc.totalDebt + debt,
         totalCredit: acc.totalCredit + credit,
         netDebt: acc.netDebt + Math.max(0, debt - credit)
       };
     }, { totalDebt: 0, totalCredit: 0, netDebt: 0 });
-  }, [units]);
+  }, [units, selectedVault]);
 
   function isCreditBalanceIncome(tx: Transaction) {
     if (tx.type !== 'GELİR') return false;
@@ -261,21 +262,8 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-32 no-scrollbar">
         <div className="grid grid-cols-1 gap-3 mb-4 min-[360px]:grid-cols-2">
-          <button onClick={() => generateAndHandlePdf('download')} disabled={isProcessing} className="h-12 bg-[#1e293b] rounded-xl border border-white/5 flex items-center p-2 space-x-3 active:bg-white/10 transition-all shadow-lg">
-            <div className="w-8 h-8 bg-red-600/20 rounded-lg flex items-center justify-center border border-red-600/30">
-              <div className="flex flex-col items-center">
-                <span className="text-[5px] font-black text-red-500 leading-none mb-0.5">PDF</span>
-                <FileDown size={14} className="text-red-500" />
-              </div>
-            </div>
-            <span className="text-[12px] font-black text-white uppercase tracking-widest">İndir</span>
-          </button>
-          <button onClick={() => generateAndHandlePdf('share')} disabled={isProcessing} className="h-12 bg-[#1e293b] rounded-xl border border-white/5 flex items-center p-2 space-x-3 active:bg-white/10 transition-all shadow-lg">
-            <div className="w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center border border-blue-600/30">
-              <Share2 size={18} className="text-white fill-white/20" />
-            </div>
-            <span className="text-[12px] font-black text-white uppercase tracking-widest">Paylaş</span>
-          </button>
+          <PdfActionButton type="download" onClick={() => generateAndHandlePdf('download')} disabled={isProcessing} />
+          <PdfActionButton type="share" onClick={() => generateAndHandlePdf('share')} disabled={isProcessing} />
         </div>
 
         <div className="grid grid-cols-3 gap-1.5 mb-4">

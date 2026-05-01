@@ -8,7 +8,7 @@ interface BorclandirViewProps {
   units: Unit[];
   info: BuildingInfo;
   onClose: () => void;
-  onSave: (amount: number, description: string, vault: 'genel' | 'demirbas', date: string, unitId: string, month: number, year: number) => void;
+  onSave: (amount: number, description: string, vault: 'genel' | 'demirbas', date: string, unitId: string, month?: number, year?: number) => void;
   currentDate: Date;
 }
 
@@ -29,7 +29,7 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
 
   const selectedUnit = units.find(u => u.id === formData.unitId);
 
-  const selectableUnits = useMemo(() => 
+  const selectableUnits = useMemo(() =>
     units.filter(u => !(info.isManagerExempt && u.id === info.managerUnitId))
          .sort((a, b) => parseInt(a.no) - parseInt(b.no)),
     [units, info]
@@ -38,12 +38,16 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
   useEffect(() => {
     if (selectedUnit) {
       const typeLabel = formData.debtorType === 'Kiracı' ? 'Kiracı' : 'Malik';
-      const newDesc = `${selectedUnit.no} Nolu Daire ${typeLabel} Borçlandırma`;
-      if (!formData.description || formData.description.includes('Borçlandırma')) {
+      const selectedDate = new Date(formData.date);
+      const monthLabel = selectedDate.toLocaleDateString('tr-TR', { month: 'long' }).toLocaleUpperCase('tr-TR');
+      const newDesc = formData.kasa === 'genel'
+        ? `${selectedUnit.no} Nolu Daire ${typeLabel} ${monthLabel} Ayı Aidat Borcu`
+        : `${selectedUnit.no} Nolu Daire ${typeLabel} Demirbaş Borcu`;
+      if (!formData.description || formData.description.includes('Borçlandırma') || formData.description.includes('Aidat Borcu') || formData.description.includes('Demirbaş Borcu')) {
         setFormData(prev => ({ ...prev, description: newDesc }));
       }
     }
-  }, [formData.unitId, formData.debtorType, selectedUnit]);
+  }, [formData.unitId, formData.debtorType, formData.date, formData.kasa, selectedUnit]);
 
   const handleUnitSelect = (unit: Unit) => {
     setFormData(prev => ({
@@ -58,18 +62,29 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
   const handleProcess = async () => {
     const numAmount = parseFloat(formData.amount);
     if (!formData.unitId || !numAmount || numAmount <= 0) return;
+
     setIsSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setSaveComplete(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const kasaName = formData.kasa === 'genel' ? 'Genel Gider' : 'Demirbaş';
+    // Mimic a small delay for better UX
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    const kasaName = formData.kasa === 'genel' ? 'genel' : 'demirbas';
     const finalDescription = `${formData.description || 'Borçlandırma'} [${kasaName}]`;
     const d = new Date(formData.date);
+    const isDuesDebt = /A[İI]DAT/i.test(finalDescription);
+
+    // Call onSave which updates the state and switches view in App.tsx
+    onSave(
+      numAmount,
+      finalDescription,
+      formData.kasa,
+      formData.date,
+      formData.unitId,
+      isDuesDebt ? d.getMonth() : undefined,
+      isDuesDebt ? d.getFullYear() : undefined
+    );
+
+    setIsSaving(false);
     setIsSuccess(true);
-    setTimeout(() => {
-      onSave(numAmount, finalDescription, formData.kasa, formData.date, formData.unitId, d.getMonth(), d.getFullYear());
-    }, 500);
   };
 
   if (isSuccess) {
@@ -85,9 +100,9 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
   }
 
   return (
-    <div className="animate-in slide-in-from-bottom-6 duration-500 pt-0 pb-60">
+    <div className="scroll-stable-form h-full overflow-hidden pt-0 pb-4">
       <div className="px-4 py-6 mb-2 flex items-center justify-between">
-        <button onClick={onClose} className="bg-white/5 p-2 rounded-xl active:scale-90 transition-all border border-white/5">
+        <button onClick={onClose} className="bg-white/5 p-2 rounded-xl transition-colors border border-white/5">
           <ArrowLeft size={24} className="text-zinc-400" />
         </button>
         <h3 className="text-[17px] font-black uppercase tracking-[0.2em] text-red-500 text-center">BORÇLANDIRMA</h3>
@@ -106,13 +121,13 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
         <section className="relative">
           <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">2. DAİRE SEÇİMİ</label>
           <div className={`rounded-2xl border border-white/10 overflow-hidden shadow-2xl transition-all ${selectedUnit ? 'bg-[#111827]' : 'bg-gradient-to-br from-slate-800 to-slate-900'}`}>
-            <button onClick={() => setShowUnitList(!showUnitList)} className="w-full min-h-[56px] py-2 flex items-center justify-between px-4 active:scale-[0.98] transition-all">
+            <button onClick={() => setShowUnitList(!showUnitList)} className="w-full min-h-[50px] py-1.5 flex items-center justify-between px-4 transition-colors">
               <div className="flex items-center space-x-3 min-w-0">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black transition-all shadow-xl shrink-0 ${selectedUnit ? 'bg-red-600 text-white' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>{selectedUnit ? selectedUnit.no : <Home size={18} />}</div>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all shadow-xl shrink-0 ${selectedUnit ? 'bg-red-600 text-white' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>{selectedUnit ? selectedUnit.no : <Home size={18} />}</div>
                 <div className="flex flex-col text-left min-w-0">
                   <div className="flex items-center space-x-2">
                     {selectedUnit && <span className="text-[10px] font-black text-red-500/70">NO {selectedUnit.no}</span>}
-                    <span className={`text-[13px] font-black uppercase tracking-tighter leading-none truncate ${selectedUnit ? 'text-white' : 'text-red-500'}`}>
+                    <span className={`text-[15px] font-black uppercase tracking-tighter leading-none truncate ${selectedUnit ? 'text-white' : 'text-red-500'}`}>
                       {selectedUnit ? (selectedUnit.tenantName || selectedUnit.ownerName).toUpperCase() : 'DAİRE SEÇİNİZ...'}
                     </span>
                   </div>
@@ -148,7 +163,7 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
 
         <section>
           <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">4. İŞLEM DETAYLARI</label>
-          <div className="glass-panel rounded-2xl p-4 space-y-4 border border-white/10">
+          <div className="glass-panel rounded-2xl p-3 space-y-3 border border-white/10">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">İşlem Tarihi</label>
@@ -156,17 +171,17 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
               </div>
               <div>
                 <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">Tutar (₺)</label>
-                <input type="number" placeholder="0.00" value={formData.amount} onChange={(e) => setFormData(prev => ({...prev, amount: e.target.value}))} className="bg-black/20 w-full h-[52px] rounded-xl px-3 text-[20px] font-black text-red-500 outline-none border border-white/5" />
+                <input type="number" placeholder="0.00" value={formData.amount} onChange={(e) => setFormData(prev => ({...prev, amount: e.target.value}))} className="bg-black/20 w-full h-[46px] rounded-xl px-3 text-[22px] font-black text-red-500 outline-none border border-white/5" />
               </div>
             </div>
             <div>
               <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">Açıklama</label>
-              <input type="text" placeholder="Örn: Aidat Borcu" value={formData.description} onChange={(e) => setFormData(prev => ({...prev, description: e.target.value}))} className="bg-black/20 w-full h-[52px] rounded-xl px-3 text-[13px] font-bold text-white outline-none border border-white/5" />
+              <input type="text" placeholder="Örn: Aidat Borcu" value={formData.description} onChange={(e) => setFormData(prev => ({...prev, description: e.target.value}))} className="bg-black/20 w-full h-[46px] rounded-xl px-3 text-[15px] font-bold text-white outline-none border border-white/5" />
             </div>
           </div>
         </section>
 
-        <button onClick={handleProcess} disabled={!formData.unitId || !formData.amount || isSaving} className={`w-full h-14 rounded-[20px] shadow-2xl flex items-center justify-center space-x-3 active:scale-95 transition-all ${formData.unitId && formData.amount ? 'bg-red-600' : 'bg-white/5 grayscale cursor-not-allowed opacity-30'}`}>{isSaving ? <Loader2 className="animate-spin text-white" size={24} /> : saveComplete ? <div className="flex items-center space-x-2"><CheckCircle2 size={22} className="text-white" /><span className="text-[14px] font-black text-white uppercase tracking-widest">KAYDEDİLDİ</span></div> : <><Save size={22} className="text-white" /><span className="text-[14px] font-black text-white uppercase tracking-widest">BORCU KAYDET</span></>}</button>
+        <button onClick={handleProcess} disabled={!formData.unitId || !formData.amount || isSaving} className={`w-full h-14 rounded-[20px] shadow-2xl flex items-center justify-center space-x-3 transition-colors ${formData.unitId && formData.amount ? 'bg-red-600' : 'bg-white/5 grayscale cursor-not-allowed opacity-30'}`}>{isSaving ? <Loader2 className="animate-spin text-white" size={24} /> : saveComplete ? <div className="flex items-center space-x-2"><CheckCircle2 size={22} className="text-white" /><span className="text-[14px] font-black text-white uppercase tracking-widest">KAYDEDİLDİ</span></div> : <><Save size={22} className="text-white" /><span className="text-[14px] font-black text-white uppercase tracking-widest">BORCU KAYDET</span></>}</button>
       </div>
     </div>
   );

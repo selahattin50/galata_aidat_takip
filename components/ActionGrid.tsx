@@ -35,20 +35,20 @@ const ActionGrid: React.FC<ActionGridProps> = ({ variant = 'grid', onActionClick
 
   if (variant === 'grid') {
     return (
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5 pb-1">
+      <div className="grid h-full min-h-0 grid-cols-3 content-center gap-2 min-[390px]:gap-2.5 md:grid-cols-4 lg:grid-cols-6">
         {actions.map((action, idx) => (
           <button
             key={idx}
             onClick={() => onActionClick?.(action.label)}
-            className={`flex flex-col items-center justify-center bg-white/[0.03] backdrop-blur-md rounded-[20px] p-1.5 h-[82px] border border-white/10 shadow-lg active:scale-90 transition-all duration-300 group relative overflow-hidden`}
+            className={`flex min-h-[64px] flex-col items-center justify-center bg-white/[0.03] backdrop-blur-md rounded-[18px] p-1.5 h-[clamp(64px,10.2dvh,92px)] border border-white/10 shadow-lg active:scale-90 transition-all duration-300 group relative overflow-hidden`}
           >
             <div className="absolute inset-0 bg-white/5 opacity-0 group-active:opacity-100 transition-opacity" />
-            <div className={`mb-1 transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]`}>
+            <div className={`mb-0.5 min-[380px]:mb-1 transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]`}>
               {React.cloneElement(action.icon as React.ReactElement, { 
                 className: action.color.split(' ')[0].replace('from-', 'text-').replace('/12', '')
               })}
             </div>
-            <span className="text-[10px] min-[360px]:text-[11px] font-bold uppercase tracking-tight text-white/90 text-center leading-[1.2]">
+            <span className="text-[9px] min-[360px]:text-[10px] min-[420px]:text-[11px] font-bold uppercase tracking-tight text-white/90 text-center leading-[1.12]">
               {action.label.includes(' ') && action.label.length > 10 
                 ? action.label.split(' ').map((word, i) => <React.Fragment key={i}>{word}<br/></React.Fragment>)
                 : action.label

@@ -61,7 +61,7 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
 
   return (
     <div className="animate-page-in pt-0 pb-4 relative">
-      <div className="px-4 pt-4 pb-4">
+      <div className="sticky top-0 z-30 px-4 pt-4 pb-2 bg-[#1e293b]/95 backdrop-blur-xl border-b border-white/5">
         <div className="flex items-center justify-between mb-4 relative">
           <button onClick={onClose} className="bg-white/5 p-2 rounded-xl border border-white/5 active:scale-90 transition-all">
             <ArrowLeft size={20} strokeWidth={3} className="text-zinc-400" />
@@ -89,7 +89,7 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
 
       </div>
 
-      <div className="px-2 mt-4 space-y-1.5">
+      <div className="px-2 mt-2 space-y-1.5">
         {units.sort((a, b) => parseInt(a.no) - parseInt(b.no)).map((unit, index) => (
           <div 
             key={unit.id} 

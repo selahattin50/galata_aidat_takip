@@ -17,3 +17,39 @@
   opacity: 0;
   animation: slideUpIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
+
+:root {
+  --app-bottom-nav-height: calc(76px + env(safe-area-inset-bottom, 0px));
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+.app-bottom-nav {
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  min-height: var(--app-bottom-nav-height);
+}
+
+.home-shell {
+  padding-bottom: calc(var(--app-bottom-nav-height) + 10px);
+}
+
+.scroll-stable-form {
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+}
+
+@media (max-height: 720px) {
+  :root {
+    --app-bottom-nav-height: calc(66px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --app-bottom-nav-height: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+}

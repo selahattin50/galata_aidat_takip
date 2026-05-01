@@ -7,6 +7,7 @@ import { auth } from '../firebaseConfig';
 import UserManagementView from './UserManagementView.tsx';
 import { useAndroidBackHandler } from '../appBackButton';
 import CarryOverView from './CarryOverView.tsx';
+import { appConfirm } from './AppDialog';
 
 interface SettingsErrorBoundaryProps {
   children: ReactNode;
@@ -259,9 +260,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
                   <p className="text-[12px] font-black uppercase tracking-wider text-white/90">Otomatik Aidat</p>
                   <p className="text-[8px] font-bold text-white/30 uppercase mt-0.5">Her ay otomatik borçlandır</p>
                 </div>
-                <button 
+                <button
                   disabled={!isEditing}
-                  onClick={() => setSt({ ...st, isAutoDuesEnabled: !st.isAutoDuesEnabled })} 
+                  onClick={() => setSt({ ...st, isAutoDuesEnabled: !st.isAutoDuesEnabled })}
                   className={`transition-all ${st.isAutoDuesEnabled ? "text-emerald-400" : "text-white/20"} ${!isEditing ? 'opacity-40' : 'opacity-100'}`}
                 >
                   {st.isAutoDuesEnabled ? <ToggleRight size={36} /> : <ToggleLeft size={36} />}
@@ -365,7 +366,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
           {/* 4. GİDER KATEGORİLERİ */}
           <section className="bg-white/5 backdrop-blur-md rounded-[40px] p-6 border border-white/5 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
-              <button 
+              <button
                 onClick={() => setShowExpenseCategories(!showExpenseCategories)}
                 className="flex items-center space-x-2 opacity-40 active:scale-95 transition-all"
               >
@@ -373,18 +374,18 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
                 <h2 className="text-[11px] font-black tracking-[0.2em] uppercase text-zinc-100">GİDER KATEGORİLERİ</h2>
                 <ChevronRight size={14} className={`text-zinc-400 transition-transform ${showExpenseCategories ? 'rotate-90' : ''}`} />
               </button>
-              <button 
-                disabled={!isEditing} 
+              <button
+                disabled={!isEditing}
                 onClick={() => {
                   if (!showExpenseCategories) setShowExpenseCategories(true);
                   handleAddExpenseCategory();
-                }} 
+                }}
                 className={`bg-zinc-600 px-4 py-1.5 rounded-lg text-[10px] font-black text-white active:scale-95 transition-all ${!isEditing ? 'opacity-40' : ''}`}
               >
                 EKLE
               </button>
             </div>
-            
+
             {showExpenseCategories && (
               <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="flex mb-4">
@@ -452,7 +453,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
               disabled={!isEditing}
               onClick={async () => {
                 const currentSession = db.getCurrentSession();
-                if (window.confirm(`"${currentSession}" oturumundaki TÜM muhasebe verilerini silmek istediğinizden emin misiniz?`)) {
+                if (await appConfirm(`"${currentSession}" oturumundaki TÜM muhasebe verilerini silmek istediğinizden emin misiniz?`)) {
                   await db.saveTransactions([]);
                   onResetMoney();
                   alert('Muhasebe verileri temizlendi.');
@@ -468,8 +469,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
               disabled={!isEditing}
               onClick={async () => {
                 const currentSession = db.getCurrentSession();
-                if (window.confirm(`DİKKAT! "${currentSession}" hesabındaki Apartman Bilgileri, Daireler ve Mesajlar dahil HER ŞEYİ kalıcı olarak siliyorsunuz. Emin misiniz?`)) {
-                  if (window.confirm('SON UYARI: Bu işlem geri alınamaz! Hesabınızdaki tüm veriler sıfırlanacak. Onaylıyor musunuz?')) {
+                if (await appConfirm(`DİKKAT! "${currentSession}" hesabındaki Apartman Bilgileri, Daireler ve Mesajlar dahil HER ŞEYİ kalıcı olarak siliyorsunuz. Emin misiniz?`)) {
+                  if (await appConfirm('SON UYARI: Bu işlem geri alınamaz! Hesabınızdaki tüm veriler sıfırlanacak. Onaylıyor musunuz?')) {
                     try {
                       const currentUser = auth.currentUser;
                       if (!currentUser) {
@@ -490,6 +491,46 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
               className={`w-full bg-red-600 py-3 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-lg ${!isEditing ? 'opacity-40' : ''}`}
             >
               HESABI SIFIRLA (FABRİKA AYARLARI)
+            </button>
+
+            <button
+              disabled={!isEditing}
+              onClick={async () => {
+                if (await appConfirm('HESABINIZI TAMAMEN SİLMEK İSTEDİĞİNİZDEN EMİN MİSİNİZ? Bu işlem geri alınamaz ve tüm verilerinizle birlikte giriş bilgileriniz de silinecektir.')) {
+                  if (await appConfirm('SON ONAY: Hesabınızı ve tüm verilerinizi kalıcı olarak siliyoruz. Onaylıyor musunuz?')) {
+                    try {
+                      const currentUser = auth.currentUser;
+                      if (!currentUser) {
+                        alert('Hata: Aktif oturum bulunamadı!');
+                        return;
+                      }
+
+                      // 1. Verileri sil
+                      await db.deleteDataDirect(`users/${currentUser.uid}`);
+
+                      // 2. Kullanıcıyı sil (Firebase Auth)
+                      const { deleteUser } = await import('firebase/auth');
+                      await deleteUser(currentUser);
+
+                      alert('Hesabınız ve tüm verileriniz başarıyla silindi.');
+
+                      localStorage.removeItem('galata_v16_auth');
+                      sessionStorage.removeItem('galata_v16_auth');
+                      window.location.reload();
+                    } catch (error: any) {
+                      console.error('Hesap silme hatası:', error);
+                      if (error.code === 'auth/requires-recent-login') {
+                        alert('Güvenlik nedeniyle bu işlemi yapabilmek için yakın zamanda giriş yapmış olmanız gerekmektedir. Lütfen çıkış yapıp tekrar giriş yapın ve tekrar deneyin.');
+                      } else {
+                        alert('Hesap silme işlemi sırasında bir hata oluştu: ' + error.message);
+                      }
+                    }
+                  }
+                }
+              }}
+              className={`w-full bg-red-600 py-3 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-lg ${!isEditing ? 'opacity-40' : ''}`}
+            >
+              HESABIMI SİL
             </button>
           </section>
         </div>

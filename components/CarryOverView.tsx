@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { X, Check, ArrowRight, Wallet, History, Loader2 } from 'lucide-react';
 import { Unit, Transaction } from '../types.ts';
 import DatePickerModal from './DatePickerModal';
+import { appConfirm } from './AppDialog';
 
 interface CarryOverViewProps {
   units: (Unit & { credit: number; debt: number })[];
@@ -15,7 +16,7 @@ const CarryOverView: React.FC<CarryOverViewProps> = ({ units, onCarryOver, onClo
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   const handleProcess = async () => {
-    if (!window.confirm('Seçili tarih itibariyle tüm bakiyeler yeni döneme "DEVİR" olarak aktarılacaktır. Onaylıyor musunuz?')) return;
+    if (!(await appConfirm('Seçili tarih itibariyle tüm bakiyeler yeni döneme "DEVİR" olarak aktarılacaktır. Onaylıyor musunuz?'))) return;
 
     setIsProcessing(true);
     await new Promise(r => setTimeout(r, 1500)); // Simüle edilen işlem süresi

@@ -47,14 +47,14 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
 
     setIsSaving(true);
     await new Promise(resolve => setTimeout(resolve, 800));
-    
+
     setReceiptData({
         amount: numAmount,
         description: formData.description || formData.category,
         vault: formData.kasa,
         date: new Date(formData.date).toLocaleDateString('tr-TR')
     });
-    
+
     setIsSaving(false);
     setIsSuccess(true);
   };
@@ -72,10 +72,10 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
                 <span className="text-[20px] font-black text-green-500">₺{new Intl.NumberFormat('tr-TR').format(receiptData.amount)}</span>
             </div>
         </div>
-        <button 
-            onClick={async () => { 
+        <button
+            onClick={async () => {
               try {
-                await onSave(receiptData.amount, receiptData.description, receiptData.vault, receiptData.date); 
+                await onSave(receiptData.amount, receiptData.description, receiptData.vault, receiptData.date);
                 onClose();
               } catch (error) {
                 console.error('Gelir kaydetme hatası:', error);
@@ -104,12 +104,12 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
       <div className="space-y-4 px-1">
         <section>
           <label className="text-[10px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">KASA SEÇİMİ</label>
-          <div className="grid grid-cols-2 gap-2.5 bg-white/5 p-1.5 rounded-2xl border border-white/5">
-            <button onClick={() => setFormData(prev => ({...prev, kasa: 'genel'}))} className={`h-12 rounded-xl flex items-center justify-center space-x-2 transition-all ${formData.kasa === 'genel' ? 'bg-green-500 shadow-lg text-white' : 'text-white/20'}`}>
-              <Wallet size={16} /><span className="text-[11px] font-black uppercase">Genel Gider</span>
+          <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
+            <button onClick={() => setFormData(prev => ({...prev, kasa: 'genel'}))} className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${formData.kasa === 'genel' ? 'bg-green-500/10 border-green-500/40 text-green-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}>
+              <Wallet size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Genel Gider</span>
             </button>
-            <button onClick={() => setFormData(prev => ({...prev, kasa: 'demirbas'}))} className={`h-12 rounded-xl flex items-center justify-center space-x-2 transition-all ${formData.kasa === 'demirbas' ? 'bg-blue-600 shadow-lg text-white' : 'text-white/20'}`}>
-              <Briefcase size={16} /><span className="text-[11px] font-black uppercase">Demirbaş</span>
+            <button onClick={() => setFormData(prev => ({...prev, kasa: 'demirbas'}))} className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${formData.kasa === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}>
+              <Briefcase size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Demirbaş</span>
             </button>
           </div>
         </section>
@@ -118,36 +118,36 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
           <label className="text-[10px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">TARİH VE TUTAR</label>
           <div className="grid grid-cols-2 gap-3">
             <DatePickerModal value={formData.date} onChange={v => setFormData(prev => ({...prev, date: v}))} />
-            <input 
-              type="number" 
-              placeholder="0.00" 
-              value={formData.amount} 
-              onChange={e => setFormData(prev => ({...prev, amount: e.target.value}))} 
-              className="w-full h-[52px] bg-black/40 rounded-xl px-4 text-[20px] font-black text-green-500 border border-white/10 outline-none focus:border-green-500/50 transition-all" 
+            <input
+              type="number"
+              placeholder="0.00"
+              value={formData.amount}
+              onChange={e => setFormData(prev => ({...prev, amount: e.target.value}))}
+              className="w-full h-[46px] bg-black/40 rounded-xl px-3 text-[22px] font-black text-green-500 border border-white/10 outline-none focus:border-green-500/50 transition-all"
             />
           </div>
         </section>
 
         <section className="relative group">
           <label className="text-[10px] font-black tracking-widest text-white/40 uppercase mb-1.5 block text-center">GELİR KALEMİ</label>
-          <button 
+          <button
             onClick={() => setShowCategoryList(!showCategoryList)}
-            className="w-full bg-[#1e293b] rounded-2xl h-14 flex items-center justify-between px-5 border border-white/10 hover:bg-[#203140] transition-all shadow-xl"
+            className="w-full bg-[#1e293b] rounded-2xl h-[50px] flex items-center justify-between px-4 border border-white/10 hover:bg-[#203140] transition-all shadow-xl"
           >
             <div className="flex items-center space-x-3 truncate">
               <span className="text-xl shrink-0">{incomeCategories.find(c => c.label === formData.category)?.icon || '💰'}</span>
-              <span className={`text-[13px] font-black uppercase tracking-wider truncate transition-colors ${formData.category ? 'text-white' : 'text-white/20 group-hover:text-white/40'}`}>
+              <span className={`text-[15px] font-black uppercase tracking-wider truncate transition-colors ${formData.category ? 'text-white' : 'text-white/20 group-hover:text-white/40'}`}>
                 {formData.category || 'GELİR TÜRÜ SEÇ...'}
               </span>
             </div>
             <ChevronDown size={20} className={`text-white/30 transition-transform duration-300 ${showCategoryList ? 'rotate-180' : ''}`} />
           </button>
-          
+
           {showCategoryList && (
             <div className="absolute top-full left-0 right-0 z-[110] mt-1 bg-[#1e293b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
               <div className="max-h-[220px] overflow-y-auto no-scrollbar">
                 {incomeCategories.map((cat) => (
-                  <button 
+                  <button
                     key={cat.id}
                     onClick={() => handleCategorySelect(cat.label)}
                     className={`w-full py-3 px-4 text-left flex items-center space-x-3 border-b border-white/5 last:border-0 hover:bg-green-500/20 active:bg-white/5 transition-colors group ${formData.category === cat.label ? 'bg-green-500/10' : ''}`}
@@ -164,20 +164,20 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
           )}
         </section>
 
-        <section className="bg-slate-800/40 rounded-3xl p-5 border border-white/5 shadow-2xl">
+        <section className="bg-slate-800/40 rounded-3xl p-3 border border-white/5 shadow-2xl">
           <label className="text-[10px] font-black tracking-widest text-white/20 uppercase mb-2 block ml-1">İŞLEM AÇIKLAMASI</label>
-          <input 
-            type="text" 
-            placeholder="Gelir detayı giriniz..." 
-            value={formData.description} 
-            onChange={e => setFormData(prev => ({...prev, description: e.target.value}))} 
-            className="w-full h-[52px] bg-black/20 rounded-xl px-4 text-[13px] font-black text-white border border-white/5 outline-none focus:border-green-500/30 transition-all" 
+          <input
+            type="text"
+            placeholder="Gelir detayı giriniz..."
+            value={formData.description}
+            onChange={e => setFormData(prev => ({...prev, description: e.target.value}))}
+            className="w-full h-[46px] bg-black/20 rounded-xl px-3 text-[15px] font-black text-white border border-white/5 outline-none focus:border-green-500/30 transition-all"
           />
         </section>
 
-        <button 
-          onClick={handleProcess} 
-          disabled={!formData.category || !formData.amount || isSaving} 
+        <button
+          onClick={handleProcess}
+          disabled={!formData.category || !formData.amount || isSaving}
           className={`w-full h-16 rounded-[28px] flex items-center justify-center space-x-4 transition-all active:scale-95 ${formData.category && formData.amount ? 'bg-green-600 shadow-[0_15px_30px_rgba(22,197,94,0.3)]' : 'bg-white/5 opacity-20 cursor-not-allowed'}`}
         >
           {isSaving ? <Loader2 className="animate-spin" size={24} /> : (

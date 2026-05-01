@@ -4,6 +4,7 @@ import { BuildingInfo, Unit } from '../types.ts';
 import { db } from '../databaseService';
 import { useAndroidBackHandler } from '../appBackButton';
 import { auth } from '../firebaseConfig';
+import { appConfirm } from './AppDialog';
 
 interface SessionsViewProps {
   info: BuildingInfo;
@@ -13,19 +14,26 @@ interface SessionsViewProps {
   onUpdateUnits: (count: number) => Promise<void>;
   userSites: { id: string, name: string }[];
   activeSiteId: string;
+  createSiteCredits?: number;
   onSelectSite: (id: string) => void;
   onCreateSite: (name: string) => void;
   onDeleteSite: (id: string) => void;
 }
 
 const SessionsView: React.FC<SessionsViewProps> = ({
-  info, units, onClose, onUpdateInfo, onUpdateUnits, userSites, activeSiteId, onSelectSite, onCreateSite, onDeleteSite
+  info, units, onClose, onUpdateInfo, onUpdateUnits, userSites, activeSiteId, createSiteCredits = 0, onSelectSite, onCreateSite, onDeleteSite
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showPaidFeatureModal, setShowPaidFeatureModal] = useState(false);
   const [newSiteName, setNewSiteName] = useState('');
   useAndroidBackHandler(() => {
+    if (showPaidFeatureModal) {
+      setShowPaidFeatureModal(false);
+      return true;
+    }
+
     if (showCreateModal) {
       setShowCreateModal(false);
       return true;
@@ -218,8 +226,8 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                   )}
                   {userSites.length > 1 && (
                     <button
-                      onClick={() => {
-                        if (window.confirm(`${site.name} yönetimini silmek istediğinize emin misiniz? (Tüm veriler temizlenecektir)`)) {
+                      onClick={async () => {
+                        if (await appConfirm(`${site.name} yönetimini silmek istediğinize emin misiniz? (Tüm veriler temizlenecektir)`)) {
                           onDeleteSite(site.id);
                         }
                       }}
@@ -236,8 +244,8 @@ const SessionsView: React.FC<SessionsViewProps> = ({
           <button
             onClick={() => {
               const isAdmin = auth.currentUser?.email === 'selahattin50@gmail.com';
-              if (!isAdmin && userSites.length >= 1) {
-                alert('Yeni bir apartman/site eklemek ücretli bir özelliktir. Lütfen bizimle iletişime geçin.\n\nİletişim: selahattin50@gmail.com');
+              if (!isAdmin && createSiteCredits <= 0 && userSites.length >= 1) {
+                setShowPaidFeatureModal(true);
                 return;
               }
               setShowCreateModal(true);
@@ -251,6 +259,34 @@ const SessionsView: React.FC<SessionsViewProps> = ({
           </button>
         </div>
       </div>
+
+      {showPaidFeatureModal && (
+        <div className="fixed inset-0 z-[320] bg-black/75 backdrop-blur-md flex items-center justify-center px-6 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-[26px] border border-blue-400/25 bg-[#17233a] shadow-[0_24px_60px_rgba(0,0,0,0.45)] overflow-hidden">
+            <div className="h-1 w-full bg-gradient-to-r from-blue-500/50 via-emerald-400/50 to-blue-500/50" />
+            <div className="p-5">
+              <h4 className="text-[15px] font-black text-white uppercase tracking-[0.12em] leading-snug">
+                Yeni Oturum Eklemek İçin Bizimle İletişime Geçiniz
+              </h4>
+              <p className="mt-3 text-[12px] font-bold leading-relaxed text-white/65">
+                Ek oturum açma işlemleri yönetici onayıyla yapılır.
+              </p>
+              <div className="mt-5 flex items-stretch gap-2">
+                <div className="min-w-0 flex-1 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2.5">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-300/80">İletişim</p>
+                  <p className="mt-1 whitespace-nowrap text-[11px] font-black leading-none text-white">selahattin50@gmail.com</p>
+                </div>
+                <button
+                  onClick={() => setShowPaidFeatureModal(false)}
+                  className="h-auto shrink-0 rounded-2xl bg-blue-600 px-3.5 text-white text-[10px] font-black uppercase tracking-wider active:scale-95 transition-all shadow-lg"
+                >
+                  TAMAM
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCreateModal && (
         <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex items-center justify-center px-6 animate-in fade-in duration-300">

@@ -1,5 +1,6 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import {
   HandCoins, UserPlus, RotateCcw, TrendingUp, TrendingDown,
   ArrowLeftRight, Building2, History, UserCheck, CalendarDays,
@@ -28,6 +29,16 @@ interface MenuViewProps {
 }
 
 const MenuView: React.FC<MenuViewProps> = ({ onActionClick, onLogout, onClose }) => {
+  const [appVersion, setAppVersion] = useState('1.2');
+
+  useEffect(() => {
+    CapacitorApp.getInfo()
+      .then((info) => {
+        if (info.version) setAppVersion(info.version);
+      })
+      .catch(() => {});
+  }, []);
+
   const sections: MenuSection[] = [
     {
       title: "FİNANSAL İŞLEMLER",
@@ -127,9 +138,9 @@ const MenuView: React.FC<MenuViewProps> = ({ onActionClick, onLogout, onClose })
         ))}
       </div>
 
-      <div className="mt-12 text-center opacity-10 flex flex-col items-center">
-        <div className="w-12 h-0.5 bg-white mb-4 rounded-full"></div>
-        <p className="text-[8px] font-black uppercase tracking-[0.5em]">GALATA v2.4.0 DEBUG</p>
+      <div className="mt-12 text-center flex flex-col items-center">
+        <div className="w-12 h-0.5 bg-white/20 mb-4 rounded-full"></div>
+        <p className="text-[8px] font-black uppercase tracking-[0.5em] text-white/35">GALATA SÜRÜM {appVersion}</p>
       </div>
     </div>
   );

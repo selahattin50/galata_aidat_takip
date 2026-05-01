@@ -2,7 +2,6 @@
 import React from 'react';
 import { Database, Shield, Power, MessageCircle } from 'lucide-react';
 import { BuildingInfo } from '../types.ts';
-import logo from '../src/assets/logo.png';
 
 interface HeaderProps {
   info: BuildingInfo;

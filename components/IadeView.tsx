@@ -25,7 +25,7 @@ const IadeView: React.FC<IadeViewProps> = ({ units, info, onClose, onSave, curre
 
   const selectedUnit = units.find(u => u.id === selectedUnitId);
 
-  const selectableUnits = useMemo(() => 
+  const selectableUnits = useMemo(() =>
     units.sort((a, b) => parseInt(a.no) - parseInt(b.no)),
     [units]
   );
@@ -50,16 +50,26 @@ const IadeView: React.FC<IadeViewProps> = ({ units, info, onClose, onSave, curre
   const handleProcess = async () => {
     const numAmount = parseFloat(amount);
     if (!selectedUnitId || !numAmount || numAmount <= 0) return;
+    if (!selectedUnit) return;
+
+    const availableCredit = sourceVault === 'genel' ? (selectedUnit.credit || 0) : (selectedUnit.demirbasCredit || 0);
+    if (numAmount > availableCredit) {
+      alert(`İade tutarı mevcut kredi bakiyesini aşamaz. Mevcut kredi: ₺${availableCredit.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+      return;
+    }
+
     setIsSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setSaveComplete(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const kasaName = sourceVault === 'genel' ? 'Genel Gider' : 'Demirbaş';
+    // Mimic a small delay for better UX
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    const kasaName = sourceVault === 'genel' ? 'genel' : 'demirbas';
     const finalDescription = `${description} [${kasaName}]`;
+
+    // Call onSave which updates the state and switches view in App.tsx
+    onSave(numAmount, finalDescription, sourceVault, selectedDate, selectedUnitId);
+
+    setIsSaving(false);
     setIsSuccess(true);
-    setTimeout(() => {
-      onSave(numAmount, finalDescription, sourceVault, selectedDate, selectedUnitId);
-    }, 500);
   };
 
   if (isSuccess) {
@@ -73,9 +83,9 @@ const IadeView: React.FC<IadeViewProps> = ({ units, info, onClose, onSave, curre
   }
 
   return (
-    <div className="animate-in slide-in-from-bottom-6 duration-500 pt-0 pb-60">
+    <div className="scroll-stable-form h-full overflow-hidden pt-0 pb-4">
       <div className="px-4 py-6 mb-2 flex items-center justify-between">
-        <button onClick={onClose} className="bg-white/5 p-2 rounded-xl active:scale-90 transition-all border border-white/5"><ArrowLeft size={24} className="text-zinc-400" /></button>
+        <button onClick={onClose} className="bg-white/5 p-2 rounded-xl transition-colors border border-white/5"><ArrowLeft size={24} className="text-zinc-400" /></button>
         <h3 className="text-[17px] font-black uppercase tracking-[0.2em] text-red-500 text-center">İADE İŞLEMİ</h3>
         <div className="w-10" />
       </div>
@@ -92,13 +102,13 @@ const IadeView: React.FC<IadeViewProps> = ({ units, info, onClose, onSave, curre
         <section className="relative">
           <label className="text-[10px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">2. DAİRE SEÇİMİ</label>
           <div className={`rounded-2xl border border-white/10 overflow-hidden shadow-2xl transition-all ${selectedUnit ? 'bg-[#111827]' : 'bg-gradient-to-br from-slate-800 to-slate-900'}`}>
-            <button onClick={() => setShowUnitList(!showUnitList)} className="w-full min-h-[56px] py-2 flex items-center justify-between px-4 active:scale-[0.98] transition-all">
+            <button onClick={() => setShowUnitList(!showUnitList)} className="w-full min-h-[50px] py-1.5 flex items-center justify-between px-4 transition-colors">
               <div className="flex items-center space-x-3 min-w-0">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black transition-all shadow-xl shrink-0 ${selectedUnit ? 'bg-blue-600 text-white' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>{selectedUnit ? selectedUnit.no : <Home size={18} />}</div>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all shadow-xl shrink-0 ${selectedUnit ? 'bg-blue-600 text-white' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>{selectedUnit ? selectedUnit.no : <Home size={18} />}</div>
                 <div className="flex flex-col text-left min-w-0">
                   <div className="flex items-center space-x-2">
                     {selectedUnit && <span className="text-[10px] font-black text-blue-400">NO {selectedUnit.no}</span>}
-                    <span className={`text-[13px] font-black uppercase tracking-tighter leading-none truncate ${selectedUnit ? 'text-white' : 'text-blue-500'}`}>
+                    <span className={`text-[15px] font-black uppercase tracking-tighter leading-none truncate ${selectedUnit ? 'text-white' : 'text-blue-500'}`}>
                       {selectedUnit ? (selectedUnit.tenantName || selectedUnit.ownerName).toUpperCase() : 'DAİRE SEÇİNİZ...'}
                     </span>
                   </div>
@@ -141,7 +151,7 @@ const IadeView: React.FC<IadeViewProps> = ({ units, info, onClose, onSave, curre
 
         <section>
           <label className="text-[10px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">4. İŞLEM DETAYLARI</label>
-          <div className="glass-panel rounded-2xl p-4 space-y-3 border border-white/10">
+          <div className="glass-panel rounded-2xl p-3 space-y-3 border border-white/10">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">İşlem Tarihi</label>
@@ -149,14 +159,14 @@ const IadeView: React.FC<IadeViewProps> = ({ units, info, onClose, onSave, curre
               </div>
               <div>
                 <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest block mb-1.5 ml-1">İade Tutarı</label>
-                <input type="number" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} className="bg-black/20 w-full h-[52px] rounded-xl px-3 text-[18px] font-black text-red-500 outline-none border border-white/5" />
+                <input type="number" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} className="bg-black/20 w-full h-[46px] rounded-xl px-3 text-[22px] font-black text-red-500 outline-none border border-white/5" />
               </div>
             </div>
-            <input type="text" placeholder="Açıklama" value={description} onChange={(e) => setDescription(e.target.value)} className="bg-black/20 w-full h-[52px] rounded-xl px-3 text-[13px] font-bold text-white outline-none border border-white/5" />
+            <input type="text" placeholder="Açıklama" value={description} onChange={(e) => setDescription(e.target.value)} className="bg-black/20 w-full h-[46px] rounded-xl px-3 text-[15px] font-bold text-white outline-none border border-white/5" />
           </div>
         </section>
 
-        <button onClick={handleProcess} disabled={!selectedUnitId || !amount || isSaving} className={`w-full h-14 rounded-[20px] shadow-2xl flex items-center justify-center space-x-3 active:scale-95 transition-all ${selectedUnitId && amount ? 'bg-red-600' : 'bg-white/5 grayscale cursor-not-allowed opacity-30'}`}>{isSaving ? <Loader2 className="animate-spin text-white" size={24} /> : saveComplete ? <div className="flex items-center space-x-2"><CheckCircle2 size={22} className="text-white" /><span className="text-[14px] font-black text-white uppercase tracking-widest">KAYDEDİLDİ</span></div> : <><RotateCcw size={22} className="text-white" /><span className="text-[14px] font-black text-white uppercase tracking-widest">İADEYİ KAYDET</span></>}</button>
+        <button onClick={handleProcess} disabled={!selectedUnitId || !amount || isSaving} className={`w-full h-14 rounded-[20px] shadow-2xl flex items-center justify-center space-x-3 transition-colors ${selectedUnitId && amount ? 'bg-red-600' : 'bg-white/5 grayscale cursor-not-allowed opacity-30'}`}>{isSaving ? <Loader2 className="animate-spin text-white" size={24} /> : saveComplete ? <div className="flex items-center space-x-2"><CheckCircle2 size={22} className="text-white" /><span className="text-[14px] font-black text-white uppercase tracking-widest">KAYDEDİLDİ</span></div> : <><RotateCcw size={22} className="text-white" /><span className="text-[14px] font-black text-white uppercase tracking-widest">İADEYİ KAYDET</span></>}</button>
       </div>
     </div>
   );
