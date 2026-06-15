@@ -71,6 +71,7 @@ export interface Transaction {
   type: 'GELİR' | 'GİDER' | 'BORÇLANDIRMA' | 'TRANSFER';
   amount: number;
   date: string;
+  time?: string; // HH:MM formatında
   description: string;
   unitId?: string;
   periodMonth?: number; // 0-11
@@ -93,6 +94,7 @@ export interface FileEntry {
   extension: string;
   uri?: string; // Dosya yolu (mobil cihazlarda)
   fileName?: string; // Gerçek dosya adı (Documents klasöründe)
+  mimeType?: string;
 }
 
 export interface UserBuilding {

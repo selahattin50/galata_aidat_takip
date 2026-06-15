@@ -1,21 +1,26 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { ArrowLeft, ChevronDown, X, Calendar, MessageCircle, Building, Check, Wallet, Inbox, Lock } from 'lucide-react';
-import { Transaction, Unit, FileEntry } from '../types';
+import { Transaction, Unit, FileEntry, BuildingInfo } from '../types';
 import { PDFService } from '../pdfService';
 import { useAndroidBackHandler } from '../appBackButton';
 import { createFinancialReportPdf } from './reportPdfUtils';
 import PdfActionButton from './PdfActionButton';
+import { fixCommonTurkishText, upperTr } from '../textUtils';
+
+const withTransactionDate = (date: string, label: string) => `${date} ${label}`;
+const toIsoDate = (date: string) => date.split('.').reverse().join('-');
 
 interface MonthlyReportViewProps {
   transactions: Transaction[];
   units: Unit[];
+  info: BuildingInfo;
   onClose: () => void;
   buildingName: string;
   onAddFile: (name: string, category: FileEntry['category'], uri?: string, size?: number, fileName?: string) => void;
   currentDate: Date;
 }
 
-const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, units, onClose, buildingName, onAddFile, currentDate }) => {
+const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, units, info, onClose, buildingName, onAddFile, currentDate }) => {
   const now = currentDate;
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
@@ -49,22 +54,111 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
   const months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
   const years = [2024, 2025, 2026];
 
-  const { totalDebt, totalCredit, netDebt } = useMemo(() => {
-    return units.reduce((acc, u) => {
-      const debt = selectedVault === 'genel' ? (u.debt || 0) : (u.demirbasDebt || 0);
-      const credit = selectedVault === 'genel' ? (u.credit || 0) : (u.demirbasCredit || 0);
-      return {
-        totalDebt: acc.totalDebt + debt,
-        totalCredit: acc.totalCredit + credit,
-        netDebt: acc.netDebt + Math.max(0, debt - credit)
-      };
-    }, { totalDebt: 0, totalCredit: 0, netDebt: 0 });
-  }, [units, selectedVault]);
+  const getTxParts = (tx: Transaction) => {
+    const parts = tx.date.split('.');
+    if (parts.length !== 3) return null;
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const year = parseInt(parts[2], 10);
+    if ([day, month, year].some(Number.isNaN)) return null;
+    return { day, month, year };
+  };
+
+  const isInOrBeforeSelectedPeriod = (tx: Transaction) => {
+    const parts = getTxParts(tx);
+    if (!parts) return false;
+
+    const byTransactionDate =
+      parts.year < selectedYear ||
+      (parts.year === selectedYear && parts.month <= selectedMonth);
+    if (!byTransactionDate) return false;
+
+    if (tx.periodMonth === undefined || tx.periodYear === undefined) return true;
+    return tx.periodYear < selectedYear ||
+      (tx.periodYear === selectedYear && tx.periodMonth <= selectedMonth);
+  };
 
   function isCreditBalanceIncome(tx: Transaction) {
     if (tx.type !== 'GELİR') return false;
-    return /KRED[İI]/i.test(tx.description);
+    const normalizedDescription = (tx.description || '')
+      .toLocaleUpperCase('tr-TR')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    return /KRED[İI]/i.test(tx.description) ||
+      (!!tx.unitId && normalizedDescription.includes('DEVIR') && normalizedDescription.includes('ALACAK'));
   }
+
+  const { totalCredit, netDebt } = useMemo(() => {
+    const duesValue = info.duesAmount || 0;
+    const reportTransactions = transactions.filter(isInOrBeforeSelectedPeriod);
+
+    return units.reduce((acc, unit) => {
+      const isExempt = info?.isManagerExempt && unit.id === info?.managerUnitId;
+      if (isExempt) return acc;
+
+      const unitTransactions = reportTransactions.filter(tx => tx.unitId === unit.id);
+      const vaultTransactions = unitTransactions.filter(tx => {
+        const txVaultType = tx.description.toLowerCase().includes('[demirbas]') ? 'demirbas' : 'genel';
+        return txVaultType === selectedVault;
+      });
+
+      let credit = 0;
+      let debt = 0;
+
+      if (selectedVault === 'genel') {
+        const totalIncome = vaultTransactions
+          .filter(tx => tx.type === 'GELİR' && !isCreditBalanceIncome(tx))
+          .reduce((sum, tx) => sum + tx.amount, 0);
+        const totalExpense = vaultTransactions
+          .filter(tx => tx.type === 'GİDER')
+          .reduce((sum, tx) => sum + tx.amount, 0);
+        const totalManualDebt = vaultTransactions
+          .filter(tx => tx.type === 'BORÇLANDIRMA')
+          .reduce((sum, tx) => sum + tx.amount, 0);
+
+        let paidDues = 0;
+        let unpaidDues = 0;
+        if (duesValue > 0) {
+          for (let month = 0; month <= selectedMonth; month += 1) {
+            const hasManualDues = vaultTransactions.some(tx =>
+              tx.type === 'BORÇLANDIRMA' &&
+              tx.periodMonth === month &&
+              tx.periodYear === selectedYear &&
+              tx.description.toUpperCase().includes('AİDAT')
+            );
+            if (!hasManualDues) {
+              const paid = vaultTransactions.some(tx =>
+                tx.type === 'GELİR' &&
+                tx.periodMonth === month &&
+                tx.periodYear === selectedYear
+              );
+              if (paid) paidDues += duesValue;
+              else unpaidDues += duesValue;
+            }
+          }
+        }
+
+        credit = Math.max(0, totalIncome - totalExpense - paidDues);
+        debt = totalManualDebt + unpaidDues;
+      } else {
+        const totalIncome = vaultTransactions
+          .filter(tx => tx.type === 'GELİR' && !isCreditBalanceIncome(tx))
+          .reduce((sum, tx) => sum + tx.amount, 0);
+        const totalExpense = vaultTransactions
+          .filter(tx => tx.type === 'GİDER')
+          .reduce((sum, tx) => sum + tx.amount, 0);
+        debt = vaultTransactions
+          .filter(tx => tx.type === 'BORÇLANDIRMA')
+          .reduce((sum, tx) => sum + tx.amount, 0);
+        credit = Math.max(0, totalIncome - totalExpense);
+      }
+
+      return {
+        totalCredit: acc.totalCredit + credit,
+        netDebt: acc.netDebt + Math.max(0, debt - credit)
+      };
+    }, { totalCredit: 0, netDebt: 0 });
+  }, [transactions, units, info, selectedMonth, selectedYear, selectedVault]);
 
   const previousDevir = useMemo(() => {
     const transactionsSum = transactions.reduce((sum, tx) => {
@@ -98,8 +192,8 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
   }, [transactions, selectedMonth, selectedYear, selectedVault]);
 
   const reportData = useMemo(() => {
-    const incomeGroups: Record<string, { total: number, count: number, minDate: string }> = {};
-    const expenseGroups: Record<string, { total: number, count: number, minDate: string }> = {};
+    const incomeGroups: Record<string, { label: string, date: string, total: number, count: number, minDate: string }> = {};
+    const expenseGroups: Record<string, { label: string, date: string, total: number, count: number, minDate: string }> = {};
 
     filteredTransactions.forEach(tx => {
       let label = tx.description.replace(/\s*\(?MALİK\)?/gi, '')
@@ -107,33 +201,34 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
         .replace(/EFT\/HAVALE/gi, '')
         .replace(/TAHSİLATI/gi, '')
         .replace(/\(\s*\)/g, '')
-        .split('[')[0].trim().toUpperCase();
+        .split('[')[0].trim();
+      label = upperTr(label);
 
-      if (!label) label = tx.description.split('[')[0].trim().toUpperCase();
-      const isoDate = tx.date.split('.').reverse().join('-');
+      if (!label) label = upperTr(tx.description.split('[')[0].trim());
+      const isoDate = toIsoDate(tx.date);
 
       if (tx.type === 'GELİR') {
         if (isCreditBalanceIncome(tx)) return;
 
-        const rawDescription = tx.description.toUpperCase();
+        const rawDescription = upperTr(tx.description);
         const isSerbestIncome = /SERBEST\s+TAHS[İI]LAT/i.test(rawDescription);
         const isDuesIncome = tx.periodMonth !== undefined || tx.periodYear !== undefined || /A[İI]DAT/i.test(rawDescription);
-        const incomeLabel = isSerbestIncome ? 'AY SERBEST GELIRI' : (isDuesIncome ? 'AY ICI AIDAT GELIRI' : label);
+        const incomeLabel = isSerbestIncome ? 'AY SERBEST GELİRİ' : (isDuesIncome ? 'AY İÇİ AİDAT GELİRİ' : label);
+        const incomeKey = `${tx.date}\u0000${incomeLabel}`;
 
-        if (!incomeGroups[incomeLabel]) incomeGroups[incomeLabel] = { total: 0, count: 0, minDate: isoDate };
-        incomeGroups[incomeLabel].total += tx.amount;
-        incomeGroups[incomeLabel].count += 1;
-        if (isoDate < incomeGroups[incomeLabel].minDate) incomeGroups[incomeLabel].minDate = isoDate;
+        if (!incomeGroups[incomeKey]) incomeGroups[incomeKey] = { label: incomeLabel, date: tx.date, total: 0, count: 0, minDate: isoDate };
+        incomeGroups[incomeKey].total += tx.amount;
+        incomeGroups[incomeKey].count += 1;
       } else if (tx.type === 'GİDER') {
-        if (!expenseGroups[label]) expenseGroups[label] = { total: 0, count: 0, minDate: isoDate };
-        expenseGroups[label].total += tx.amount;
-        expenseGroups[label].count += 1;
-        if (isoDate < expenseGroups[label].minDate) expenseGroups[label].minDate = isoDate;
+        const expenseKey = `${tx.date}\u0000${label}`;
+        if (!expenseGroups[expenseKey]) expenseGroups[expenseKey] = { label, date: tx.date, total: 0, count: 0, minDate: isoDate };
+        expenseGroups[expenseKey].total += tx.amount;
+        expenseGroups[expenseKey].count += 1;
       }
     });
 
-    const incomes = Object.entries(incomeGroups).map(([label, data]) => ({
-      label: label === "AİDAT GELİRLERİ" ? (data.count > 1 ? `${label} (${data.count})` : label) : label,
+    const incomes = Object.values(incomeGroups).map((data) => ({
+      label: withTransactionDate(data.date, data.label === "AİDAT GELİRLERİ" && data.count > 1 ? `${data.label} (${data.count})` : data.label),
       total: data.total,
       minDate: data.minDate
     })).sort((a, b) => a.minDate.localeCompare(b.minDate));
@@ -144,52 +239,49 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
 
     return {
       incomes,
-      expenses: Object.entries(expenseGroups).map(([label, data]) => ({
-        label: label, total: data.total, minDate: data.minDate
+      expenses: Object.values(expenseGroups).map((data) => ({
+        label: withTransactionDate(data.date, data.label), total: data.total, minDate: data.minDate
       })).sort((a, b) => a.minDate.localeCompare(b.minDate))
     };
   }, [filteredTransactions, previousDevir]);
 
   const displayIncomeItems = useMemo(() => {
-    let duesTotal = 0;
-    let freeTotal = 0;
-    const otherIncomeGroups: Record<string, number> = {};
+    const incomeGroups: Record<string, { label: string; date?: string; isoDate: string; total: number }> = {};
 
     filteredTransactions.forEach(tx => {
       if (tx.type !== 'GELİR' || isCreditBalanceIncome(tx)) return;
 
-      const rawDescription = tx.description.toUpperCase();
-      const cleanLabel = tx.description
+      const rawDescription = upperTr(tx.description);
+      const cleanLabelRaw = tx.description
         .replace(/\s*\(?MAL[Iİ]K\)?/gi, '')
         .replace(/\s*\(?K[Iİ]RACI\)?/gi, '')
         .replace(/EFT\/HAVALE/gi, '')
         .replace(/TAHS[Iİ]LATI/gi, '')
         .replace(/\(\s*\)/g, '')
-        .split('[')[0].trim().toUpperCase();
+        .split('[')[0].trim();
+      const cleanLabel = upperTr(cleanLabelRaw);
 
+      let label: string;
+      let includeDate = true;
       if (/SERBEST\s+TAHS[Iİ]LAT/i.test(rawDescription)) {
-        freeTotal += tx.amount;
-        return;
+        label = 'AY İÇİ AİDAT GELİRİ';
+        includeDate = false;
+      } else if (tx.periodMonth !== undefined || tx.periodYear !== undefined || /A[Iİ]DAT/i.test(rawDescription)) {
+        label = 'AY İÇİ AİDAT GELİRİ';
+        includeDate = false;
+      } else {
+        label = cleanLabel || 'DİĞER GELİR';
       }
 
-      if (tx.periodMonth !== undefined || tx.periodYear !== undefined || /A[Iİ]DAT/i.test(rawDescription)) {
-        duesTotal += tx.amount;
-        return;
-      }
-
-      const fallbackLabel = cleanLabel || 'DIGER GELIR';
-      otherIncomeGroups[fallbackLabel] = (otherIncomeGroups[fallbackLabel] || 0) + tx.amount;
+      const key = `${includeDate ? tx.date : ''}\u0000${label}`;
+      if (!incomeGroups[key]) incomeGroups[key] = { label, date: includeDate ? tx.date : undefined, isoDate: toIsoDate(tx.date), total: 0 };
+      incomeGroups[key].total += tx.amount;
+      if (toIsoDate(tx.date) < incomeGroups[key].isoDate) incomeGroups[key].isoDate = toIsoDate(tx.date);
     });
 
-    const items: { label: string; total: number }[] = [];
-    const combinedTotal = duesTotal + freeTotal;
-    if (combinedTotal > 0) items.push({ label: 'AY İÇİ AİDAT GELİRİ', total: combinedTotal });
-
-    Object.entries(otherIncomeGroups).forEach(([label, total]) => {
-      items.push({ label, total });
-    });
-
-    return items;
+    return Object.values(incomeGroups)
+      .sort((a, b) => a.isoDate.localeCompare(b.isoDate))
+      .map((item) => ({ label: item.date ? withTransactionDate(item.date, item.label) : item.label, total: item.total }));
   }, [filteredTransactions]);
 
   const monthActualIncome = displayIncomeItems.reduce((sum, item) => sum + item.total, 0);
@@ -213,7 +305,7 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
 
       const pdf = await createFinancialReportPdf({
         buildingName,
-        reportTitle: `${months[selectedMonth]} Ayi Apartman Hesap Durum Cizelgesi`,
+        reportTitle: `${months[selectedMonth]} Ayı Apartman Hesap Durum Çizelgesi`,
         leftTitle: 'Giderler',
         rightTitle: 'Gelirler',
         leftItems: reportData.expenses.map((item) => ({ label: item.label, total: item.total, tone: 'default' as const })),
@@ -224,7 +316,7 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
         cashTotal,
       });
 
-      const fileName = `${months[selectedMonth]} Ayi Gelir Gider ${selectedYear}.pdf`;
+      const fileName = `${months[selectedMonth]} Ayı Gelir Gider ${selectedYear}.pdf`;
 
       const shouldShare = mode === 'share';
       const savedInfo = await PDFService.saveAndShareFromJsPDF(pdf, fileName, shouldShare);
@@ -243,24 +335,24 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
 
   return (
     <div className="fixed inset-0 z-[200] bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a] flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
-      <div className="flex items-center justify-between px-4 pt-6 pb-2">
-        <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5">
-            <Building className="text-white" size={28} />
+      <div className="relative flex items-center justify-center px-4 pt-6 pb-2">
+        <div className="absolute left-1/2 flex -translate-x-1/2 items-center space-x-3">
+          <div className="w-10 h-10 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5">
+            <Building className="text-white" size={22} />
           </div>
-          <div>
-            <h2 className="text-[14px] font-black text-white uppercase tracking-wider leading-none">AYLIK BİLANÇO</h2>
-            <p className="text-[10px] text-white/40 italic mt-1">Yönetime ait aylık bilançoları görüntüleyin.</p>
+          <div className="text-left">
+            <h2 className="whitespace-nowrap text-[17px] font-black text-white uppercase tracking-wider leading-none">AYLIK BİLANÇO</h2>
           </div>
         </div>
-        <div className="flex space-x-2">
+        <div className="ml-auto flex space-x-2">
           <button onClick={onClose} className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center border border-red-500/50 active:scale-95 shadow-lg">
             <X className="text-white" size={24} />
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-32 no-scrollbar">
+      <div className="bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a] px-4 pt-4 pb-3 border-b border-white/5 shadow-[0_14px_24px_rgba(15,23,42,0.55)]">
+        <div>
         <div className="grid grid-cols-1 gap-3 mb-4 min-[360px]:grid-cols-2">
           <PdfActionButton type="download" onClick={() => generateAndHandlePdf('download')} disabled={isProcessing} />
           <PdfActionButton type="share" onClick={() => generateAndHandlePdf('share')} disabled={isProcessing} />
@@ -319,16 +411,19 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
         )}
 
         <div className="mb-4 flex flex-row space-x-2">
-          <div className="flex-1 bg-white/5 rounded-xl border border-white/5 p-3 flex items-center justify-between shadow-inner">
-            <span className="text-[10px] font-black text-white uppercase tracking-wider">ALACAK BAKİYESİ</span>
-            <span className="text-[15px] font-black text-red-500 tracking-tight">{formatCurrency(netDebt).replace('₺', '')}</span>
+          <div className="flex-1 min-w-0 bg-white/5 rounded-xl border border-white/5 p-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 shadow-inner">
+            <span className="min-w-0 text-left text-[9px] font-black text-white uppercase tracking-wide leading-tight whitespace-nowrap">ALACAK BAKİYESİ</span>
+            <span className="shrink-0 text-right text-[14px] font-black text-red-500 tracking-tight tabular-nums">{formatCurrency(netDebt).replace('₺', '')}</span>
           </div>
-          <div className="flex-1 bg-white/5 rounded-xl border border-white/5 p-3 flex items-center justify-between shadow-inner">
-            <span className="text-[10px] font-black text-white uppercase tracking-wider">KREDİ BAKİYESİ</span>
-            <span className="text-[15px] font-black text-white tracking-tight">{formatCurrency(totalCredit).replace('₺', '')}</span>
+          <div className="flex-1 min-w-0 bg-white/5 rounded-xl border border-white/5 p-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 shadow-inner">
+            <span className="min-w-0 text-left text-[9px] font-black text-white uppercase tracking-wide leading-tight whitespace-nowrap">KREDİ BAKİYESİ</span>
+            <span className="shrink-0 text-right text-[14px] font-black text-white tracking-tight tabular-nums">{formatCurrency(totalCredit).replace('₺', '')}</span>
           </div>
         </div>
+        </div>
+      </div>
 
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-32 no-scrollbar">
         <div className="bg-[#1e293b]/40 rounded-[32px] border border-white/5 px-2 py-6 mb-6 shadow-2xl relative overflow-hidden ring-1 ring-white/5">
           <div className="grid grid-cols-1 gap-6 relative min-[380px]:grid-cols-2 min-[380px]:gap-3">
             <div className="absolute left-1/2 top-0 bottom-0 hidden w-[1px] bg-white/10 min-[380px]:block" />
@@ -340,7 +435,7 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
                 ) : (
                   reportData.expenses.map((ex, i) => (
                     <div key={i} className="flex justify-between items-baseline">
-                      <span className="text-[12px] font-black text-white pr-1 leading-tight">{ex.label}</span>
+                      <span className="text-[12px] font-black text-white pr-1 leading-tight">{fixCommonTurkishText(ex.label)}</span>
                       <span className="text-[12px] font-black text-white shrink-0">{formatCurrency(ex.total)}</span>
                     </div>
                   ))
@@ -356,7 +451,7 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
                 ) : (
                   displayIncomeItems.map((inc, i) => (
                     <div key={i} className="flex justify-between items-baseline">
-                      <span className="text-[12px] font-black text-white pr-1 leading-tight">{inc.label}</span>
+                      <span className="text-[12px] font-black text-white pr-1 leading-tight">{fixCommonTurkishText(inc.label)}</span>
                       <span className="text-[12px] font-black text-white shrink-0">{formatCurrency(inc.total)}</span>
                     </div>
                   ))
@@ -380,9 +475,9 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
             <span className="text-[11px] font-black text-white/60 uppercase tracking-widest">GİDER TOPLAMI</span>
             <span className="text-[13px] font-black text-white">{formatCurrency(totalExpense).replace('₺', '')}</span>
           </div>
-          <div className="bg-blue-900/40 rounded-xl h-12 px-5 flex items-center justify-between border border-blue-500/20 shadow-xl mt-4">
+          <div className="embossed-cash bg-blue-900/40 rounded-xl h-12 px-5 flex items-center justify-between border border-blue-500/20 shadow-xl mt-4">
             <span className="text-[13px] font-black text-white uppercase tracking-[0.2em]">KASA TOPLAMI</span>
-            <span className={`text-[18px] font-black tracking-tighter ${cashTotal >= 0 ? 'text-white' : 'text-red-500'}`}>{formatCurrency(cashTotal).replace('₺', '')}</span>
+            <span className={`embossed-cash-value text-[18px] font-black tracking-tighter ${cashTotal >= 0 ? 'text-white' : 'text-red-500'}`}>{formatCurrency(cashTotal).replace('₺', '')}</span>
           </div>
         </div>
       </div>

@@ -112,14 +112,17 @@ const SessionsView: React.FC<SessionsViewProps> = ({
   if (isEditing) {
     return (
       <div className="absolute inset-0 z-[120] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 p-6 animate-in slide-in-from-right duration-500 overflow-y-auto no-scrollbar">
-        <div className="sticky top-0 z-[100] -mx-6 px-6 py-4 mb-6 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900/95 backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
+        <div className="sticky top-0 z-[100] -mx-6 px-6 py-4 mb-6 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900/95 backdrop-blur-xl border-b border-white/5 flex items-center justify-center relative">
           <button
             onClick={() => setIsEditing(false)}
-            className="p-2.5 bg-white/5 rounded-xl border border-white/5 active:scale-90 transition-all font-bold"
+            className="app-back-button absolute left-6"
           >
-            <ArrowLeft size={20} className="text-zinc-400" />
+            <ArrowLeft size={20} />
           </button>
-          <h3 className="text-[11px] font-black uppercase tracking-[0.25em] text-blue-400">BİLGİLERİ GÜNCELLE</h3>
+        <h3 className="absolute left-1/2 flex max-w-[calc(100%-96px)] -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap text-[17px] font-black uppercase tracking-[0.08em] text-emerald-500">
+            <Building2 size={20} />
+            <span>BİLGİLERİ GÜNCELLE</span>
+          </h3>
           <div className="w-10" />
         </div>
 
@@ -131,7 +134,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                 type="text"
                 value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
-                className="w-full h-14 bg-[#111827] border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-[14px] font-bold text-white outline-none focus:border-blue-500/50 transition-all"
+                className="w-full h-14 bg-[#111827] border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-[14px] font-bold text-white outline-none focus:border-emerald-500/50 transition-all"
               />
               <Building2 size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
             </div>
@@ -139,7 +142,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
           <div>
             <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 block ml-1">YÖNETİCİ ADI *</label>
             <div className="relative group">
-              <input type="text" value={formData.managerName} onChange={e => setFormData({ ...formData, managerName: e.target.value })} className="w-full h-14 bg-[#111827] border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-[14px] font-bold text-white outline-none focus:border-blue-500/50 transition-all" />
+              <input type="text" value={formData.managerName} onChange={e => setFormData({ ...formData, managerName: e.target.value })} className="w-full h-14 bg-[#111827] border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-[14px] font-bold text-white outline-none focus:border-emerald-500/50 transition-all" />
               <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
             </div>
           </div>
@@ -152,17 +155,17 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                 placeholder="0"
                 value={formData.unitCount}
                 onChange={e => setFormData({ ...formData, unitCount: e.target.value })}
-                className="w-full h-14 bg-[#111827] border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-[14px] font-bold text-white outline-none focus:border-blue-500/50 transition-all placeholder:text-white/10"
+                className="w-full h-14 bg-[#111827] border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-[14px] font-bold text-white outline-none focus:border-emerald-500/50 transition-all placeholder:text-white/10"
               />
-              <Users size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-blue-500/50 transition-colors" />
+              <Users size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-emerald-500/50 transition-colors" />
             </div>
           </div>
 
           <div>
             <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 block ml-1">ADRES</label>
-            <textarea value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full h-24 bg-[#111827] border border-white/10 rounded-2xl p-4 text-[13px] font-bold text-white outline-none focus:border-blue-500/50 transition-all resize-none" />
+            <textarea value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full h-24 bg-[#111827] border border-white/10 rounded-2xl p-4 text-[13px] font-bold text-white outline-none focus:border-emerald-500/50 transition-all resize-none" />
           </div>
-          <button onClick={handleSave} disabled={isSubmitting} className="w-full h-14 bg-blue-600 rounded-2xl font-black text-white uppercase tracking-widest active:scale-95 transition-all mt-4 shadow-xl flex items-center justify-center space-x-2">
+          <button onClick={handleSave} disabled={isSubmitting} className="w-full h-14 bg-emerald-600 rounded-2xl font-black text-white uppercase tracking-widest active:scale-95 transition-all mt-4 shadow-xl flex items-center justify-center space-x-2">
             {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><Check size={20} /><span>KAYDET</span></>}
           </button>
         </div>
@@ -172,19 +175,22 @@ const SessionsView: React.FC<SessionsViewProps> = ({
 
   return (
     <div className="animate-in fade-in slide-in-from-right-4 duration-500 pt-0 pb-32">
-      <div className="sticky top-0 z-[100] px-4 py-4 mb-6 bg-slate-900/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-center">
-        <button onClick={onClose} className="absolute left-4 bg-white/5 p-2 rounded-xl active:scale-90 transition-all border border-white/5">
-          <ArrowLeft size={20} className="text-zinc-400" />
+      <div className="sticky top-0 z-[100] px-4 py-4 mb-6 bg-transparent flex items-center justify-center">
+        <button onClick={onClose} className="app-back-button absolute left-4">
+          <ArrowLeft size={20} />
         </button>
-        <h3 className="text-[11px] font-black uppercase tracking-[0.25em] text-blue-400">OTURUM YÖNETİMİ</h3>
+        <h3 className="absolute left-1/2 flex max-w-[calc(100%-96px)] -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap text-[17px] font-black uppercase tracking-[0.08em] text-emerald-500">
+          <Building2 size={20} />
+          <span>OTURUM YÖNETİMİ</span>
+        </h3>
       </div>
 
       <div className="px-4 space-y-6">
-        <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-4 flex items-start justify-between">
+        <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 flex items-start justify-between">
           <div className="flex items-start space-x-3">
-            <Building2 size={20} className="text-blue-400 mt-0.5" />
+            <Building2 size={20} className="text-emerald-400 mt-0.5" />
             <div>
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-1">DİĞER YÖNETİMLERİM</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-1">DİĞER YÖNETİMLERİM</h4>
               <p className="text-[11px] text-white/60 leading-relaxed font-bold">
                 Aşağıdaki listeden yönetmek istediğiniz binaya geçiş yapabilir veya yeni bir bina ekleyebilirsiniz.
               </p>
@@ -194,10 +200,10 @@ const SessionsView: React.FC<SessionsViewProps> = ({
 
         <div className="space-y-3">
           {userSites.map((site) => (
-            <div key={site.id} className={`bg-[#1e293b] rounded-2xl border transition-all overflow-hidden ${activeSiteId === site.id ? 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.2)]' : 'border-white/5'}`}>
+            <div key={site.id} className={`bg-[#1e293b] rounded-2xl border transition-all overflow-hidden ${activeSiteId === site.id ? 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.2)]' : 'border-white/5'}`}>
               <div className="p-4 flex items-center justify-between">
                 <div className="flex items-center space-x-3 min-w-0">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${activeSiteId === site.id ? 'bg-blue-500 text-white' : 'bg-white/5 text-white/20'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${activeSiteId === site.id ? 'bg-emerald-500 text-white' : 'bg-white/5 text-white/20'}`}>
                     <Building2 size={20} />
                   </div>
                   <div className="min-w-0">
@@ -219,9 +225,9 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                   {activeSiteId === site.id && (
                     <button
                       onClick={() => setIsEditing(true)}
-                      className="w-10 h-10 bg-blue-500/10 hover:bg-blue-500/20 rounded-xl flex items-center justify-center border border-blue-500/20 active:scale-95 transition-all"
+                      className="w-10 h-10 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-xl flex items-center justify-center border border-emerald-500/20 active:scale-95 transition-all"
                     >
-                      <Pencil size={18} className="text-blue-400" />
+                      <Pencil size={18} className="text-emerald-400" />
                     </button>
                   )}
                   {userSites.length > 1 && (
@@ -250,20 +256,20 @@ const SessionsView: React.FC<SessionsViewProps> = ({
               }
               setShowCreateModal(true);
             }}
-            className="w-full h-14 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 rounded-2xl flex items-center justify-center space-x-3 active:scale-[0.98] transition-all group"
+            className="embossed-cash w-full h-14 bg-emerald-600 border border-emerald-400/25 rounded-2xl flex items-center justify-center space-x-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_0_rgba(4,120,87,0.72),0_14px_22px_rgba(0,0,0,0.22)] active:translate-y-0.5 active:scale-[0.99] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_3px_0_rgba(4,120,87,0.78),0_10px_16px_rgba(0,0,0,0.2)] transition-all group"
           >
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
-              <span className="text-2xl font-light">+</span>
+            <div className="w-8 h-8 rounded-lg bg-white/12 border border-white/10 flex items-center justify-center text-white group-hover:scale-105 transition-transform">
+              <span className="text-2xl font-light leading-none">+</span>
             </div>
-            <span className="text-[11px] font-black text-white/60 uppercase tracking-[0.2em] group-hover:text-white transition-colors">YENİ BİNA EKLE</span>
+            <span className="text-[11px] font-black text-white uppercase tracking-[0.2em] transition-colors">YENİ BİNA EKLE</span>
           </button>
         </div>
       </div>
 
       {showPaidFeatureModal && (
         <div className="fixed inset-0 z-[320] bg-black/75 backdrop-blur-md flex items-center justify-center px-6 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm rounded-[26px] border border-blue-400/25 bg-[#17233a] shadow-[0_24px_60px_rgba(0,0,0,0.45)] overflow-hidden">
-            <div className="h-1 w-full bg-gradient-to-r from-blue-500/50 via-emerald-400/50 to-blue-500/50" />
+          <div className="w-full max-w-sm rounded-[26px] border border-emerald-400/25 bg-[#172a2a] shadow-[0_24px_60px_rgba(0,0,0,0.45)] overflow-hidden">
+            <div className="h-1 w-full bg-gradient-to-r from-emerald-500/40 via-emerald-300/70 to-emerald-500/40" />
             <div className="p-5">
               <h4 className="text-[15px] font-black text-white uppercase tracking-[0.12em] leading-snug">
                 Yeni Oturum Eklemek İçin Bizimle İletişime Geçiniz
@@ -272,13 +278,18 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                 Ek oturum açma işlemleri yönetici onayıyla yapılır.
               </p>
               <div className="mt-5 flex items-stretch gap-2">
-                <div className="min-w-0 flex-1 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2.5">
+                <button
+                  onClick={() => {
+                    window.location.href = 'mailto:selahattin50@gmail.com?subject=Galata Aidat Takip - Yeni Oturum Talebi';
+                  }}
+                  className="min-w-0 flex-1 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-3 text-left active:scale-[0.98] transition-all"
+                >
                   <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-300/80">İletişim</p>
-                  <p className="mt-1 whitespace-nowrap text-[11px] font-black leading-none text-white">selahattin50@gmail.com</p>
-                </div>
+                  <p className="mt-1 text-[12px] font-black uppercase tracking-[0.14em] leading-none text-white">Bize Yazın</p>
+                </button>
                 <button
                   onClick={() => setShowPaidFeatureModal(false)}
-                  className="h-auto shrink-0 rounded-2xl bg-blue-600 px-3.5 text-white text-[10px] font-black uppercase tracking-wider active:scale-95 transition-all shadow-lg"
+                  className="h-auto shrink-0 rounded-2xl bg-emerald-600 px-3.5 text-white text-[10px] font-black uppercase tracking-wider active:scale-95 transition-all shadow-lg"
                 >
                   TAMAM
                 </button>
@@ -291,7 +302,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
       {showCreateModal && (
         <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex items-center justify-center px-6 animate-in fade-in duration-300">
           <div className="bg-[#1e293b] w-full max-w-sm rounded-[32px] p-6 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-300">
-            <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.25em] mb-6 text-center">YENİ BİNA OLUŞTUR</h4>
+            <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.25em] mb-6 text-center">YENİ BİNA OLUŞTUR</h4>
             <div className="space-y-4">
               <div>
                 <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 block ml-1">BİNA / SİTE ADI</label>
@@ -301,7 +312,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                   value={newSiteName}
                   onChange={e => setNewSiteName(e.target.value)}
                   placeholder="Örn: Galata Sitesi"
-                  className="w-full h-14 bg-black/20 border border-white/10 rounded-2xl px-4 text-[14px] font-bold text-white outline-none focus:border-blue-500/50 transition-all placeholder:text-white/5"
+                  className="w-full h-14 bg-black/20 border border-white/10 rounded-2xl px-4 text-[14px] font-bold text-white outline-none focus:border-emerald-500/50 transition-all placeholder:text-white/5"
                 />
               </div>
               <div className="flex space-x-3 pt-2">
@@ -314,7 +325,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                 <button
                   onClick={handleCreate}
                   disabled={!newSiteName.trim()}
-                  className="flex-1 h-12 bg-blue-600 rounded-xl text-[10px] font-black text-white uppercase tracking-widest active:scale-95 transition-all disabled:opacity-20"
+                  className="flex-1 h-12 bg-emerald-600 rounded-xl text-[10px] font-black text-white uppercase tracking-widest active:scale-95 transition-all disabled:opacity-20"
                 >
                   OLUŞTUR
                 </button>

@@ -112,9 +112,8 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
       <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Logo & Title */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-32 h-32 rounded-[40px] bg-white/5 border border-white/10 mb-6 shadow-2xl relative group p-3">
-            <div className="absolute inset-0 bg-blue-500/10 rounded-[40px] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
-            <img src="/assets/logo.png" alt="Galata Logo" className="w-full h-full object-contain relative z-10 drop-shadow-xl" />
+          <div className="inline-flex items-center justify-center w-40 h-36 mb-5 relative group">
+            <img src="/assets/logo.png" alt="Galata Logo" className="h-full w-auto object-contain relative z-10 drop-shadow-xl" />
           </div>
           <h1 className="text-3xl font-light text-white mb-2 tracking-[0.2em] uppercase">HESAP OLUŞTUR</h1>
           <p className="text-xs text-white/20 font-medium uppercase tracking-[0.3em]">Galata Yönetim Sistemi</p>

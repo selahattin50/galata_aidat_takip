@@ -7,6 +7,8 @@ import { jsPDF } from 'jspdf';
 import { PDFService } from '../pdfService';
 import DatePickerModal from './DatePickerModal';
 import { appConfirm } from './AppDialog';
+import { fixCommonTurkishText, upperTr } from '../textUtils';
+import { useScrollReveal } from './useScrollReveal';
 
 interface TransactionsViewProps {
   transactions: Transaction[];
@@ -26,6 +28,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
   const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [txToPrint, setTxToPrint] = useState<Transaction | null>(null);
+  const txReveal = useScrollReveal<HTMLDivElement>();
 
   const months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
@@ -88,28 +91,33 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
 
   const filteredTransactions = useMemo(() => {
     let filtered = [...transactions];
-    if (selectedMonth !== 'all') {
-      filtered = filtered.filter(tx => {
-        const parts = tx.date.split('.');
-        if (parts.length !== 3) return false;
-        const txMonth = parseInt(parts[1]) - 1;
-        const txYear = parseInt(parts[2]);
-        return txMonth === selectedMonth && txYear === selectedYear;
-      });
-    }
+    filtered = filtered.filter(tx => {
+      const parts = tx.date.split('.');
+      if (parts.length !== 3) return false;
+      const txMonth = parseInt(parts[1]) - 1;
+      const txYear = parseInt(parts[2]);
+      return txYear === selectedYear && (selectedMonth === 'all' || txMonth === selectedMonth);
+    });
     return filtered.sort((a, b) => {
       const [da, ma, ya] = a.date.split('.').map(Number);
       const [db, mb, yb] = b.date.split('.').map(Number);
-      const dateA = new Date(ya, ma - 1, da).getTime();
-      const dateB = new Date(yb, mb - 1, db).getTime();
-      return dateB - dateA;
+      const dateA = new Date(ya, ma - 1, da);
+      const dateB = new Date(yb, mb - 1, db);
+      if (a.time) { const [h, m] = a.time.split(':').map(Number); dateA.setHours(h, m); }
+      if (b.time) { const [h, m] = b.time.split(':').map(Number); dateB.setHours(h, m); }
+      return dateB.getTime() - dateA.getTime();
     });
   }, [transactions, selectedMonth, selectedYear]);
 
-  const handleUpdate = () => { if (editingTx) { onUpdateTransaction(editingTx); setEditingTx(null); } };
+  const handleUpdate = () => {
+    if (editingTx) {
+      onUpdateTransaction({ ...editingTx, description: fixCommonTurkishText(editingTx.description) });
+      setEditingTx(null);
+    }
+  };
   const handleDelete = async (tx: Transaction) => {
     const confirmed = await appConfirm(
-      `Daire: ${getUnitNo(tx.unitId)}\nAçıklama: ${tx.description.split('[')[0].trim()}\nTutar: ₺${formatCurrency(tx.amount)}\nTarih: ${tx.date}\n\nBu işlem geri alınamaz. Silmek istediğinizden emin misiniz?`,
+      `Daire: ${getUnitNo(tx.unitId)}\nAçıklama: ${fixCommonTurkishText(tx.description.split('[')[0].trim())}\nTutar: ₺${formatCurrency(tx.amount)}\nTarih: ${tx.date}\n\nBu işlem geri alınamaz. Silmek istediğinizden emin misiniz?`,
       'Silme Onayı',
       'SİL'
     );
@@ -144,7 +152,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex flex-col animate-page-in overflow-hidden">
+    <div className="fixed inset-0 z-[200] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex flex-col overflow-hidden touch-pan-y">
       <div className="fixed top-[-9999px] left-[-9999px] pointer-events-none">
         {txToPrint && (
           <div id="receipt-print-area" className="relative bg-white text-slate-900 flex flex-col" style={{ width: '842px', height: '595px', padding: '50px 60px 96px', fontFamily: 'sans-serif', boxSizing: 'border-box' }}>
@@ -164,14 +172,14 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
             <div className="flex-1 flex flex-col space-y-6">
               <div className="max-w-[100%]">
                 <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest">DAİRE / KİŞİ</p>
-                <p className="text-[30px] font-black text-[#0f172a] leading-none uppercase tracking-tighter">{getUnitNo(txToPrint.unitId) === 'GENEL' ? (txToPrint.type === 'GELİR' ? 'BİNA GELİRİ' : 'BİNA GİDERİ') : `DAİRE NO: ${getUnitNo(txToPrint.unitId)} - ${getUnitName(txToPrint.unitId)}`}</p>
+                <p className="text-[30px] font-black text-[#0f172a] leading-none tracking-tighter">{upperTr(getUnitNo(txToPrint.unitId) === 'GENEL' ? (txToPrint.type === 'GELİR' ? 'BİNA GELİRİ' : 'BİNA GİDERİ') : `DAİRE NO: ${getUnitNo(txToPrint.unitId)} - ${getUnitName(txToPrint.unitId)}`)}</p>
               </div>
               <div>
                 <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest">AÇIKLAMA</p>
                 <p className="whitespace-nowrap text-[24px] font-bold uppercase leading-none text-slate-700">
                   {(() => {
                     if (txToPrint.type === 'GİDER') {
-                      const expenseDesc = txToPrint.description.split('[')[0].trim()
+                      const expenseDesc = fixCommonTurkishText(txToPrint.description.split('[')[0].trim())
                         .replace(/^MAKBUZ\s+/i, '')
                         .replace(/\s+(MALİK|KİRACI)\s*$/i, '')
                         .replace(/\b(MALİK|KİRACI)\b/gi, '')
@@ -179,9 +187,9 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                         .replace(/\s+/g, ' ')
                         .trim();
 
-                      return `${expenseDesc} ÖDEMESİ YAPILMIŞTIR`.toUpperCase();
+                      return upperTr(`${expenseDesc} ÖDEMESİ YAPILMIŞTIR`);
                     }
-                    let desc = txToPrint.description.split('[')[0].trim()
+                    let desc = fixCommonTurkishText(txToPrint.description.split('[')[0].trim())
                       .replace(/^MAKBUZ\s+/i, '')
                       .replace(/\s+(MALİK|KİRACI)\s*$/i, '')
                       .replace(/\b(MALİK|KİRACI)\b/gi, '')
@@ -201,9 +209,9 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                         .replace(/KREDİ BAKİYESİNDEN/gi, 'KREDİ BAKİYESİNDEN') + " TAHSİL EDİLMİŞTİR";
                     } else {
                       desc = desc.replace(/\(ELDEN\)/gi, 'NAKİT').replace(/ELDEN/gi, 'NAKİT');
-                      if (!desc.toUpperCase().includes('TAHSİL EDİLMİŞTİR')) desc += " TAHSİL EDİLMİŞTİR";
+                      if (!upperTr(desc).includes('TAHSİL EDİLMİŞTİR')) desc += " TAHSİL EDİLMİŞTİR";
                     }
-                    const finalizedDesc = desc.toUpperCase();
+                    const finalizedDesc = upperTr(desc);
                     return isExpense
                       ? finalizedDesc
                           .replace(/İLE TAHSİL EDİLMİŞTİR/g, 'İLE ÖDEME YAPILMIŞTIR')
@@ -225,14 +233,14 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                     <span className="text-[42px] font-black text-slate-950 leading-none tracking-tight">{formatCurrency(txToPrint.amount)}</span>
                   </div>
                   <div className="relative w-[150px] h-[150px] flex items-center justify-center mt-[8px]">
-                    <div className="absolute inset-0 border-[5px] border-green-600 rounded-full"></div>
-                    <div className="absolute inset-[10px] border-[2px] border-green-600 rounded-full"></div>
+                    <div className="absolute inset-0 border-[5px] border-blue-600 rounded-full"></div>
+                    <div className="absolute inset-[10px] border-[2px] border-blue-600 rounded-full"></div>
                     <svg viewBox="0 0 150 150" className="absolute inset-0 w-full h-full">
                       <defs><path id="txPathTop" d="M 30,75 A 45,45 0 0,1 120,75" /><path id="txPathBottom" d="M 20,75 A 55,55 0 0,0 130,75" /></defs>
-                      <text className="fill-green-600 text-[18px] font-black uppercase tracking-[0.2em]"><textPath xlinkHref="#txPathTop" startOffset="50%" textAnchor="middle">{(info?.name || 'YENİ YÖNETİM').split(' ')[0]}</textPath></text>
-                      <text dy="4" className="fill-green-600 text-[18px] font-black uppercase tracking-[0.05em]"><textPath xlinkHref="#txPathBottom" startOffset="50%" textAnchor="middle">{(info?.name || 'YENİ YÖNETİM').split(' ').slice(1).join(' ') || 'YÖNETİMİ'}</textPath></text>
+                      <text className="fill-blue-600 text-[18px] font-black uppercase tracking-[0.2em]"><textPath xlinkHref="#txPathTop" startOffset="50%" textAnchor="middle">{(info?.name || 'YENİ YÖNETİM').split(' ')[0]}</textPath></text>
+                      <text dy="4" className="fill-blue-600 text-[18px] font-black uppercase tracking-[0.05em]"><textPath xlinkHref="#txPathBottom" startOffset="50%" textAnchor="middle">{(info?.name || 'YENİ YÖNETİM').split(' ').slice(1).join(' ') || 'YÖNETİMİ'}</textPath></text>
                     </svg>
-                    <div className="z-10 bg-green-600 text-white px-4 pt-[2px] pb-[13px] rotate-[-2deg] shadow-2xl flex items-center justify-center border border-white/20 min-w-[120px]"><span className="text-[16px] font-black tracking-tighter uppercase whitespace-nowrap leading-none">{txToPrint.type === 'GİDER' ? 'ÖDEME YAPILDI' : 'TAHSİL EDİLDİ'}</span></div>
+                    <div className="z-10 bg-blue-600 text-white px-4 pt-[2px] pb-[13px] rotate-[-2deg] shadow-2xl flex items-center justify-center border border-white/20 min-w-[120px]"><span className="text-[16px] font-black tracking-tighter uppercase whitespace-nowrap leading-none">{txToPrint.type === 'GİDER' ? 'ÖDEME YAPILDI' : 'TAHSİL EDİLDİ'}</span></div>
                   </div>
                 </div>
               </div>
@@ -245,12 +253,15 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
       </div>
 
       <div className="px-4 pt-4 pb-3 flex flex-col items-center relative z-[210]">
-        <button onClick={onClose} className="absolute left-4 top-4 p-2 bg-white/5 rounded-xl text-zinc-400 active:scale-90 transition-all border border-white/5"><ArrowLeft size={20} strokeWidth={2.5} /></button>
-        <h3 className="text-[15px] font-black uppercase tracking-[0.1em] text-white leading-none">İŞLEM HAREKETLERİ</h3>
+        <button onClick={onClose} className="app-back-button absolute left-4 top-4"><ArrowLeft size={20} strokeWidth={2.5} /></button>
+        <h3 className="flex max-w-[calc(100%-96px)] items-center justify-center gap-2 whitespace-nowrap text-[17px] font-black uppercase tracking-[0.08em] text-white leading-none">
+          <Inbox size={20} />
+          <span>İŞLEM HAREKETLERİ</span>
+        </h3>
         <div className="mt-5 w-full flex justify-center px-2">
           <div className="relative w-fit">
             <button onClick={() => setIsDatePickerOpen(!isDatePickerOpen)} className="bg-blue-600/10 border-2 border-blue-500/30 rounded-2xl h-14 px-3.5 flex items-center space-x-2.5 active:bg-blue-600/20 active:scale-[0.98] transition-all shadow-xl group">
-              <div className="flex items-center space-x-2.5"><Calendar size={22} className="text-blue-400 group-hover:scale-110 transition-transform" /><span className="text-[13px] font-black uppercase tracking-[0.1em] text-white whitespace-nowrap">{`${months[selectedMonth as number].toUpperCase()} ${selectedYear}`}</span></div>
+              <div className="flex items-center space-x-2.5"><Calendar size={22} className="text-blue-400 group-hover:scale-110 transition-transform" /><span className="text-[13px] font-black uppercase tracking-[0.1em] text-white whitespace-nowrap">{`${selectedMonth === 'all' ? 'TÜM YIL' : months[selectedMonth].toUpperCase()} ${selectedYear}`}</span></div>
               <ChevronDown size={18} className={`text-white/40 transition-transform duration-300 ${isDatePickerOpen ? 'rotate-180' : ''}`} />
             </button>
             {isDatePickerOpen && (
@@ -261,6 +272,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                   <button onClick={() => { if (selectedYear < currentDate.getFullYear()) setSelectedYear(selectedYear + 1); }} className="p-1 text-white/60 hover:text-white active:scale-90 transition-all disabled:opacity-30" disabled={selectedYear >= currentDate.getFullYear()}><ChevronDown size={16} className="-rotate-90" /></button>
                 </div>
                 <div className="max-h-[300px] overflow-y-auto no-scrollbar">
+                  <button onClick={() => { setSelectedMonth('all'); setIsDatePickerOpen(false); }} className={`w-full py-2 px-4 text-[11px] font-black uppercase tracking-widest border-b border-white/5 text-center transition-colors ${selectedMonth === 'all' ? 'text-green-400 bg-green-400/5' : 'text-white/60 hover:bg-white/5'}`}>TÜM YIL {selectedYear}</button>
                   {months.map((m, idx) => {
                     if (selectedYear === currentDate.getFullYear() && idx > currentDate.getMonth()) return null;
                     return <button key={idx} onClick={() => { setSelectedMonth(idx); setIsDatePickerOpen(false); }} className={`w-full py-2 px-4 text-[11px] font-black uppercase tracking-widest border-b border-white/5 last:border-0 text-center transition-colors ${selectedMonth === idx ? 'text-green-400 bg-green-400/5' : 'text-white/60 hover:bg-white/5'}`}>{m.toUpperCase()} {selectedYear}</button>;
@@ -272,18 +284,19 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar pb-20">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pb-20 touch-pan-y">
         {filteredTransactions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 opacity-20"><Inbox size={32} className="mb-2" /><p className="text-[8px] font-black uppercase tracking-widest">Kayıt Yok</p></div>
         ) : (
-          <div className="px-2 py-3 space-y-1.5">
+          <div className="w-full max-w-full overflow-x-hidden px-2 py-3 space-y-1.5">
             {filteredTransactions.map((tx, index) => (
               <div 
-                key={tx.id} 
-                className="relative bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 border-l-[3px] px-4 py-2.5 flex items-center justify-between rounded-xl shadow-lg animate-card-in overflow-hidden" 
+                key={tx.id}
+                ref={txReveal.observe(tx.id)}
+                className={`relative w-full max-w-full bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 border-l-[3px] px-4 py-2.5 flex items-center justify-between rounded-xl shadow-lg scroll-reveal-from-top-right-slow overflow-hidden ${txReveal.isVisible(tx.id) ? 'is-visible' : ''}`}
                 style={{ 
                   borderLeftColor: tx.type === 'GELİR' ? '#22c55e' : tx.type === 'BORÇLANDURMA' ? '#f97316' : '#ef4444',
-                  animationDelay: `${index * 60}ms`
+                  animationDelay: `${Math.min(index, 6) * 55}ms`
                 }}
               >
                 {/* Sağ Taraf Çizgisi */}
@@ -292,10 +305,10 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                   style={{ backgroundColor: tx.type === 'GELİR' ? '#22c55e' : tx.type === 'BORÇLANDURMA' ? '#f97316' : '#ef4444' }} 
                 />
                 <div className="flex-1 min-w-0 pr-2">
-                  <div className="flex items-center space-x-1.5 mb-0.5 opacity-60"><span className="text-[7px] font-black uppercase tracking-widest">{tx.type}</span><span className="w-0.5 h-0.5 rounded-full bg-white/20" /><span className="text-[7px] font-black uppercase tracking-widest">{tx.date}</span></div>
+                  <div className="flex items-center space-x-1.5 mb-0.5 opacity-60"><span className="text-[7px] font-black uppercase tracking-widest">{tx.type}</span><span className="w-0.5 h-0.5 rounded-full bg-white/20" /><span className="text-[7px] font-black uppercase tracking-widest">{tx.date}</span><span className="text-[7px] font-black uppercase tracking-widest"> {tx.time || '00:00'}</span></div>
                   <p className="text-[12px] font-bold text-white uppercase truncate leading-tight mb-1">
                     <span className="text-cyan-400">{getUnitNo(tx.unitId) === 'GENEL' ? (tx.type === 'GİDER' ? 'GİDER' : 'GELİR') : `DAİRE ${getUnitNo(tx.unitId)}`}</span>
-                    {' '}{tx.description.split('[')[0].trim()
+                    {' '}{fixCommonTurkishText(tx.description.split('[')[0].trim())
                       .replace(/^MAKBUZ\s+/i, '')
                       .replace(/\(TAHSİLATI\)/gi, 'TAHSİLATI')
                       .replace(/\(KREDİ\)/gi, 'KREDİ')

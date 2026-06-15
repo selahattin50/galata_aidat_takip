@@ -84,9 +84,12 @@ const IadeView: React.FC<IadeViewProps> = ({ units, info, onClose, onSave, curre
 
   return (
     <div className="scroll-stable-form h-full overflow-hidden pt-0 pb-4">
-      <div className="px-4 py-6 mb-2 flex items-center justify-between">
-        <button onClick={onClose} className="bg-white/5 p-2 rounded-xl transition-colors border border-white/5"><ArrowLeft size={24} className="text-zinc-400" /></button>
-        <h3 className="text-[17px] font-black uppercase tracking-[0.2em] text-red-500 text-center">İADE İŞLEMİ</h3>
+      <div className="relative px-4 py-6 mb-2 flex items-center justify-center">
+        <button onClick={onClose} className="app-back-button absolute left-4"><ArrowLeft size={24} /></button>
+        <h3 className="absolute left-1/2 flex max-w-[calc(100%-96px)] -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap text-[17px] font-black uppercase tracking-[0.08em] text-red-500 text-center">
+          <RotateCcw size={20} />
+          <span>İADE İŞLEMİ</span>
+        </h3>
         <div className="w-10" />
       </div>
 
@@ -94,8 +97,8 @@ const IadeView: React.FC<IadeViewProps> = ({ units, info, onClose, onSave, curre
         <section>
           <label className="text-[10px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">1. KAYNAK KASA</label>
           <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
-            <button onClick={() => setSourceVault('genel')} className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${sourceVault === 'genel' ? 'bg-red-500/10 border-red-500/40 text-red-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}><Wallet size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Genel Gider</span></button>
-            <button onClick={() => setSourceVault('demirbas')} className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${sourceVault === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}><Briefcase size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Demirbaş</span></button>
+            <button onClick={() => setSourceVault('genel')} className={`embossed-cash h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${sourceVault === 'genel' ? 'bg-red-500/10 border-red-500/40 text-red-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/45 hover:bg-white/10'}`}><Wallet size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Genel Gider</span></button>
+            <button onClick={() => setSourceVault('demirbas')} className={`embossed-cash h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${sourceVault === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/45 hover:bg-white/10'}`}><Briefcase size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Demirbaş</span></button>
           </div>
         </section>
 
@@ -144,8 +147,8 @@ const IadeView: React.FC<IadeViewProps> = ({ units, info, onClose, onSave, curre
         <section>
           <label className="text-[10px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">3. İADE YAPILACAK KİŞİ</label>
           <div className="grid grid-cols-2 gap-2.5">
-            <button type="button" onClick={() => setSelectedReturnType('Malik')} className={`flex items-center justify-center space-x-2 h-12 rounded-xl border transition-all ${selectedReturnType === 'Malik' ? 'bg-blue-600 border-blue-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'}`}><User size={16} /><span className="text-[11px] font-black uppercase tracking-widest">MALİK</span></button>
-            <button type="button" disabled={!selectedUnit?.tenantName} onClick={() => setSelectedReturnType('Kiracı')} className={`flex items-center justify-center space-x-2 h-12 rounded-xl border transition-all ${selectedReturnType === 'Kiracı' ? 'bg-orange-600 border-orange-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'} disabled:opacity-10 disabled:grayscale`}><UserCheck size={16} /><span className="text-[11px] font-black uppercase tracking-widest">KİRACI</span></button>
+            <button type="button" onClick={() => setSelectedReturnType('Malik')} className={`embossed-cash flex items-center justify-center space-x-2 h-12 rounded-xl border transition-all ${selectedReturnType === 'Malik' ? 'bg-blue-600 border-blue-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'}`}><User size={16} /><span className="text-[11px] font-black uppercase tracking-widest">MALİK</span></button>
+            <button type="button" disabled={!selectedUnit?.tenantName} onClick={() => setSelectedReturnType('Kiracı')} className={`embossed-cash flex items-center justify-center space-x-2 h-12 rounded-xl border transition-all ${selectedReturnType === 'Kiracı' ? 'bg-orange-600 border-orange-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'} disabled:opacity-10 disabled:grayscale`}><UserCheck size={16} /><span className="text-[11px] font-black uppercase tracking-widest">KİRACI</span></button>
           </div>
         </section>
 
@@ -166,7 +169,7 @@ const IadeView: React.FC<IadeViewProps> = ({ units, info, onClose, onSave, curre
           </div>
         </section>
 
-        <button onClick={handleProcess} disabled={!selectedUnitId || !amount || isSaving} className={`w-full h-14 rounded-[20px] shadow-2xl flex items-center justify-center space-x-3 transition-colors ${selectedUnitId && amount ? 'bg-red-600' : 'bg-white/5 grayscale cursor-not-allowed opacity-30'}`}>{isSaving ? <Loader2 className="animate-spin text-white" size={24} /> : saveComplete ? <div className="flex items-center space-x-2"><CheckCircle2 size={22} className="text-white" /><span className="text-[14px] font-black text-white uppercase tracking-widest">KAYDEDİLDİ</span></div> : <><RotateCcw size={22} className="text-white" /><span className="text-[14px] font-black text-white uppercase tracking-widest">İADEYİ KAYDET</span></>}</button>
+        <button onClick={handleProcess} disabled={!selectedUnitId || !amount || isSaving} className={`embossed-cash w-full h-14 rounded-[20px] shadow-2xl flex items-center justify-center space-x-3 transition-colors ${selectedUnitId && amount ? 'bg-red-600' : 'bg-white/5 grayscale cursor-not-allowed opacity-30'}`}>{isSaving ? <Loader2 className="animate-spin text-white" size={24} /> : saveComplete ? <div className="flex items-center space-x-2"><CheckCircle2 size={22} className="text-white" /><span className="text-[14px] font-black text-white uppercase tracking-widest">KAYDEDİLDİ</span></div> : <><RotateCcw size={22} className="text-white" /><span className="text-[14px] font-black text-white uppercase tracking-widest">İADEYİ KAYDET</span></>}</button>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Inbox, ChevronDown, ArrowLeft, CalendarDays } from 'lucide-react';
 import { Unit, BuildingInfo, Transaction } from '../types.ts';
+import { useScrollReveal } from './useScrollReveal';
 
 interface AidatCizelgeViewProps {
   units: Unit[];
@@ -19,6 +20,7 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
 
   const [selectedYear, setSelectedYear] = useState(currentYearActual);
   const [isYearPickerOpen, setIsYearPickerOpen] = useState(false);
+  const unitReveal = useScrollReveal<HTMLDivElement>();
 
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
   const years = [2024, 2025, 2026];
@@ -60,19 +62,19 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
   };
 
   return (
-    <div className="animate-page-in pt-0 pb-4 relative">
-      <div className="sticky top-0 z-30 px-4 pt-4 pb-2 bg-[#1e293b]/95 backdrop-blur-xl border-b border-white/5">
-        <div className="flex items-center justify-between mb-4 relative">
-          <button onClick={onClose} className="bg-white/5 p-2 rounded-xl border border-white/5 active:scale-90 transition-all">
-            <ArrowLeft size={20} strokeWidth={3} className="text-zinc-400" />
+    <div className="relative flex h-full flex-col overflow-hidden pt-0 touch-pan-y">
+      <div className="z-30 flex-shrink-0 px-4 pt-4 pb-2 bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a] border-b border-white/5 shadow-[0_14px_24px_rgba(15,23,42,0.55)]">
+        <div className="relative mb-4 flex h-10 items-center justify-center">
+          <button onClick={onClose} className="app-back-button absolute left-0">
+            <ArrowLeft size={20} strokeWidth={3} />
           </button>
 
-          <div className="flex items-center space-x-2">
+          <div className="absolute left-1/2 flex max-w-[calc(100%-120px)] -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap">
             <CalendarDays size={20} className="text-blue-400" />
             <h3 className="text-[17px] font-black uppercase tracking-[0.1em] text-white">AİDAT ÇİZELGESİ</h3>
           </div>
 
-          <div className="relative">
+          <div className="absolute right-0">
             <button onClick={() => setIsYearPickerOpen(!isYearPickerOpen)} className="h-9 w-auto bg-white/5 rounded-xl px-2.5 flex items-center border border-white/5">
               <span className="text-white font-black text-[17px] leading-none tracking-[0.1em]">{selectedYear}</span>
               <ChevronDown size={14} className={`ml-1.5 text-white/40 transition-transform ${isYearPickerOpen ? 'rotate-180' : ''}`} />
@@ -89,12 +91,13 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
 
       </div>
 
-      <div className="px-2 mt-2 space-y-1.5">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 pt-2 pb-4 space-y-1.5 no-scrollbar touch-pan-y">
         {units.sort((a, b) => parseInt(a.no) - parseInt(b.no)).map((unit, index) => (
           <div 
             key={unit.id} 
-            className="bg-[#1e293b]/50 backdrop-blur-md rounded-2xl p-3 border border-white/5 shadow-xl flex flex-col animate-card-in relative overflow-hidden"
-            style={{ animationDelay: `${index * 80}ms` }}
+            ref={unitReveal.observe(unit.id)}
+            className={`w-full max-w-full bg-[#1e293b]/50 backdrop-blur-md rounded-2xl p-3 border border-white/5 shadow-xl flex flex-col scroll-reveal-from-top-right relative overflow-hidden ${unitReveal.isVisible(unit.id) ? 'is-visible' : ''}`}
+            style={{ animationDelay: `${Math.min(index, 6) * 45}ms` }}
           >
             {/* Sol ve Sağ Mavi Çizgiler */}
             <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 opacity-40" />

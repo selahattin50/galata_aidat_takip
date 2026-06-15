@@ -63,11 +63,14 @@ const BoardView: React.FC<BoardViewProps> = ({ members, onClose, onAddMember, on
       <div className="flex items-center justify-center mb-6 relative px-1">
         <button 
           onClick={onClose}
-          className="absolute left-0 bg-white/5 p-3 rounded-xl hover:bg-white/10 active:scale-90 transition-all border border-white/5"
+          className="app-back-button absolute left-0"
         >
-          <ArrowLeft size={20} className="text-zinc-400" />
+          <ArrowLeft size={20} />
         </button>
-        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-green-500 text-center">YÖNETİM KURULU</h3>
+        <h3 className="flex max-w-[calc(100%-96px)] items-center justify-center gap-2 whitespace-nowrap text-[17px] font-black uppercase tracking-[0.08em] text-green-500 text-center">
+          <ShieldCheck size={20} />
+          <span>YÖNETİM KURULU</span>
+        </h3>
         <button 
           onClick={() => setShowAddForm(true)}
           className="absolute right-0 bg-green-600/20 border border-green-500/30 p-2 rounded-xl active:scale-90 transition-all shadow-lg"
@@ -183,7 +186,7 @@ const BoardView: React.FC<BoardViewProps> = ({ members, onClose, onAddMember, on
 
               <button 
                 type="submit"
-                className="w-full bg-green-600 hover:bg-green-500 text-white h-16 rounded-[28px] font-black text-xs uppercase tracking-[0.2em] active:scale-95 transition-all mt-4 shadow-xl"
+                className="embossed-cash w-full bg-green-600 hover:bg-green-500 text-white h-16 rounded-[28px] font-black text-xs uppercase tracking-[0.2em] active:scale-95 transition-all mt-4 shadow-xl"
               >
                 ÜYEYİ KAYDET
               </button>

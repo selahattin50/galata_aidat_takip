@@ -9,6 +9,30 @@
   }
 }
 
+@keyframes slideDownInStrong {
+  from {
+    opacity: 0;
+    transform: translate(86px, -54px) scale(0.94);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes cardDropInStrong {
+  from {
+    opacity: 0;
+    transform: translate(74px, -42px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .animate-page-in {
   animation: slideUpIn 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
@@ -16,6 +40,108 @@
 .animate-card-in {
   opacity: 0;
   animation: slideUpIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-page-drop-in {
+  animation: slideDownInStrong 0.95s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-card-drop-in {
+  opacity: 0;
+  animation: cardDropInStrong 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.scroll-reveal-from-top-right {
+  opacity: 0;
+  transform: translate(74px, -42px) scale(0.95);
+  will-change: opacity, transform;
+}
+
+.scroll-reveal-from-top-right.is-visible {
+  animation: cardDropInStrong 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.scroll-reveal-from-top-right-slow {
+  opacity: 0;
+  transform: translate(88px, -50px) scale(0.94);
+  will-change: opacity, transform;
+}
+
+.scroll-reveal-from-top-right-slow.is-visible {
+  animation: cardDropInStrong 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.app-back-button {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, #475569 0%, #1e293b 52%, #0f172a 100%);
+  color: #cbd5e1;
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -8px 14px rgba(0, 0, 0, 0.22);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.app-back-button svg {
+  color: currentColor;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+
+.app-back-button:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: linear-gradient(135deg, #526176 0%, #243247 52%, #111c2f 100%);
+}
+
+.app-back-button:active {
+  transform: translateY(1px) scale(0.96);
+  box-shadow:
+    0 7px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 6px 12px rgba(0, 0, 0, 0.22);
+}
+
+.embossed-cash {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -12px 18px rgba(2, 6, 23, 0.2),
+    0 8px 0 rgba(2, 6, 23, 0.28),
+    0 18px 28px rgba(0, 0, 0, 0.24);
+}
+
+.embossed-cash::before {
+  content: "";
+  position: absolute;
+  inset: 1px 1px auto 1px;
+  height: 42%;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.embossed-cash::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.embossed-cash-value {
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08),
+    0 3px 8px rgba(0, 0, 0, 0.32);
 }
 
 :root {
@@ -35,6 +161,12 @@ body,
 
 .home-shell {
   padding-bottom: calc(var(--app-bottom-nav-height) + 10px);
+}
+
+.home-static,
+.home-static * {
+  animation: none !important;
+  transition-duration: 0ms !important;
 }
 
 .scroll-stable-form {

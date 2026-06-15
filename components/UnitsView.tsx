@@ -7,6 +7,7 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { PDFService } from '../pdfService';
 import { useAndroidBackHandler } from '../appBackButton';
+import { useScrollReveal } from './useScrollReveal';
 
 interface UnitsViewProps {
   units: Unit[];
@@ -36,6 +37,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  const unitReveal = useScrollReveal<HTMLDivElement>();
 
   useAndroidBackHandler(() => {
     if (showAddModal) {
@@ -90,14 +92,31 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
     e.preventDefault();
     const normalizedNo = normalizeUnitNo(formData.no);
     if (!normalizedNo || !formData.ownerName) return;
+    const today = currentDate.toISOString().split('T')[0];
+    const ownerName = toTitleCase(formData.ownerName);
+    const tenantName = formData.status === 'Kiracı' ? toTitleCase(formData.tenantName) : '';
     setIsSaving(true);
     onAddUnit({
       no: normalizedNo,
-      ownerName: toTitleCase(formData.ownerName),
-      tenantName: formData.status === 'Kiracı' ? toTitleCase(formData.tenantName) : '',
+      ownerName,
+      tenantName,
       phone: formData.phone,
       tenantPhone: formData.status === 'Kiracı' ? formData.tenantPhone : '',
-      status: formData.status
+      status: formData.status,
+      ownerHistory: [{
+        id: `${Date.now()}-owner`,
+        name: ownerName,
+        phone: formData.phone,
+        startDate: today,
+        isCurrent: true
+      }],
+      tenantHistory: tenantName ? [{
+        id: `${Date.now()}-tenant`,
+        name: tenantName,
+        phone: formData.tenantPhone,
+        startDate: today,
+        isCurrent: true
+      }] : []
     });
     setTimeout(() => {
       setIsSaving(false); setSaveSuccess(true);
@@ -258,19 +277,19 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
   }
 
   return (
-    <div className="relative pt-0 pb-10 animate-page-in">
-      <div className="sticky top-0 z-30 px-4 pt-4 pb-2 bg-[#1e293b]/95 backdrop-blur-xl border-b border-white/5">
-        <div className="flex items-center justify-between mb-4 mt-2">
-          <div className="flex items-center space-x-3 flex-shrink-0">
-            <button onClick={onClose} className="bg-white/5 p-2 rounded-xl border border-white/5 active:scale-90 transition-all">
-              <ArrowLeft size={20} strokeWidth={3} className="text-zinc-400" />
+    <div className="relative flex h-full flex-col overflow-hidden pt-0 touch-pan-y">
+      <div className="z-30 flex-shrink-0 px-4 pt-4 pb-2 bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a] border-b border-white/5 shadow-[0_14px_24px_rgba(15,23,42,0.55)]">
+        <div className="relative mb-4 mt-2 flex h-10 items-center justify-center">
+          <div className="absolute left-0 top-0 flex items-center space-x-3">
+            <button onClick={onClose} className="app-back-button">
+              <ArrowLeft size={20} strokeWidth={3} />
             </button>
-            <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/5 shadow-inner">
-              <Users className="text-white" size={24} />
-            </div>
-            <h1 className="text-[15px] font-black text-white uppercase tracking-[0.1em] leading-none">BAĞIMSIZ BÖLÜMLER</h1>
           </div>
-          <div className="flex items-center space-x-2 flex-shrink-0">
+          <h1 className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 text-center text-[17px] font-black text-white uppercase tracking-[0.1em] leading-none">
+            <Users className="text-white" size={22} />
+            <span>DAİRELER</span>
+          </h1>
+          <div className="absolute right-0 top-0 flex items-center space-x-2">
             <button
               onClick={() => generateUnitsPdf('share')}
               disabled={isProcessingPdf}
@@ -288,14 +307,15 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
         </div>
       </div>
 
-      <div className="px-3 pt-2 pb-4">
-        <div className="grid grid-cols-1 gap-2">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-2 pb-10 no-scrollbar touch-pan-y">
+        <div className="grid w-full max-w-full grid-cols-1 gap-2 overflow-x-hidden">
           {filteredUnits.map((unit, index) => (
             <div
               key={unit.id}
+              ref={unitReveal.observe(unit.id)}
               onClick={() => setSelectedUnit(unit)}
-              className="group bg-[#1e293b]/60 border border-white/5 rounded-[22px] py-1.5 px-2 active:scale-[0.98] transition-all relative overflow-hidden ring-1 ring-white/5 hover:bg-[#1e293b]/70 shadow-xl animate-card-in"
-              style={{ animationDelay: `${index * 80}ms` }}
+              className={`group w-full max-w-full bg-[#1e293b]/60 border border-white/5 rounded-[22px] py-1.5 px-2 active:scale-[0.98] transition-all relative overflow-hidden ring-1 ring-white/5 hover:bg-[#1e293b]/70 shadow-xl scroll-reveal-from-top-right ${unitReveal.isVisible(unit.id) ? 'is-visible' : ''}`}
+              style={{ animationDelay: `${Math.min(index, 6) * 45}ms` }}
             >
               {/* Sol ve Sağ Mavi Çizgiler */}
               <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 opacity-40" />
@@ -314,7 +334,9 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
                       <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest flex-shrink-0 ${unit.tenantName ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>
                         {unit.tenantName ? 'Kiracı' : 'Malik'}
                       </span>
-                      <span className="text-[12px] text-green-500 font-bold font-mono tracking-tighter">{unit.tenantPhone || unit.phone}</span>
+                      <span className="text-[12px] text-green-500 font-bold font-mono tracking-tighter">
+                        {unit.tenantName ? (unit.tenantPhone || 'TELEFON YOK') : (unit.phone || 'TELEFON YOK')}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -368,8 +390,8 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
                 <div className="col-span-2 min-w-0">
                   <label className="text-[9px] font-black text-white/55 uppercase tracking-widest mb-2 block px-1">DURUM</label>
                   <div className="grid grid-cols-2 w-full gap-2 h-11">
-                    <button type="button" onClick={() => setFormData({ ...formData, status: 'Malik' })} className={`w-full rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${formData.status === 'Malik' ? 'bg-blue-500/10 border-blue-400/60 text-blue-100 shadow-lg' : 'bg-slate-900/25 border-white/10 text-white/60'}`}>Malik</button>
-                    <button type="button" onClick={() => setFormData({ ...formData, status: 'Kiracı' })} className={`w-full rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${formData.status === 'Kiracı' ? 'bg-emerald-500/10 border-emerald-400/60 text-emerald-100 shadow-lg' : 'bg-slate-900/25 border-white/10 text-white/60'}`}>Kiracı</button>
+                    <button type="button" onClick={() => setFormData({ ...formData, status: 'Malik' })} className={`embossed-cash w-full rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${formData.status === 'Malik' ? 'bg-blue-500/10 border-blue-400/60 text-blue-100 shadow-lg' : 'bg-slate-900/25 border-white/10 text-white/60'}`}>Malik</button>
+                    <button type="button" onClick={() => setFormData({ ...formData, status: 'Kiracı' })} className={`embossed-cash w-full rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${formData.status === 'Kiracı' ? 'bg-emerald-500/10 border-emerald-400/60 text-emerald-100 shadow-lg' : 'bg-slate-900/25 border-white/10 text-white/60'}`}>Kiracı</button>
                   </div>
                 </div>
               </div>
@@ -393,7 +415,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
                   <input type="tel" placeholder="Kiracı Tel..." value={formData.tenantPhone} onChange={(e) => setFormData({ ...formData, tenantPhone: e.target.value })} className="w-full h-11 bg-slate-900/35 border border-amber-300/15 rounded-2xl px-4 text-white placeholder:text-white/65 text-[15px] font-bold shadow-inner focus:outline-none focus:border-amber-300/45 transition-all" />
                 </div>
               )}
-              <button type="submit" disabled={isSaving} className={`w-full h-11 rounded-2xl border flex items-center justify-center space-x-3 transition-all active:scale-[0.98] shadow-xl mt-5 ${saveSuccess ? 'bg-emerald-500/10 border-emerald-400/60 text-emerald-100' : 'bg-blue-500/10 border-blue-400/60 text-blue-100'}`}>
+              <button type="submit" disabled={isSaving} className={`embossed-cash w-full h-11 rounded-2xl border flex items-center justify-center space-x-3 transition-all active:scale-[0.98] shadow-xl mt-5 ${saveSuccess ? 'bg-emerald-500/10 border-emerald-400/60 text-emerald-100' : 'bg-blue-500/10 border-blue-400/60 text-blue-100'}`}>
                 {isSaving ? <Loader2 className="animate-spin text-current" size={24} /> : saveSuccess ? <Check className="text-current" size={24} /> : <Plus className="text-current" size={24} />}
                 <span className="text-current text-[12px] font-black uppercase tracking-[0.2em]">{saveSuccess ? 'BAŞARILI' : 'KAYDET'}</span>
               </button>

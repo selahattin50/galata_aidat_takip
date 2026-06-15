@@ -25,7 +25,7 @@ const ActionGrid: React.FC<ActionGridProps> = ({ variant = 'grid', onActionClick
     { icon: <TrendingUp size={iconSize} />, label: "Gelir", tone: "bg-green-500/10 border-green-500/45 text-green-500", iconClass: "text-green-500" },
     { icon: <TrendingDown size={iconSize} />, label: "Gider", tone: "bg-orange-500/10 border-orange-400/45 text-orange-300", iconClass: "text-orange-300" },
     { icon: <ArrowLeftRight size={iconSize} />, label: "Transfer", tone: "bg-purple-500/10 border-purple-400/45 text-purple-300", iconClass: "text-purple-300" },
-    { icon: <Building2 size={iconSize} />, label: "Bağımsız Bölümler", tone: "bg-cyan-500/10 border-cyan-400/45 text-cyan-300", iconClass: "text-cyan-300" },
+    { icon: <Building2 size={iconSize} />, label: "Daireler", tone: "bg-cyan-500/10 border-cyan-400/45 text-cyan-300", iconClass: "text-cyan-300" },
     { icon: <History size={iconSize} />, label: "İşlem Hareketleri", tone: "bg-slate-400/10 border-slate-300/35 text-slate-300", iconClass: "text-slate-300" },
     { icon: <UserCheck size={iconSize} />, label: "Alacak Listesi", tone: "bg-amber-500/10 border-amber-400/45 text-amber-300", iconClass: "text-amber-300" },
     { icon: <CalendarDays size={iconSize} />, label: "AİDAT ÇİZELGE", tone: "bg-indigo-500/10 border-indigo-400/45 text-indigo-300", iconClass: "text-indigo-300" },
@@ -40,7 +40,7 @@ const ActionGrid: React.FC<ActionGridProps> = ({ variant = 'grid', onActionClick
           <button
             key={idx}
             onClick={() => onActionClick?.(action.label)}
-            className={`flex min-h-[64px] flex-col items-center justify-center backdrop-blur-md rounded-[18px] p-1.5 h-[clamp(64px,10.2dvh,92px)] border shadow-lg active:scale-90 transition-all duration-300 group relative overflow-hidden ${action.tone}`}
+            className={`embossed-cash flex min-h-[64px] flex-col items-center justify-center backdrop-blur-md rounded-[18px] p-1.5 h-[clamp(64px,10.2dvh,92px)] border shadow-lg active:scale-90 transition-all duration-300 group relative overflow-hidden ${action.tone}`}
           >
             <div className="absolute inset-0 bg-white/5 opacity-0 group-active:opacity-100 transition-opacity" />
             <div className="mb-0.5 min-[380px]:mb-1 transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">
@@ -66,7 +66,7 @@ const ActionGrid: React.FC<ActionGridProps> = ({ variant = 'grid', onActionClick
         <button
           key={idx}
           onClick={() => onActionClick?.(action.label)}
-          className={`flex items-center backdrop-blur-lg rounded-xl p-3 w-full border shadow-md active:scale-[0.97] transition-all group ${action.tone}`}
+          className={`embossed-cash flex items-center backdrop-blur-lg rounded-xl p-3 w-full border shadow-md active:scale-[0.97] transition-all group ${action.tone}`}
         >
           <div className="p-2 rounded-lg mr-3 bg-white/10 group-hover:bg-white/20 transition-all shadow-inner">
             {React.cloneElement(action.icon as React.ReactElement, {

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, CheckCircle2, TrendingUp, Wallet, Briefcase, Calendar, ChevronDown, Save, Loader2, X, Database } from 'lucide-react';
 import DatePickerModal from './DatePickerModal';
+import { fixCommonTurkishText, upperTr } from '../textUtils';
 
 interface GelirViewProps {
   onClose: () => void;
@@ -36,7 +37,7 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
     setFormData(prev => ({
       ...prev,
       category,
-      description: prev.description || category.toUpperCase()
+      description: prev.description || upperTr(category)
     }));
     setShowCategoryList(false);
   };
@@ -50,7 +51,7 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
 
     setReceiptData({
         amount: numAmount,
-        description: formData.description || formData.category,
+        description: fixCommonTurkishText(formData.description || formData.category),
         vault: formData.kasa,
         date: new Date(formData.date).toLocaleDateString('tr-TR')
     });
@@ -93,11 +94,14 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
 
   return (
     <div className="animate-in slide-in-from-bottom-6 duration-500 pt-0 pb-60">
-      <div className="px-4 py-6 mb-3 flex items-center justify-between">
-        <button onClick={onClose} className="bg-white/5 p-2 rounded-xl active:scale-90 transition-all border border-white/5">
-          <ArrowLeft size={24} className="text-zinc-400" />
+      <div className="relative px-4 py-6 mb-3 flex items-center justify-center">
+        <button onClick={onClose} className="app-back-button absolute left-4">
+          <ArrowLeft size={24} />
         </button>
-        <h3 className="text-[17px] font-black uppercase tracking-[0.2em] text-green-500 text-center">GELİR GİRİŞİ</h3>
+        <h3 className="absolute left-1/2 flex max-w-[calc(100%-96px)] -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap text-[17px] font-black uppercase tracking-[0.08em] text-green-500 text-center">
+          <TrendingUp size={20} />
+          <span>GELİR GİRİŞİ</span>
+        </h3>
         <div className="w-10" />
       </div>
 
@@ -105,10 +109,10 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
         <section>
           <label className="text-[10px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">KASA SEÇİMİ</label>
           <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
-            <button onClick={() => setFormData(prev => ({...prev, kasa: 'genel'}))} className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${formData.kasa === 'genel' ? 'bg-green-500/10 border-green-500/40 text-green-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}>
+            <button onClick={() => setFormData(prev => ({...prev, kasa: 'genel'}))} className={`embossed-cash h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${formData.kasa === 'genel' ? 'bg-green-500/10 border-green-500/40 text-green-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/45 hover:bg-white/10'}`}>
               <Wallet size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Genel Gider</span>
             </button>
-            <button onClick={() => setFormData(prev => ({...prev, kasa: 'demirbas'}))} className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${formData.kasa === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}>
+            <button onClick={() => setFormData(prev => ({...prev, kasa: 'demirbas'}))} className={`embossed-cash h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${formData.kasa === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/45 hover:bg-white/10'}`}>
               <Briefcase size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Demirbaş</span>
             </button>
           </div>
@@ -132,7 +136,7 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
           <label className="text-[10px] font-black tracking-widest text-white/40 uppercase mb-1.5 block text-center">GELİR KALEMİ</label>
           <button
             onClick={() => setShowCategoryList(!showCategoryList)}
-            className="w-full bg-[#1e293b] rounded-2xl h-[50px] flex items-center justify-between px-4 border border-white/10 hover:bg-[#203140] transition-all shadow-xl"
+            className="embossed-cash w-full bg-[#1e293b] rounded-2xl h-[50px] flex items-center justify-between px-4 border border-white/10 hover:bg-[#203140] transition-all shadow-xl"
           >
             <div className="flex items-center space-x-3 truncate">
               <span className="text-xl shrink-0">{incomeCategories.find(c => c.label === formData.category)?.icon || '💰'}</span>
@@ -150,7 +154,7 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
                   <button
                     key={cat.id}
                     onClick={() => handleCategorySelect(cat.label)}
-                    className={`w-full py-3 px-4 text-left flex items-center space-x-3 border-b border-white/5 last:border-0 hover:bg-green-500/20 active:bg-white/5 transition-colors group ${formData.category === cat.label ? 'bg-green-500/10' : ''}`}
+                    className={`embossed-cash w-full py-3 px-4 text-left flex items-center space-x-3 border-b border-white/5 last:border-0 hover:bg-green-500/20 active:bg-white/5 transition-colors group ${formData.category === cat.label ? 'bg-green-500/10' : ''}`}
                   >
                     <span className="text-xl shrink-0 group-hover:scale-110 transition-transform">{cat.icon}</span>
                     <span className={`text-[12px] font-black uppercase tracking-widest flex-1 truncate transition-colors ${formData.category === cat.label ? 'text-green-400' : 'text-white/60 group-hover:text-white'}`}>
@@ -178,7 +182,7 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
         <button
           onClick={handleProcess}
           disabled={!formData.category || !formData.amount || isSaving}
-          className={`w-full h-16 rounded-[28px] flex items-center justify-center space-x-4 transition-all active:scale-95 ${formData.category && formData.amount ? 'bg-green-600 shadow-[0_15px_30px_rgba(22,197,94,0.3)]' : 'bg-white/5 opacity-20 cursor-not-allowed'}`}
+          className={`embossed-cash w-full h-16 rounded-[28px] flex items-center justify-center space-x-4 transition-all active:scale-95 ${formData.category && formData.amount ? 'bg-green-600 shadow-[0_15px_30px_rgba(22,197,94,0.3)]' : 'bg-white/5 opacity-20 cursor-not-allowed'}`}
         >
           {isSaving ? <Loader2 className="animate-spin" size={24} /> : (
             <>

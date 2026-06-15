@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { ArrowLeft, ChevronDown, CheckCircle2, Save, Home, Loader2, User, UserCheck, Wallet, Briefcase } from 'lucide-react';
 import { Unit, BuildingInfo, Transaction } from '../types.ts';
 import DatePickerModal from './DatePickerModal';
+import { fixCommonTurkishText } from '../textUtils';
 
 interface TahsilatViewProps {
   units: Unit[];
@@ -82,7 +83,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
     const finalYear = debtItem ? debtItem.year : undefined;
     const finalVault = debtItem ? 'genel' : selectedVault;
 
-    onSave(finalAmount, description, finalVault, selectedDate, selectedUnitId, finalMonth, finalYear);
+    onSave(finalAmount, fixCommonTurkishText(description), finalVault, selectedDate, selectedUnitId, finalMonth, finalYear);
     setIsSaving(false);
     setIsSuccess(true);
   };
@@ -118,20 +119,21 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
         <CheckCircle2 size={64} className="text-green-500 mb-4" />
         <h3 className="text-xl font-black text-white uppercase tracking-widest">İŞLEM TAMAMLANDI</h3>
         <p className="text-white/40 text-xs mt-2 uppercase font-bold">Ödeme başarıyla kaydedildi.</p>
-        <button onClick={onClose} className="mt-8 px-10 py-4 bg-blue-600 rounded-2xl font-black text-white active:scale-95 transition-all">GERİ DÖN</button>
+        <button onClick={onClose} className="embossed-cash mt-8 px-10 py-4 bg-blue-600 rounded-2xl font-black text-white active:scale-95 transition-all">GERİ DÖN</button>
       </div>
     );
   }
 
   return (
     <div className="fixed inset-0 z-[200] bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a] flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
-      <div className="px-4 py-6 flex items-center justify-between">
-        <button onClick={onClose} className="p-2 bg-white/5 rounded-xl text-zinc-400 active:scale-90 transition-all border border-white/5">
+      <div className="relative px-4 py-6 flex items-center justify-center">
+        <button onClick={onClose} className="app-back-button absolute left-4">
           <ArrowLeft size={22} />
         </button>
-        <div className="flex flex-col items-center">
-          <h3 className="text-[14px] font-black uppercase tracking-[0.2em] text-white">TAHSİLAT</h3>
-        </div>
+        <h3 className="absolute left-1/2 flex max-w-[calc(100%-96px)] -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap text-[17px] font-black uppercase tracking-[0.08em] text-white">
+          <Wallet size={20} />
+          <span>TAHSİLAT</span>
+        </h3>
         <div className="w-10" />
       </div>
 
@@ -186,14 +188,14 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
             <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2">
               <button
                 onClick={() => setSelectedPayerType('Kiracı')}
-                className={`flex items-center justify-center space-x-2 h-12 rounded-xl border transition-all ${selectedPayerType === 'Kiracı' ? 'bg-orange-600 border-orange-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'}`}
+                className={`embossed-cash flex items-center justify-center space-x-2 h-12 rounded-xl border transition-all ${selectedPayerType === 'Kiracı' ? 'bg-orange-600 border-orange-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'}`}
               >
                 <UserCheck size={18} />
                 <span className="text-[11px] font-black uppercase tracking-widest">KİRACI</span>
               </button>
               <button
                 onClick={() => setSelectedPayerType('Malik')}
-                className={`flex items-center justify-center space-x-2 h-12 rounded-xl border transition-all ${selectedPayerType === 'Malik' ? 'bg-blue-600 border-blue-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'}`}
+                className={`embossed-cash flex items-center justify-center space-x-2 h-12 rounded-xl border transition-all ${selectedPayerType === 'Malik' ? 'bg-blue-600 border-blue-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'}`}
               >
                 <User size={18} />
                 <span className="text-[11px] font-black uppercase tracking-widest">MALİK</span>
@@ -209,7 +211,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
             </label>
             <button
               onClick={() => setShowPaymentMethodList(!showPaymentMethodList)}
-              className="w-full bg-[#1e293b] rounded-xl h-12 flex items-center justify-between px-4 border border-white/10 hover:bg-[#203140] transition-all shadow-lg"
+              className="embossed-cash w-full bg-[#1e293b] rounded-xl h-12 flex items-center justify-between px-4 border border-white/10 hover:bg-[#203140] transition-all shadow-lg"
             >
               <span className="text-[13px] font-black uppercase tracking-wider text-white">
                 {paymentMethod}
@@ -223,7 +225,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
                   <button
                     key={method}
                     onClick={() => { setPaymentMethod(method as any); setShowPaymentMethodList(false); }}
-                    className={`w-full py-3 px-4 text-left border-b border-white/5 last:border-0 hover:bg-blue-500/20 transition-colors ${paymentMethod === method ? 'bg-blue-500/10 text-blue-400' : 'text-white/60'}`}
+                    className={`embossed-cash w-full py-3 px-4 text-left border-b border-white/5 last:border-0 hover:bg-blue-500/20 transition-colors ${paymentMethod === method ? 'bg-blue-500/10 text-blue-400' : 'text-white/60'}`}
                   >
                     <span className="text-[12px] font-black uppercase tracking-widest">{method}</span>
                   </button>
@@ -239,14 +241,14 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
             <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
               <button
                 onClick={() => setSelectedVault('genel')}
-                className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${selectedVault === 'genel' ? 'bg-green-500/10 border-green-500/40 text-green-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}
+                className={`embossed-cash h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${selectedVault === 'genel' ? 'bg-green-500/10 border-green-500/40 text-green-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/45 hover:bg-white/10'}`}
               >
                 <Wallet size={18} />
                 <span className="text-[12px] font-black uppercase tracking-widest">GENEL GİDER</span>
               </button>
               <button
                 onClick={() => setSelectedVault('demirbas')}
-                className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${selectedVault === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}
+                className={`embossed-cash h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${selectedVault === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/45 hover:bg-white/10'}`}
               >
                 <Briefcase size={18} />
                 <span className="text-[12px] font-black uppercase tracking-widest">DEMİRBAŞ</span>
@@ -280,7 +282,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
               <button
                 onClick={() => handleProcess()}
                 disabled={!amount || parseFloat(amount) <= 0 || isSaving}
-                className="w-full h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-[20px] flex items-center justify-center space-x-3 active:scale-95 transition-all shadow-xl disabled:opacity-50"
+                className="embossed-cash w-full h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-[20px] flex items-center justify-center space-x-3 active:scale-95 transition-all shadow-xl disabled:opacity-50"
               >
                 {isSaving ? <Loader2 className="animate-spin" size={20} /> : <><Save size={20} /><span className="text-[12px] font-black uppercase tracking-[0.2em]">TAHSİLATI KAYDET</span></>}
               </button>
@@ -294,7 +296,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
 
             <section className="space-y-3">
               {getPendingDebts(selectedUnit).map((debt) => (
-                <button key={debt.id} onClick={() => handleProcess(debt)} className="w-full bg-slate-800/40 rounded-[24px] py-4 px-5 border border-white/5 text-left active:scale-[0.98] transition-all flex items-center justify-between shadow-lg">
+                <button key={debt.id} onClick={() => handleProcess(debt)} className="embossed-cash w-full bg-slate-800/40 rounded-[24px] py-4 px-5 border border-white/5 text-left active:scale-[0.98] transition-all flex items-center justify-between shadow-lg">
                   <div className="min-w-0 flex-1">
                     <span className="text-[11px] font-black text-red-500 uppercase tracking-widest mb-1 block">{debt.title}</span>
                     <span className="text-[14px] font-black text-white uppercase truncate block">
@@ -327,7 +329,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
               </p>
               <button
                 onClick={() => setWarningMessage('')}
-                className="mt-5 ml-auto flex h-11 items-center justify-center rounded-2xl bg-blue-600 px-6 text-[11px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all"
+                className="embossed-cash mt-5 ml-auto flex h-11 items-center justify-center rounded-2xl bg-blue-600 px-6 text-[11px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all"
               >
                 TAMAM
               </button>

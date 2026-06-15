@@ -28,22 +28,22 @@ const Header: React.FC<HeaderProps> = ({ info, onLogout, onMessagesClick, unread
   };
 
   return (
-    <div className="sticky top-0 z-[100] w-full px-6 pt-10 pb-4 flex flex-col items-center relative animate-in fade-in duration-700">
+    <div className="sticky top-0 z-[100] w-full px-6 pt-10 pb-4 flex flex-col items-center relative">
       <div className="flex flex-col items-center">
         <h1 className="text-lg font-medium text-white uppercase tracking-[0.2em] leading-none mb-1">
           {info.name || 'GALATA AİDAT'}
         </h1>
-        <h2 className="text-[15px] font-medium text-blue-400 uppercase tracking-[0.1em] leading-none mt-[18px] opacity-60">
+        <h2 className="text-[15px] font-medium text-blue-500 uppercase tracking-[0.1em] leading-none mt-[18px]">
           {info.managerName || 'YÖNETİCİ TANIMSIZ'}
         </h2>
       </div>
 
       <button
         onClick={handleExit}
-        className="absolute left-[34px] top-8 p-3 text-red-500 hover:text-red-400 active:scale-90 transition-all rounded-full group"
+        className="absolute left-[24px] top-8 p-3 text-red-500 hover:text-red-400 active:scale-90 transition-all rounded-full group"
         title="Uygulamadan Çık"
       >
-        <Power size={22} strokeWidth={2.5} className="transition-colors drop-shadow-[0_0_5px_rgba(239,68,68,0.3)]" />
+        <Power size={26} strokeWidth={2.5} className="transition-colors drop-shadow-[0_0_5px_rgba(239,68,68,0.3)]" />
       </button>
 
       {showMessages && (

@@ -2,7 +2,29 @@ import { ref, set, get, update, remove, onValue, off } from 'firebase/database';
 import { database } from './firebaseConfig';
 import { BuildingInfo, Unit, Transaction, BoardMember, FileEntry, AppMessage } from './types';
 
+type CurrentSessionData = {
+  buildingInfo: BuildingInfo | null;
+  units: Unit[];
+  transactions: Transaction[];
+  boardMembers: BoardMember[];
+  files: FileEntry[];
+};
+
 class DatabaseService {
+  private toList<T>(data: any): T[] {
+    if (!data) return [];
+    const list = Array.isArray(data) ? data : Object.values(data);
+    return list.filter(item => item !== null && item !== undefined) as T[];
+  }
+
+  private sortTransactions(transactions: Transaction[]): Transaction[] {
+    return transactions.sort((a, b) => {
+      const dateA = a.date ? a.date.split('.').reverse().join('') : '0';
+      const dateB = b.date ? b.date.split('.').reverse().join('') : '0';
+      return dateB.localeCompare(dateA);
+    });
+  }
+
   private currentSessionId: string = ''; // Başlangıçta boş, auth ile dolar
 
   // Aktif oturumu ayarla
@@ -104,6 +126,22 @@ class DatabaseService {
     }
   }
 
+  async getCurrentSessionData(): Promise<CurrentSessionData | null> {
+    if (!this.currentSessionId) {
+      console.warn('Oturum acik degil, toplu veri okunamiyor');
+      return null;
+    }
+
+    const data = await this.getData('');
+    return {
+      buildingInfo: data?.building_info || null,
+      units: this.toList<Unit>(data?.units),
+      transactions: this.sortTransactions(this.toList<Transaction>(data?.transactions)),
+      boardMembers: this.toList<BoardMember>(data?.board_members),
+      files: this.toList<FileEntry>(data?.files)
+    };
+  }
+
   // Herhangi bir path'ten veri okuma
   async getDataDirect(path: string): Promise<any> {
     try {
@@ -174,26 +212,19 @@ class DatabaseService {
     return await this.getData('building_info');
   }
 
-  // Bağımsız bölümleri kaydet
+  // Daireleri kaydet
   async saveUnits(units: Unit[]): Promise<void> {
     await this.saveData('units', units);
   }
 
-  // Bağımsız bölümleri al
+  // Daireleri al
   async getUnits(): Promise<Unit[]> {
     const data = await this.getData('units');
-    if (!data) return [];
-
-    // Firebase array'leri object olarak saklar, array'e çevir
-    if (Array.isArray(data)) {
-      return data.filter(item => item !== null && item !== undefined);
-    }
-
-    // Object ise array'e çevir
-    const unitsList = Object.values(data) as Unit[];
-    return unitsList.filter(item => item !== null && item !== undefined);
+    return this.toList<Unit>(data);
   }
 
+    // Firebase array'leri object olarak saklar, array'e çevir
+    // Object ise array'e çevir
   // İşlemleri kaydet
   async saveTransactions(transactions: Transaction[]): Promise<void> {
     console.log('💾 saveTransactions çağrıldı:', transactions.length, 'adet');
@@ -213,6 +244,7 @@ class DatabaseService {
 
         // Sadece tanımlı değerleri ekle
         if (tx.unitId !== undefined) cleanTx.unitId = tx.unitId;
+        cleanTx.time = tx.time || '00:00';
         if (tx.periodMonth !== undefined) cleanTx.periodMonth = tx.periodMonth;
         if (tx.periodYear !== undefined) cleanTx.periodYear = tx.periodYear;
 
@@ -253,7 +285,7 @@ class DatabaseService {
     console.log('📥 Firebase\'den alınan data tipi:', typeof data, 'keys:', Object.keys(data).length);
 
     // Object'i array'e çevir
-    const transactions = (Object.values(data) as Transaction[]).filter(item => item !== null && item !== undefined);
+    const transactions = this.toList<Transaction>(data);
 
     console.log('📥 Yüklenen transaction sayısı:', transactions.length);
     console.log('📥 Transaction tipleri:', transactions.map((t: any) => t.type));
@@ -261,11 +293,7 @@ class DatabaseService {
     console.log('📥 GELİR sayısı:', transactions.filter((t: any) => t.type === 'GELİR').length);
 
     // Tarihe göre sırala (en yeni en üstte)
-    return transactions.sort((a, b) => {
-      const dateA = a.date ? a.date.split('.').reverse().join('') : '0';
-      const dateB = b.date ? b.date.split('.').reverse().join('') : '0';
-      return dateB.localeCompare(dateA);
-    });
+    return this.sortTransactions(transactions);
   }
 
   // Yönetim kurulu üyelerini kaydet
@@ -309,7 +337,7 @@ class DatabaseService {
   async getMessages(): Promise<AppMessage[]> {
     const data = await this.getDataDirect('_globalMessages');
     if (!data) return [];
-    const messages = Object.values(data).filter(item => item !== null && item !== undefined) as AppMessage[];
+    const messages = this.toList<AppMessage>(data);
     return messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }
 

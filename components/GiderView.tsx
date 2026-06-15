@@ -1,7 +1,28 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Wallet, Briefcase, ChevronDown, Save, Loader2, CheckCircle2, Database } from 'lucide-react';
+import { ArrowLeft, Wallet, Briefcase, ChevronDown, Save, Loader2, CheckCircle2, Database, Zap, Droplets, ArrowUpDown, Trash2, Wrench, ClipboardList, Award, Flower2, MoreHorizontal, Flame, Wifi, Shield, Car, TreePine, Package } from 'lucide-react';
 import { BuildingInfo } from '../types.ts';
 import DatePickerModal from './DatePickerModal';
+import { fixCommonTurkishText, upperTr } from '../textUtils';
+
+const getCategoryIcon = (cat: string) => {
+  const c = cat.toLocaleLowerCase('tr-TR');
+  if (c.includes('elektrik') || c.includes('elektirik') || c.includes('elekt'))   return <Zap size={18} className="text-yellow-400 shrink-0" />;
+  if (c.includes('su'))         return <Droplets size={18} className="text-blue-400 shrink-0" />;
+  if (c.includes('asansör') || c.includes('asansor')) return <ArrowUpDown size={18} className="text-purple-400 shrink-0" />;
+  if (c.includes('temizlik') || c.includes('çöp') || c.includes('cop')) return <Trash2 size={18} className="text-green-400 shrink-0" />;
+  if (c.includes('tamirat') || c.includes('onarım') || c.includes('onarim') || c.includes('bakım') || c.includes('bakim')) return <Wrench size={18} className="text-orange-400 shrink-0" />;
+  if (c.includes('yönetim') || c.includes('yonetim')) return <ClipboardList size={18} className="text-cyan-400 shrink-0" />;
+  if (c.includes('huzur'))      return <Award size={18} className="text-amber-400 shrink-0" />;
+  if (c.includes('bahçe') || c.includes('bahce')) return <Flower2 size={18} className="text-lime-400 shrink-0" />;
+  if (c.includes('doğalgaz') || c.includes('dogalgaz') || c.includes('gaz')) return <Flame size={18} className="text-red-400 shrink-0" />;
+  if (c.includes('internet') || c.includes('wifi')) return <Wifi size={18} className="text-sky-400 shrink-0" />;
+  if (c.includes('sigorta') || c.includes('güvenlik') || c.includes('guvenlik')) return <Shield size={18} className="text-indigo-400 shrink-0" />;
+  if (c.includes('otopark') || c.includes('araç') || c.includes('arac')) return <Car size={18} className="text-slate-400 shrink-0" />;
+  if (c.includes('peyzaj') || c.includes('ağaç') || c.includes('agac')) return <TreePine size={18} className="text-emerald-400 shrink-0" />;
+  if (c.includes('malzeme') || c.includes('sarf')) return <Package size={18} className="text-rose-400 shrink-0" />;
+  if (c.includes('diğer') || c.includes('diger')) return <MoreHorizontal size={18} className="text-white/40 shrink-0" />;
+  return <Package size={18} className="text-white/40 shrink-0" />;
+};
 
 const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, v: any, dt: string) => Promise<void>; currentDate: Date; info: BuildingInfo; }> = ({ onClose, onSave, currentDate, info }) => {
   const [st, setSt] = useState({ cat: '', amt: '', desc: '', v: 'genel', dt: currentDate.toISOString().split('T')[0] });
@@ -13,7 +34,7 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
   const expenseCategories = info.expenseCategories || ['Elektrik', 'Su', 'Asansör', 'Temizlik', 'Tamirat', 'Yönetim Gideri', 'Huzur Hakkı', 'Bahçe Bakımı', 'Diğer'];
 
   const handleCategorySelect = (catLabel: string) => {
-    const newDesc = `${catLabel.toUpperCase()}`;
+    const newDesc = upperTr(catLabel);
 
     setSt(prev => ({
       ...prev,
@@ -44,13 +65,13 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
 
     try {
       console.log('🔴 GiderView: onSave çağrılıyor...');
-      await onSave(a, st.desc, st.v as any, st.dt);
+      await onSave(a, fixCommonTurkishText(st.desc), st.v as any, st.dt);
 
       console.log('🔴 GiderView: onSave tamamlandı, success ekranı gösterilecek');
 
       setReceiptData({
         amount: a,
-        description: st.desc,
+        description: fixCommonTurkishText(st.desc),
         vault: st.v,
         date: new Date(st.dt).toLocaleDateString('tr-TR')
       });
@@ -103,9 +124,12 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
 
   return (
     <div className="scroll-stable-form h-full overflow-hidden pt-0 pb-4">
-      <div className="px-4 py-6 mb-3 flex items-center justify-between">
-        <button onClick={onClose} className="bg-white/5 p-2 rounded-xl border border-white/5 transition-colors"><ArrowLeft size={24} className="text-zinc-400" /></button>
-        <h3 className="text-[18px] font-black uppercase tracking-[0.2em] text-red-500 text-center">GİDER KAYDI</h3>
+      <div className="relative px-4 py-6 mb-3 flex items-center justify-center">
+        <button onClick={onClose} className="app-back-button absolute left-4"><ArrowLeft size={24} /></button>
+        <h3 className="absolute left-1/2 flex max-w-[calc(100%-96px)] -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap text-[17px] font-black uppercase tracking-[0.08em] text-red-500 text-center">
+          <Wallet size={20} />
+          <span>GİDER KAYDI</span>
+        </h3>
         <div className="w-10" />
       </div>
 
@@ -113,10 +137,10 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
         <section>
           <label className="text-[10px] font-black tracking-widest text-white/30 uppercase mb-3 block ml-1">KASA SEÇİMİ</label>
           <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
-            <button onClick={() => setSt({ ...st, v: 'genel' })} className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${st.v === 'genel' ? 'bg-green-500/10 border-green-500/40 text-green-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}>
+            <button onClick={() => setSt({ ...st, v: 'genel' })} className={`embossed-cash h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${st.v === 'genel' ? 'bg-green-500/10 border-green-500/40 text-green-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/45 hover:bg-white/10'}`}>
               <Wallet size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Genel Gider</span>
             </button>
-            <button onClick={() => setSt({ ...st, v: 'demirbas' })} className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${st.v === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}>
+            <button onClick={() => setSt({ ...st, v: 'demirbas' })} className={`embossed-cash h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${st.v === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/45 hover:bg-white/10'}`}>
               <Briefcase size={18} /><span className="text-[12px] font-black uppercase tracking-widest">Demirbaş</span>
             </button>
           </div>
@@ -140,10 +164,10 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
           <label className="text-[10px] font-black tracking-widest text-white/30 uppercase mb-3 block text-center">GİDER KALEMİ</label>
           <button
             onClick={() => setShowCatList(!showCatList)}
-            className="w-full bg-[#1e293b] rounded-2xl h-[50px] flex items-center justify-between px-4 border border-white/10 transition-colors shadow-xl"
+            className="embossed-cash w-full bg-[#1e293b] rounded-2xl h-[50px] flex items-center justify-between px-4 border border-white/10 transition-colors shadow-xl"
           >
             <div className="flex items-center space-x-3 truncate">
-              <span className="text-xl shrink-0">📂</span>
+              {st.cat ? getCategoryIcon(st.cat) : <Package size={18} className="text-white/20 shrink-0" />}
               <span className={`text-[15px] font-black uppercase tracking-wider truncate transition-colors ${st.cat ? 'text-white' : 'text-white/20 group-hover:text-white/40'}`}>
                 {st.cat || 'TÜR SEÇ...'}
               </span>
@@ -158,9 +182,9 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
                   <button
                     key={idx}
                     onClick={() => handleCategorySelect(cat)}
-                    className={`w-full py-3.5 px-4 text-left flex items-center space-x-3 border-b border-white/5 last:border-0 hover:bg-red-500/20 active:bg-white/5 transition-colors group ${st.cat === cat ? 'bg-red-500/10' : ''}`}
+                    className={`embossed-cash w-full py-3.5 px-4 text-left flex items-center space-x-3 border-b border-white/5 last:border-0 hover:bg-red-500/20 active:bg-white/5 transition-colors group ${st.cat === cat ? 'bg-red-500/10' : ''}`}
                   >
-                    <span className="text-xl shrink-0 group-hover:scale-110 transition-transform">📂</span>
+                    {getCategoryIcon(cat)}
                     <span className={`text-[12px] font-black uppercase tracking-widest flex-1 truncate transition-colors ${st.cat === cat ? 'text-red-400' : 'text-white/60 group-hover:text-white'}`}>
                       {cat}
                     </span>
@@ -186,7 +210,7 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
         <button
           onClick={handleProcess}
           disabled={!st.amt || loading}
-          className={`w-full h-16 rounded-[28px] flex items-center justify-center space-x-4 transition-colors shadow-xl ${st.amt ? 'bg-red-600 shadow-[0_15px_30px_rgba(220,38,38,0.3)]' : 'bg-white/5 opacity-20 cursor-not-allowed'}`}
+          className={`embossed-cash w-full h-16 rounded-[28px] flex items-center justify-center space-x-4 transition-colors shadow-xl ${st.amt ? 'bg-red-600 shadow-[0_15px_30px_rgba(220,38,38,0.3)]' : 'bg-white/5 opacity-20 cursor-not-allowed'}`}
         >
           {loading ? <Loader2 className="animate-spin" size={24} /> : (
             <>

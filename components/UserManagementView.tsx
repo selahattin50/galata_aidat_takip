@@ -154,7 +154,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
       let lastError = null;
       const categoryMap = new Map<string, ScanCategorySummary>([
         ['building_info', { key: 'building_info', label: 'PROFIL BILGISI', total: 0, perSource: [] }],
-        ['units', { key: 'units', label: 'BAGIMSIZ BOLUMLER', total: 0, perSource: [] }],
+        ['units', { key: 'units', label: 'DAIRELER', total: 0, perSource: [] }],
         ['transactions', { key: 'transactions', label: 'ISLEM HAREKETLERI', total: 0, perSource: [] }],
         ['board_members', { key: 'board_members', label: 'YONETIM KURULU', total: 0, perSource: [] }],
         ['files', { key: 'files', label: 'DOSYALAR', total: 0, perSource: [] }],
@@ -623,14 +623,17 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
 
   return (
     <div className="animate-in fade-in slide-in-from-right-4 duration-500 pt-0 pb-32">
-      <div className="sticky top-0 z-[200] px-4 py-4 mb-6 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
+      <div className="sticky top-0 z-[200] px-4 py-4 mb-6 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 backdrop-blur-xl border-b border-white/5 flex items-center justify-center relative">
         <button
           onClick={onClose}
-          className="bg-white/5 p-3 rounded-xl active:scale-90 transition-all border border-white/5 hover:bg-white/10"
+          className="app-back-button absolute left-4"
         >
-          <ArrowLeft size={22} className="text-zinc-400" />
+          <ArrowLeft size={22} />
         </button>
-        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-500 text-center">KULLANICI YÖNETİMİ</h3>
+        <h3 className="absolute left-1/2 flex max-w-[calc(100%-96px)] -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap text-[17px] font-black uppercase tracking-[0.08em] text-emerald-500 text-center">
+          <Users size={20} />
+          <span>KULLANICI YÖNETİMİ</span>
+        </h3>
         <div className="w-10" />
       </div>
 
@@ -745,7 +748,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ onClose }) => {
             <div className="bg-black/20 rounded-xl p-3 space-y-2">
               <p className="text-[10px] text-white/60 font-bold uppercase tracking-tight">• Firebase Console adresine gidin.</p>
               <p className="text-[10px] text-white/60 font-bold uppercase tracking-tight">• Realtime Database {'>'} Rules sekmesini açın.</p>
-              <p className="text-[10px] text-white/60 font-bold uppercase tracking-tight underline">• 'selahattin50@gmail.com' için OKUMA yetkisi verin.</p>
+              <p className="text-[10px] text-white/60 font-bold uppercase tracking-tight underline">• Yönetici mail adresi için OKUMA yetkisi verin.</p>
             </div>
           </div>
         )}

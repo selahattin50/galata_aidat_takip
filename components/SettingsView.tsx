@@ -1,7 +1,7 @@
 
 import React, { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
 import { Save, Loader2, X, Check, ChevronLeft, ChevronRight, UserCog, Building2, ShieldCheck, ToggleLeft, ToggleRight, ArrowLeft, TriangleAlert, Edit3 } from 'lucide-react';
-import { BuildingInfo, Unit, Transaction } from '../types.ts';
+import { BalanceSummary, BuildingInfo, Unit, Transaction } from '../types.ts';
 import { db } from '../databaseService';
 import { auth } from '../firebaseConfig';
 import UserManagementView from './UserManagementView.tsx';
@@ -48,12 +48,37 @@ interface SettingsViewProps {
   buildingInfo: BuildingInfo;
   onUpdateBuildingInfo: (i: BuildingInfo) => void;
   units: Unit[];
+  transactions: Transaction[];
+  balance: BalanceSummary;
   onResetMoney: () => void;
   onClose: () => void;
-  onAddTransactions: (txs: Transaction[]) => void;
+  onReplaceTransactions: (txs: Transaction[]) => void;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuildingInfo, units, onResetMoney, onClose, onAddTransactions }) => {
+const clampBulkMessageDay = (value: unknown, fallback: number, max = 28) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(1, Math.trunc(parsed)));
+};
+
+const getInitialBulkMessageInfoDay = (info?: BuildingInfo) => {
+  const reminderDay = clampBulkMessageDay(info?.bulkMessageReminderDay ?? info?.bulkMessageStartDay, 19);
+  const savedInfoDay = clampBulkMessageDay(info?.bulkMessageInfoDay, reminderDay - 1);
+
+  if ((info?.bulkMessageInfoDay == null || savedInfoDay === 1) && reminderDay === 19) {
+    return 18;
+  }
+
+  return Math.min(savedInfoDay, Math.max(1, reminderDay - 1));
+};
+
+const getInitialBulkMessageReminderDay = (info?: BuildingInfo) => {
+  const infoDay = getInitialBulkMessageInfoDay(info);
+  const savedReminderDay = clampBulkMessageDay(info?.bulkMessageReminderDay ?? info?.bulkMessageStartDay, infoDay + 1);
+  return Math.max(infoDay + 1, savedReminderDay);
+};
+
+const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuildingInfo, units, transactions, balance, onResetMoney, onClose, onReplaceTransactions }) => {
   const BULK_MESSAGE_EDITOR_KEY = 'galata_bulk_message_editor';
   const [st, setSt] = useState({
     name: buildingInfo?.name || '',
@@ -65,8 +90,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
     isManagerExempt: buildingInfo?.isManagerExempt || false,
     isAutoDuesEnabled: buildingInfo?.isAutoDuesEnabled || false,
     isBulkMessageEnabled: buildingInfo?.isBulkMessageEnabled !== false,
-    bulkMessageInfoDay: (buildingInfo?.bulkMessageInfoDay || 1).toString(),
-    bulkMessageReminderDay: (buildingInfo?.bulkMessageReminderDay || buildingInfo?.bulkMessageStartDay || 19).toString(),
+    bulkMessageInfoDay: getInitialBulkMessageInfoDay(buildingInfo).toString(),
+    bulkMessageReminderDay: getInitialBulkMessageReminderDay(buildingInfo).toString(),
     expenseCategories: buildingInfo?.expenseCategories || ['Elektrik', 'Su', 'Asansör', 'Temizlik', 'Tamirat', 'Yönetim Gideri', 'Huzur Hakkı', 'Bahçe Bakımı', 'Diğer'],
     lastAutoDuesMonth: buildingInfo?.lastAutoDuesMonth || "",
     iban: buildingInfo?.iban || "",
@@ -115,10 +140,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
   };
 
   const handleSave = async () => {
-    const normalizedBulkMessageInfoDay = Math.min(28, Math.max(1, parseInt(st.bulkMessageInfoDay, 10) || 1));
+    const normalizedBulkMessageInfoDay = clampBulkMessageDay(st.bulkMessageInfoDay, 18, 27);
     const normalizedBulkMessageReminderDay = Math.max(
-      normalizedBulkMessageInfoDay,
-      Math.min(28, Math.max(1, parseInt(st.bulkMessageReminderDay, 10) || 19))
+      normalizedBulkMessageInfoDay + 1,
+      clampBulkMessageDay(st.bulkMessageReminderDay, normalizedBulkMessageInfoDay + 1)
     );
     setIsSaving(true);
     await new Promise(r => setTimeout(r, 800));
@@ -159,6 +184,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
   };
 
   const selectedManagerUnit = units?.find(u => u && u.id === st.managerUnitId);
+  const messageInfoDayPreview = clampBulkMessageDay(st.bulkMessageInfoDay, 18, 27);
 
   if (showAdminPanel && canAccessAdminPanel) {
     return <UserManagementView onClose={() => setShowAdminPanel(false)} />;
@@ -167,14 +193,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
   return (
     <SettingsErrorBoundary>
       <div className="animate-in fade-in slide-in-from-right-4 duration-500 pt-0 pb-32">
-        <div className="-mx-4 px-4 py-6 mb-6 flex items-center justify-between">
+        <div className="-mx-4 px-4 py-6 mb-6 flex items-center justify-center relative">
           <button
             onClick={onClose}
-            className="bg-white/5 p-3 rounded-xl active:scale-90 transition-all border border-white/5 hover:bg-white/10"
+            className="app-back-button absolute left-4"
           >
-            <ArrowLeft size={22} className="text-zinc-400" />
+            <ArrowLeft size={22} />
           </button>
-          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-500 text-center">AYARLAR</h3>
+          <h3 className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2 text-[17px] font-black uppercase tracking-[0.2em] text-emerald-500 text-center">
+            <UserCog size={20} />
+            <span>AYARLAR</span>
+          </h3>
           <div className="w-10" />
         </div>
 
@@ -352,9 +381,23 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
                   <p className="text-[7px] font-black text-zinc-100/50 uppercase mb-1">{bulkMessageEditor === 'info' ? 'M1 BİLGİLENDİRME' : 'M2 HATIRLATMA'}</p>
                   <input
                     type="number"
+                    min={bulkMessageEditor === 'info' ? 1 : messageInfoDayPreview + 1}
+                    max={28}
                     disabled={!isEditing}
                     value={bulkMessageEditor === 'info' ? st.bulkMessageInfoDay : st.bulkMessageReminderDay}
-                    onChange={e => setSt({...st, [bulkMessageEditor === 'info' ? 'bulkMessageInfoDay' : 'bulkMessageReminderDay']: e.target.value})}
+                    onChange={e => {
+                      const value = e.target.value;
+                      if (bulkMessageEditor === 'info') {
+                        const nextInfoDay = clampBulkMessageDay(value, 18, 27);
+                        setSt({
+                          ...st,
+                          bulkMessageInfoDay: value,
+                          bulkMessageReminderDay: (nextInfoDay + 1).toString()
+                        });
+                        return;
+                      }
+                      setSt({...st, bulkMessageReminderDay: value});
+                    }}
                     className={`w-full bg-transparent text-center font-black text-2xl text-white outline-none ${!isEditing ? 'opacity-40' : ''}`}
                   />
                 </div>
@@ -419,7 +462,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
                 else setIsEditing(true);
               }}
               disabled={isSaving}
-              className={`w-full ${isEditing ? 'bg-emerald-600' : 'bg-blue-600'} rounded-3xl py-4 flex items-center justify-center space-x-3 active:scale-95 transition-all shadow-2xl border border-white/5`}
+              className={`embossed-cash w-full ${isEditing ? 'bg-emerald-600 border-emerald-400/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_0_rgba(4,120,87,0.72),0_14px_22px_rgba(0,0,0,0.22)] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_3px_0_rgba(4,120,87,0.78),0_10px_16px_rgba(0,0,0,0.2)]' : 'bg-blue-600 border-blue-400/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_0_rgba(30,64,175,0.72),0_14px_22px_rgba(0,0,0,0.22)] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_3px_0_rgba(30,64,175,0.78),0_10px_16px_rgba(0,0,0,0.2)]'} rounded-3xl py-4 flex items-center justify-center space-x-3 active:translate-y-0.5 active:scale-[0.99] transition-all border`}
             >
               {isSaving ? <Loader2 className="animate-spin" size={20} /> : (
                 <>
@@ -434,10 +477,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
             {canAccessAdminPanel && (
               <button
                 onClick={() => setShowAdminPanel(true)}
-                className="w-full bg-white/5 border border-emerald-500/20 rounded-3xl py-4 flex items-center justify-center space-x-3 active:scale-95 transition-all hover:bg-emerald-500/10 shadow-xl"
+                className="embossed-cash w-full bg-emerald-600 border border-emerald-400/25 rounded-3xl py-4 flex items-center justify-center space-x-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_0_rgba(4,120,87,0.72),0_14px_22px_rgba(0,0,0,0.22)] active:translate-y-0.5 active:scale-[0.99] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_3px_0_rgba(4,120,87,0.78),0_10px_16px_rgba(0,0,0,0.2)] transition-all"
               >
-                <ShieldCheck size={16} className="text-emerald-400" />
-                <span className="font-black text-[11px] tracking-[0.2em] uppercase text-emerald-400">ADMIN PANELİ</span>
+                <ShieldCheck size={16} className="text-white" />
+                <span className="font-black text-[11px] tracking-[0.2em] uppercase text-white">ADMIN PANELİ</span>
               </button>
             )}
           </div>
@@ -448,7 +491,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
               <ShieldCheck size={16} className="text-zinc-400" />
               <h2 className="text-[11px] font-black tracking-[0.2em] uppercase text-zinc-100">VERİ YÖNETİMİ</h2>
             </div>
-            <button disabled={!isEditing} onClick={() => setShowCarryOver(true)} className={`w-full bg-emerald-600 py-3 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-lg ${!isEditing ? 'opacity-40' : ''}`}>BAKİYE DEVRİ YAP</button>
+            <button disabled={!isEditing} onClick={() => setShowCarryOver(true)} className={`embossed-cash w-full bg-emerald-600 py-3 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_0_rgba(4,120,87,0.72),0_14px_22px_rgba(0,0,0,0.22)] active:translate-y-0.5 active:scale-[0.99] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_3px_0_rgba(4,120,87,0.78),0_10px_16px_rgba(0,0,0,0.2)] transition-all ${!isEditing ? 'opacity-40' : ''}`}>BAKİYE DEVRİ YAP</button>
             <button
               disabled={!isEditing}
               onClick={async () => {
@@ -460,7 +503,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
                   window.location.reload();
                 }
               }}
-              className={`w-full bg-red-600 py-3 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-lg ${!isEditing ? 'opacity-40' : ''}`}
+              className={`embossed-cash w-full bg-red-600 py-3 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_6px_0_rgba(127,29,29,0.75),0_14px_22px_rgba(0,0,0,0.22)] active:translate-y-0.5 active:scale-[0.99] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_3px_0_rgba(127,29,29,0.82),0_10px_16px_rgba(0,0,0,0.2)] transition-all ${!isEditing ? 'opacity-40' : ''}`}
             >
               MUHASEBEYİ SIFIRLA
             </button>
@@ -488,7 +531,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
                   }
                 }
               }}
-              className={`w-full bg-red-600 py-3 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-lg ${!isEditing ? 'opacity-40' : ''}`}
+              className={`embossed-cash w-full bg-red-600 py-3 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_6px_0_rgba(127,29,29,0.75),0_14px_22px_rgba(0,0,0,0.22)] active:translate-y-0.5 active:scale-[0.99] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_3px_0_rgba(127,29,29,0.82),0_10px_16px_rgba(0,0,0,0.2)] transition-all ${!isEditing ? 'opacity-40' : ''}`}
             >
               HESABI SIFIRLA (FABRİKA AYARLARI)
             </button>
@@ -528,7 +571,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
                   }
                 }
               }}
-              className={`w-full bg-red-600 py-3 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-lg ${!isEditing ? 'opacity-40' : ''}`}
+              className={`embossed-cash w-full bg-red-600 py-3 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_6px_0_rgba(127,29,29,0.75),0_14px_22px_rgba(0,0,0,0.22)] active:translate-y-0.5 active:scale-[0.99] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_3px_0_rgba(127,29,29,0.82),0_10px_16px_rgba(0,0,0,0.2)] transition-all ${!isEditing ? 'opacity-40' : ''}`}
             >
               HESABIMI SİL
             </button>
@@ -555,7 +598,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
         )}
 
         {showCarryOver && (
-          <CarryOverView units={units as any} onClose={() => setShowCarryOver(false)} onCarryOver={(newTxs) => { onAddTransactions(newTxs); setShowCarryOver(false); }} />
+          <CarryOverView units={units} transactions={transactions} info={buildingInfo} appBalance={balance} onClose={() => setShowCarryOver(false)} onCarryOver={(newTxs) => { onReplaceTransactions(newTxs); setShowCarryOver(false); }} />
         )}
       </div>
     </SettingsErrorBoundary>

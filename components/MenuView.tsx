@@ -89,14 +89,14 @@ const MenuView: React.FC<MenuViewProps> = ({ onActionClick, onLogout, onClose })
       <div className="flex flex-col items-center mb-8 px-4 text-center relative">
         <button
           onClick={onClose}
-          className="absolute left-4 top-0 bg-white/5 p-3 rounded-xl active:scale-90 transition-all border border-white/5 hover:bg-white/10"
+          className="app-back-button absolute left-4 top-0"
         >
-          <ArrowLeft size={22} className="text-zinc-400" />
+          <ArrowLeft size={22} />
         </button>
         <div className="w-16 h-16 bg-white/5 rounded-3xl border border-white/10 flex items-center justify-center mb-4 shadow-2xl">
           <LayoutDashboard size={32} className="text-green-500" strokeWidth={1.5} />
         </div>
-        <h2 className="text-xl font-light tracking-[0.2em] text-white uppercase">Uygulama Menüsü</h2>
+        <h2 className="text-[17px] font-light tracking-[0.2em] text-white uppercase">Uygulama Menüsü</h2>
         <p className="text-[9px] font-medium text-white/10 uppercase tracking-[0.4em] mt-1">Yönetim Dijital Paneli</p>
       </div>
 
@@ -120,10 +120,10 @@ const MenuView: React.FC<MenuViewProps> = ({ onActionClick, onLogout, onClose })
                       onActionClick(action.targetSubView || null, action.targetTab);
                     }
                   }}
-                  className="bg-[#111827]/80 backdrop-blur-xl rounded-[24px] py-2.5 px-4 flex items-center justify-between group active:bg-blue-600/20 active:border-blue-500/30 active:scale-[0.98] transition-all border border-white/5 shadow-lg"
+                  className="embossed-cash bg-[#111827]/80 backdrop-blur-xl rounded-[24px] py-2.5 px-4 flex items-center justify-between group border border-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_5px_0_rgba(2,6,23,0.42),0_13px_20px_rgba(0,0,0,0.2)] active:translate-y-0.5 active:scale-[0.99] active:bg-[#111827]/90 active:border-white/10 active:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_2px_0_rgba(2,6,23,0.52),0_9px_15px_rgba(0,0,0,0.18)] transition-all"
                 >
                   <div className="flex items-center space-x-4">
-                    <div className={`p-2 rounded-xl bg-white/5 border border-white/5 ${action.color} group-hover:scale-110 transition-transform group-active:scale-110`}>
+                    <div className={`embossed-cash p-2 rounded-xl bg-white/5 border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_3px_0_rgba(2,6,23,0.45),0_8px_12px_rgba(0,0,0,0.18)] group-hover:scale-105 group-active:translate-y-0.5 group-active:scale-100 group-active:shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_1px_0_rgba(2,6,23,0.55),0_5px_9px_rgba(0,0,0,0.16)] transition-all ${action.color}`}>
                       {action.icon}
                     </div>
                     <span className="text-[12px] font-black uppercase tracking-widest text-white/80 group-hover:text-white transition-colors">

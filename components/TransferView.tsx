@@ -19,7 +19,7 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
 
   const handleProcess = async () => {
     const numAmount = parseFloat(amount);
-    if (!numAmount || numAmount <= 0 || !description) return;
+    if (!numAmount || numAmount <= 0) return;
 
     setIsSaving(true);
     await new Promise(resolve => setTimeout(resolve, 800));
@@ -28,7 +28,8 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
 
     const targetVault = sourceVault === 'genel' ? 'DEMİRBAŞ' : 'GENEL GİDER';
     const sourceVaultName = sourceVault === 'genel' ? 'GENEL GİDER' : 'DEMİRBAŞ';
-    const finalDescription = `${description} [${sourceVaultName} -> ${targetVault}]`;
+    const desc = description.trim() || 'Kasa Transferi';
+    const finalDescription = `${desc} [${sourceVaultName} -> ${targetVault}]`;
 
     setIsSuccess(true);
     setTimeout(() => {
@@ -50,11 +51,14 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
 
   return (
     <div className="animate-in slide-in-from-bottom-6 duration-500 pt-0 pb-16">
-      <div className="px-4 py-6 mb-3 flex items-center justify-between">
-        <button onClick={onClose} className="bg-white/5 p-2 rounded-xl active:scale-90 transition-all border border-white/5">
-          <ArrowLeft size={24} className="text-zinc-400" />
+      <div className="relative px-4 py-6 mb-3 flex items-center justify-center">
+        <button onClick={onClose} className="app-back-button absolute left-4">
+          <ArrowLeft size={24} />
         </button>
-        <h3 className="text-[16px] font-black uppercase tracking-[0.14em] text-green-500 text-center">KASALAR ARASI TRANSFER</h3>
+        <h3 className="absolute left-1/2 flex max-w-[calc(100%-96px)] -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap text-[17px] font-black uppercase tracking-[0.04em] text-green-500 text-center">
+          <ArrowRightLeft size={20} />
+          <span>KASALAR ARASI TRANSFER</span>
+        </h3>
         <div className="w-10" />
       </div>
 
@@ -64,8 +68,8 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
           <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
             <button
               onClick={() => setSourceVault('genel')}
-              className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${
-                sourceVault === 'genel' ? 'bg-green-500/10 border-green-500/40 text-green-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'
+              className={`embossed-cash h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${
+                sourceVault === 'genel' ? 'bg-green-500/10 border-green-500/40 text-green-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/45 hover:bg-white/10'
               }`}
             >
               <Wallet size={18} />
@@ -73,8 +77,8 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
             </button>
             <button
               onClick={() => setSourceVault('demirbas')}
-              className={`h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${
-                sourceVault === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'
+              className={`embossed-cash h-12 rounded-xl flex items-center justify-center space-x-2 border transition-all ${
+                sourceVault === 'demirbas' ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 shadow-lg' : 'bg-white/5 border-white/5 text-white/45 hover:bg-white/10'
               }`}
             >
               <Briefcase size={18} />
@@ -83,7 +87,7 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-white/5 bg-black/20 px-3 py-2">
+            <div className="embossed-cash rounded-xl border border-white/5 bg-black/20 px-3 py-2">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-widest text-white/35">YÖN</span>
                 <ArrowRightLeft size={14} className="text-white/25" />
@@ -93,7 +97,7 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
               </div>
             </div>
 
-            <div className="rounded-xl border border-indigo-500/15 bg-indigo-500/5 px-3 py-2">
+            <div className="embossed-cash rounded-xl border border-indigo-500/15 bg-indigo-500/5 px-3 py-2">
               <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/40">ALICI :</span>
               <div className="mt-1 flex items-center gap-2">
                 <ArrowRightLeft size={14} className="text-indigo-300/70" />
@@ -143,9 +147,9 @@ const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDat
 
         <button
           onClick={handleProcess}
-          disabled={!amount || !description || isSaving}
-          className={`w-full h-14 rounded-2xl shadow-2xl flex items-center justify-center space-x-3 active:scale-95 transition-all ${
-            amount && description ? 'bg-indigo-600 shadow-indigo-900/30' : 'bg-white/5 grayscale cursor-not-allowed opacity-30'
+          disabled={!amount || isSaving}
+          className={`embossed-cash w-full h-14 rounded-2xl shadow-2xl flex items-center justify-center space-x-3 active:scale-95 transition-all ${
+            amount ? 'bg-indigo-600 shadow-indigo-900/30' : 'bg-white/5 grayscale cursor-not-allowed opacity-30'
           }`}
         >
           {isSaving ? (

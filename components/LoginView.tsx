@@ -114,7 +114,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
       return true;
     }
 
-    return false;
+    return true;
   });
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -232,11 +232,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
 
       <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-700">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-[32px] bg-white/5 border border-white/10 mb-6 shadow-2xl relative group p-2">
-            <div className="absolute inset-0 bg-blue-500/10 rounded-[32px] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-            <img src="/assets/logo.png" alt="Galata Logo" className="w-full h-full object-contain relative z-10 drop-shadow-xl" />
+          <div className="inline-flex items-center justify-center w-36 h-32 mb-5 relative group">
+            <img src="/assets/logo.png" alt="Galata Logo" className="h-full w-auto object-contain relative z-10 drop-shadow-xl" />
           </div>
-          <h1 className="text-3xl font-black uppercase tracking-[0.2em] bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400 mb-1 drop-shadow-2xl">
+          <h1 className="text-3xl font-black uppercase tracking-[0.2em] bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400 mb-2 leading-none drop-shadow-2xl">
             GALATA AİDAT
           </h1>
           <p className="text-[13px] font-black uppercase tracking-[0.5em] text-zinc-400">

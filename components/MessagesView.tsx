@@ -15,6 +15,7 @@ interface MessagesViewProps {
 const MessagesView: React.FC<MessagesViewProps> = ({ onClose, messages, onSendMessage, onDeleteMessage }) => {
     const [content, setContent] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const [viewportHeight, setViewportHeight] = useState<number | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const currentUser = auth.currentUser;
@@ -24,6 +25,25 @@ const MessagesView: React.FC<MessagesViewProps> = ({ onClose, messages, onSendMe
         // Scroll to bottom when messages change
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    useEffect(() => {
+        const updateViewportHeight = () => {
+            const visualViewport = window.visualViewport;
+            const nextHeight = visualViewport?.height || window.innerHeight;
+            setViewportHeight(Math.floor(nextHeight));
+        };
+
+        updateViewportHeight();
+        window.visualViewport?.addEventListener('resize', updateViewportHeight);
+        window.visualViewport?.addEventListener('scroll', updateViewportHeight);
+        window.addEventListener('resize', updateViewportHeight);
+
+        return () => {
+            window.visualViewport?.removeEventListener('resize', updateViewportHeight);
+            window.visualViewport?.removeEventListener('scroll', updateViewportHeight);
+            window.removeEventListener('resize', updateViewportHeight);
+        };
+    }, []);
 
     const handleSend = async () => {
         if (!content.trim()) return;
@@ -53,15 +73,18 @@ const MessagesView: React.FC<MessagesViewProps> = ({ onClose, messages, onSendMe
     };
 
     return (
-        <div className="animate-in fade-in slide-in-from-right-4 duration-500 pt-0 pb-32 flex flex-col h-screen">
-            <div className="sticky top-0 z-[200] px-4 py-4 mb-2 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 backdrop-blur-xl border-b border-white/5 flex items-center justify-between">
+        <div
+            className="animate-in fade-in slide-in-from-right-4 duration-500 pt-0 flex h-[100dvh] flex-col overflow-hidden"
+            style={viewportHeight ? { height: `${viewportHeight}px` } : undefined}
+        >
+            <div className="sticky top-0 z-[200] px-4 py-4 mb-2 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 backdrop-blur-xl border-b border-white/5 flex items-center justify-center relative">
                 <button
                     onClick={onClose}
-                    className="bg-white/5 p-3 rounded-xl active:scale-90 transition-all border border-white/5 hover:bg-white/10"
+                    className="app-back-button absolute left-4"
                 >
-                    <ArrowLeft size={22} className="text-zinc-400" />
+                    <ArrowLeft size={22} />
                 </button>
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-500 flex items-center">
+                <h3 className="absolute left-1/2 flex max-w-[calc(100%-96px)] -translate-x-1/2 items-center justify-center whitespace-nowrap text-[17px] font-black uppercase tracking-[0.08em] text-emerald-500">
                     <MessageCircle size={16} className="mr-2" />
                     MESAJ PANOSU
                 </h3>
@@ -120,11 +143,12 @@ const MessagesView: React.FC<MessagesViewProps> = ({ onClose, messages, onSendMe
             </div>
 
             {/* Input Area */}
-            <div className="sticky bottom-0 left-0 right-0 w-full p-4 pb-[calc(env(safe-area-inset-bottom)+16px)] bg-slate-900/90 backdrop-blur-xl border-t border-white/5 z-[150]">
+            <div className="shrink-0 w-full p-4 pb-[calc(env(safe-area-inset-bottom)+16px)] bg-slate-900/90 backdrop-blur-xl border-t border-white/5 z-[150]">
                 <div className="flex items-end space-x-2 bg-white/5 rounded-3xl p-2 border border-white/10 focus-within:border-emerald-500/50 transition-all">
                     <textarea
                         value={content}
                         onChange={e => setContent(e.target.value)}
+                        onFocus={() => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 120)}
                         placeholder="Mesajınızı yazın..."
                         className="flex-1 bg-transparent border-none text-sm text-white focus:ring-0 resize-none p-3 max-h-32 min-h-[44px] outline-none"
                         rows={1}

@@ -2,6 +2,7 @@
 import React from 'react';
 import { Transaction } from '../types.ts';
 import { Inbox } from 'lucide-react';
+import { fixCommonTurkishText } from '../textUtils';
 
 interface LastTransactionProps {
   transaction: Transaction | null;
@@ -39,7 +40,7 @@ const LastTransaction: React.FC<LastTransactionProps> = ({ transaction }) => {
                   {transaction.type}
                 </span>
                 <span className="text-[8px] text-white/70 font-medium truncate">
-                  {transaction.description.split('[')[0].trim()}
+                  {fixCommonTurkishText(transaction.description.split('[')[0].trim())}
                 </span>
               </div>
             </div>

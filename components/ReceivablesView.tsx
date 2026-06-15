@@ -50,10 +50,12 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
 
   const getCardMode = (): ReceivableCardMode => {
     const isBulkMessageEnabled = info?.isBulkMessageEnabled !== false;
-    const bulkMessageInfoDay = Math.min(28, Math.max(1, Number(info?.bulkMessageInfoDay) || 1));
+    const savedReminderDay = Math.min(28, Math.max(1, Number(info?.bulkMessageReminderDay ?? info?.bulkMessageStartDay) || 19));
+    const savedInfoDay = Math.min(27, Math.max(1, Number(info?.bulkMessageInfoDay) || savedReminderDay - 1));
+    const bulkMessageInfoDay = savedInfoDay === 1 && savedReminderDay === 19 ? 18 : savedInfoDay;
     const bulkMessageReminderDay = Math.max(
-      bulkMessageInfoDay,
-      Math.min(28, Math.max(1, Number(info?.bulkMessageReminderDay ?? info?.bulkMessageStartDay) || 19))
+      bulkMessageInfoDay + 1,
+      savedReminderDay
     );
 
     if (!isBulkMessageEnabled) {
@@ -61,6 +63,14 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
     }
 
     return currentDate.getDate() >= bulkMessageReminderDay ? 'reminder' : 'info';
+  };
+
+  const getPaymentDueDay = (mode: ReceivableCardMode) => {
+    const savedReminderDay = Math.min(28, Math.max(1, Number(info?.bulkMessageReminderDay ?? info?.bulkMessageStartDay) || 19));
+    const savedInfoDay = Math.min(27, Math.max(1, Number(info?.bulkMessageInfoDay) || savedReminderDay - 1));
+    const bulkMessageInfoDay = savedInfoDay === 1 && savedReminderDay === 19 ? 18 : savedInfoDay;
+    const reminderStartDay = Math.max(bulkMessageInfoDay + 1, savedReminderDay);
+    return Math.min(31, mode === 'info' ? bulkMessageInfoDay + 2 : reminderStartDay + 1);
   };
 
   const getMonthAidatTitle = () => {
@@ -112,12 +122,13 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
       : `<span style="display:block;font-size:44px;line-height:1.04;">${getMonthName()} Ay\u0131</span><span style="display:block;margin-top:6px;font-size:44px;line-height:1.04;">Aidat Olu\u015Fturuldu</span>`;
     const statusTitle = isReminder ? 'Durum' : 'Bilgilendirme';
     const statusText = isReminder
-      ? '\u00D6demenizi hen\u00FCz yapmad\u0131\u011F\u0131n\u0131z g\u00F6r\u00FClmektedir.'
+      ? '<span style="display:flex;align-items:center;justify-content:center;white-space:nowrap;"><span style="font-size:57px;line-height:1;font-weight:1000;color:#7f1d1d;margin-right:14px;">!</span><span>ÖDEMENİZİ HENÜZ</span></span><span style="display:block;margin-top:10px;white-space:nowrap;letter-spacing:0;">YAPMADIĞINIZ GÖRÜLMÜŞTÜR</span>'
       : `${getMonthName()} Ay\u0131 Aidat Borcunuz Olu\u015Fturulmu\u015Ftur.`;
     const duesAmountText = `${currencySymbol}${formatCurrency(duesAmount)}`;
     const previousDebtText = formatCurrency(previousDebt);
     const creditText = formatCurrency(credit);
     const totalDebtText = formatCurrency(totalDebt);
+    const paymentDueDateText = `Ay\u0131n ${getPaymentDueDay(mode)}. g\u00FCn\u00FC`;
     const getSummaryAmountFontSize = (value: string, featured = false) => {
       const length = value.length;
       if (length >= 12) return featured ? 33 : 31;
@@ -201,15 +212,15 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
               </div>
             </div>
 
-            <div style="grid-area:due;min-height:140px;background:#fffdf7;border:1px solid #ece1bc;border-radius:22px;padding:26px 28px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
-              <div style="font-size:22px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#7c5c10;">Son Ödeme Tarihi</div>
-              <div style="margin-top:12px;font-size:40px;font-weight:900;color:#111827;">Ayın 20'si</div>
+            <div style="grid-area:due;min-height:140px;background:#fffdf7;border:1.5px solid #e4cf8f;border-radius:22px;padding:24px 28px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
+              <div style="font-size:25px;font-weight:950;letter-spacing:0.13em;text-transform:uppercase;color:#7c5c10;">Son Ödeme Tarihi</div>
+              <div style="margin-top:12px;font-size:45px;font-weight:950;color:#111827;line-height:1.05;">${paymentDueDateText}</div>
             </div>
           </div>
 
-          <div style="margin-top:20px;background:${isReminder ? '#fff7ed' : '#f7fafc'};border:1px solid ${isReminder ? '#fed7aa' : '#dde5ee'};border-radius:22px;padding:26px 12px;zoom:1.1;">
-            <div style="font-size:22px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:${isReminder ? '#9a3412' : '#475569'};">${statusTitle}</div>
-            <div style="margin-top:14px;font-size:39px;line-height:1.18;font-weight:900;color:${isReminder ? '#9a3412' : '#1e293b'};white-space:nowrap;">${statusText}</div>
+          <div style="margin-top:20px;background:${isReminder ? 'linear-gradient(135deg,#fff1f2 0%,#fffbeb 100%)' : '#f7fafc'};border:${isReminder ? '2px solid #fb7185' : '1px solid #dde5ee'};border-radius:22px;padding:${isReminder ? '24px 18px 30px' : '28px 18px'};zoom:1.1;box-shadow:${isReminder ? 'inset 0 0 0 1px rgba(185,28,28,0.08)' : 'none'};text-align:${isReminder ? 'center' : 'left'};${isReminder ? 'min-height:154px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;' : ''}">
+            ${isReminder ? '' : `<div style="font-size:24px;font-weight:950;letter-spacing:0.14em;text-transform:uppercase;color:#475569;">${statusTitle}</div>`}
+            <div style="margin-top:${isReminder ? '0' : '14px'};font-size:${isReminder ? '42px' : '38px'};line-height:1;font-weight:950;color:${isReminder ? '#991b1b' : '#1e293b'};white-space:normal;overflow-wrap:break-word;letter-spacing:0;">${statusText}</div>
           </div>
 
           <div style="margin-top:20px;background:#f8fafc;border:1px solid #dde5ee;border-radius:22px;padding:28px 10px;zoom:1.14;">
@@ -309,29 +320,30 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
   };
 
   return (
-    <div className="relative pt-0 pb-8">
-      <div className="mb-3 flex items-center justify-between px-4 py-4">
+    <div className="relative flex h-full flex-col overflow-hidden pt-0">
+      <div className="relative mb-3 flex flex-shrink-0 items-center justify-center px-4 py-4">
         <button
           onClick={onClose}
-          className="rounded-xl border border-white/5 bg-white/5 p-2 transition-all active:scale-90"
+          className="app-back-button absolute left-4"
         >
-          <ArrowLeft size={20} className="text-zinc-400" />
+          <ArrowLeft size={20} />
         </button>
-        <h3 className="text-center text-[12px] font-black uppercase tracking-[0.2em] text-[#ff3b3b]">
-          {uiText.title}
+        <h3 className="absolute left-1/2 flex max-w-[calc(100%-96px)] -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap text-center text-[17px] font-black uppercase tracking-[0.08em] text-[#ff3b3b]">
+          <Inbox size={20} />
+          <span>{uiText.title}</span>
         </h3>
         <button
           onClick={handlePreviewCard}
           disabled={isPreviewLoading || debtors.length === 0}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-300 transition-all active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="absolute right-4 flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-300 transition-all active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
           title={uiText.preview}
         >
           {isPreviewLoading ? <Loader2 size={18} className="animate-spin" /> : <Eye size={18} />}
         </button>
       </div>
 
-      <div className="animate-in slide-in-from-bottom-6 px-0 duration-500">
-        <div className="glass-panel mb-3 flex justify-center rounded-[24px] border border-red-500/20 bg-gradient-to-br from-red-500/10 to-transparent px-4 py-3">
+      <div className="animate-in flex min-h-0 flex-1 flex-col px-0 duration-500 slide-in-from-bottom-6">
+        <div className="glass-panel mx-4 mb-3 flex flex-shrink-0 justify-center rounded-[24px] border border-red-500/20 bg-gradient-to-br from-red-500/10 to-transparent px-4 py-3">
           <p className="flex w-full items-center justify-center overflow-hidden whitespace-nowrap text-center text-[16px] font-black leading-none tracking-tight text-[#ff3b3b]">
             <span className="mr-2 text-white/75">TOPLAM ALACAK</span>
             <span>
@@ -342,7 +354,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
         </div>
 
 
-        <div className="space-y-2">
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-0 pb-8 no-scrollbar">
           {debtors.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 opacity-20">
               <Inbox size={48} className="mb-4" />

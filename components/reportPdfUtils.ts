@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { fixCommonTurkishText } from '../textUtils';
 
 export type ReportPdfTone = 'default' | 'info' | 'danger';
 
@@ -77,9 +78,9 @@ const registerPdfFonts = async (pdf: jsPDF) => {
   const fontData = await loadPdfFontData();
 
   pdf.addFileToVFS(PDF_FONT_NORMAL_FILE, fontData.normal);
-  pdf.addFont(PDF_FONT_NORMAL_FILE, PDF_FONT_FAMILY, 'normal');
+  pdf.addFont(PDF_FONT_NORMAL_FILE, PDF_FONT_FAMILY, 'normal', undefined, 'Identity-H');
   pdf.addFileToVFS(PDF_FONT_BOLD_FILE, fontData.bold);
-  pdf.addFont(PDF_FONT_BOLD_FILE, PDF_FONT_FAMILY, 'bold');
+  pdf.addFont(PDF_FONT_BOLD_FILE, PDF_FONT_FAMILY, 'bold', undefined, 'Identity-H');
 };
 
 const normalizePdfText = (value: string) => {
@@ -169,7 +170,7 @@ export const createFinancialReportPdf = async ({
       pdf.setFont(PDF_FONT_FAMILY, 'bold');
       pdf.setFontSize(fontSize);
       pdf.setTextColor(color[0], color[1], color[2]);
-      pdf.text(fitText(pdf, item.label, labelWidth), labelX, textY, { baseline: 'top' });
+      pdf.text(fitText(pdf, fixCommonTurkishText(normalizePdfText(item.label)), labelWidth), labelX, textY, { baseline: 'top' });
 
       pdf.setFont(PDF_FONT_FAMILY, 'bold');
       pdf.setFontSize(fontSize);
@@ -180,13 +181,10 @@ export const createFinancialReportPdf = async ({
   pdf.setFont(PDF_FONT_FAMILY, 'bold');
   pdf.setTextColor(17, 24, 39);
   pdf.setFontSize(15);
-  drawCenteredText(pdf, buildingName.toUpperCase(), pageWidth / 2, 19);
+  drawCenteredText(pdf, buildingName.toLocaleUpperCase('tr-TR'), pageWidth / 2, 19);
 
-  pdf.setFontSize(9.6);
-  drawCenteredText(pdf, reportTitle.toUpperCase(), pageWidth / 2, 27.5);
-  pdf.setDrawColor(17, 24, 39);
-  pdf.setLineWidth(0.4);
-  pdf.line(56, 29.5, pageWidth - 56, 29.5);
+  pdf.setFontSize(9.4);
+  drawCenteredText(pdf, reportTitle.toLocaleUpperCase('tr-TR'), pageWidth / 2, 28.2);
 
   pdf.setDrawColor(51, 65, 85);
   pdf.setLineWidth(0.35);
@@ -215,7 +213,7 @@ export const createFinancialReportPdf = async ({
   const cashBoxWidth = 72;
   const cashBoxHeight = 22;
   const cashBoxX = pageWidth - margin - cashBoxWidth;
-  const cashBoxY = tableY + tableHeight + 13;
+  const cashBoxY = tableY + tableHeight + 6;
 
   pdf.setFillColor(248, 250, 252);
   pdf.setDrawColor(226, 232, 240);
@@ -347,7 +345,7 @@ export const createUnitStatementPdf = async ({
       pdf.setFontSize(fontSize);
       pdf.setTextColor(17, 24, 39);
 
-      const desc = item.description.split('[')[0].trim();
+      const desc = fixCommonTurkishText(item.description.split('[')[0].trim());
       pdf.text(fitText(pdf, desc, labelWidth), labelX, textY, { baseline: 'top' });
 
       pdf.setFontSize(fontSize - 1.5);

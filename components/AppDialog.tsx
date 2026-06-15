@@ -105,14 +105,14 @@ export const AppDialogProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 {dialog.kind === 'confirm' && (
                   <button
                     onClick={() => closeDialog(false)}
-                    className="h-11 rounded-2xl border border-white/10 bg-white/5 px-5 text-[10px] font-black uppercase tracking-widest text-white/65 transition-all active:scale-95"
+                    className="embossed-cash h-11 rounded-2xl border border-white/10 bg-white/5 px-5 text-[10px] font-black uppercase tracking-widest text-white/65 transition-all active:scale-95"
                   >
                     {dialog.cancelText || 'VAZGEÇ'}
                   </button>
                 )}
                 <button
                   onClick={() => closeDialog(true)}
-                  className="h-11 rounded-2xl bg-blue-600 px-6 text-[11px] font-black uppercase tracking-widest text-white shadow-lg transition-all active:scale-95"
+                  className="embossed-cash h-11 rounded-2xl bg-blue-600 px-6 text-[11px] font-black uppercase tracking-widest text-white shadow-lg transition-all active:scale-95"
                 >
                   {dialog.confirmText || 'TAMAM'}
                 </button>

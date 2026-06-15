@@ -7,6 +7,10 @@ import { PDFService } from '../pdfService';
 import { useAndroidBackHandler } from '../appBackButton';
 import { createFinancialReportPdf } from './reportPdfUtils';
 import PdfActionButton from './PdfActionButton';
+import { fixCommonTurkishText, upperTr } from '../textUtils';
+
+const withTransactionDate = (date: string, label: string) => `${date} ${label}`;
+const toIsoDate = (date: string) => date.split('.').reverse().join('-');
 
 interface YearlyReportViewProps {
   transactions: Transaction[];
@@ -54,7 +58,12 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
 
   function isCreditBalanceIncome(tx: Transaction) {
     if (tx.type !== 'GELİR') return false;
-    return /KRED[İI]/i.test(tx.description);
+    const normalizedDescription = (tx.description || '')
+      .toLocaleUpperCase('tr-TR')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    return /KRED[İI]/i.test(tx.description) ||
+      (!!tx.unitId && normalizedDescription.includes('DEVIR') && normalizedDescription.includes('ALACAK'));
   }
 
   const previousDevir = useMemo(() => {
@@ -86,45 +95,46 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
   }, [transactions, selectedYear, selectedVault]);
 
   const displayIncomeItems = useMemo(() => {
-    let duesTotal = 0;
-    let freeTotal = 0;
-    const otherIncomeGroups: Record<string, number> = {};
+    const incomeGroups: Record<string, { label: string; date?: string; isoDate: string; total: number }> = {};
 
     yearlyTransactions.forEach(tx => {
       if (tx.type !== 'GELİR' || isCreditBalanceIncome(tx)) return;
-      const rawDescription = tx.description.toUpperCase();
-      const cleanLabel = tx.description
+      const rawDescription = upperTr(tx.description);
+      const cleanLabelRaw = tx.description
         .replace(/\s*\(?MAL[Iİ]K\)?/gi, '')
         .replace(/\s*\(?K[Iİ]RACI\)?/gi, '')
         .replace(/EFT\/HAVALE/gi, '')
         .replace(/TAHS[Iİ]LATI/gi, '')
         .replace(/\(\s*\)/g, '')
-        .split('[')[0].trim().toUpperCase();
+        .split('[')[0].trim();
+      const cleanLabel = upperTr(cleanLabelRaw);
 
+      let label: string;
+      let includeDate = true;
       if (/SERBEST\s+TAHS[Iİ]LAT/i.test(rawDescription)) {
-        freeTotal += tx.amount;
-        return;
+        label = 'YILLIK AİDAT GELİRİ';
+        includeDate = false;
+      } else if (tx.periodMonth !== undefined || tx.periodYear !== undefined || /A[Iİ]DAT/i.test(rawDescription)) {
+        label = 'YILLIK AİDAT GELİRİ';
+        includeDate = false;
+      } else {
+        label = cleanLabel || 'DİĞER GELİR';
       }
-      if (tx.periodMonth !== undefined || tx.periodYear !== undefined || /A[Iİ]DAT/i.test(rawDescription)) {
-        duesTotal += tx.amount;
-        return;
-      }
-      const fallbackLabel = cleanLabel || 'DIGER GELIR';
-      otherIncomeGroups[fallbackLabel] = (otherIncomeGroups[fallbackLabel] || 0) + tx.amount;
+
+      const key = `${includeDate ? tx.date : ''}\u0000${label}`;
+      if (!incomeGroups[key]) incomeGroups[key] = { label, date: includeDate ? tx.date : undefined, isoDate: toIsoDate(tx.date), total: 0 };
+      incomeGroups[key].total += tx.amount;
+      if (toIsoDate(tx.date) < incomeGroups[key].isoDate) incomeGroups[key].isoDate = toIsoDate(tx.date);
     });
 
-    const items: { label: string; total: number }[] = [];
-    const combinedTotal = duesTotal + freeTotal;
-    if (combinedTotal > 0) items.push({ label: 'YILLIK AİDAT GELİRİ', total: combinedTotal });
-    Object.entries(otherIncomeGroups).forEach(([label, total]) => {
-      items.push({ label, total });
-    });
-    return items;
+    return Object.values(incomeGroups)
+      .sort((a, b) => a.isoDate.localeCompare(b.isoDate))
+      .map((item) => ({ label: item.date ? withTransactionDate(item.date, item.label) : item.label, total: item.total }));
   }, [yearlyTransactions]);
 
   const reportData = useMemo(() => {
-    const incomeGroups: Record<string, { total: number, minDate: string }> = {};
-    const expenseGroups: Record<string, { total: number, minDate: string }> = {};
+    const incomeGroups: Record<string, { label: string, date: string, total: number, minDate: string }> = {};
+    const expenseGroups: Record<string, { label: string, date: string, total: number, minDate: string }> = {};
 
     yearlyTransactions.forEach(tx => {
       let label = tx.description.replace(/\s*\(?MALİK\)?/gi, '')
@@ -132,24 +142,25 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
         .replace(/EFT\/HAVALE/gi, '')
         .replace(/TAHSİLATI/gi, '')
         .replace(/\(\s*\)/g, '')
-        .split('[')[0].trim().toUpperCase();
+        .split('[')[0].trim();
+      label = upperTr(label);
 
-      if (!label) label = tx.description.split('[')[0].trim().toUpperCase();
-      const isoDate = tx.date.split('.').reverse().join('-');
+      if (!label) label = upperTr(tx.description.split('[')[0].trim());
+      const isoDate = toIsoDate(tx.date);
 
       if (tx.type === 'GELİR') {
-        if (!incomeGroups[label]) incomeGroups[label] = { total: 0, minDate: isoDate };
-        incomeGroups[label].total += tx.amount;
-        if (isoDate < incomeGroups[label].minDate) incomeGroups[label].minDate = isoDate;
+        const incomeKey = `${tx.date}\u0000${label}`;
+        if (!incomeGroups[incomeKey]) incomeGroups[incomeKey] = { label, date: tx.date, total: 0, minDate: isoDate };
+        incomeGroups[incomeKey].total += tx.amount;
       } else if (tx.type === 'GİDER') {
-        if (!expenseGroups[label]) expenseGroups[label] = { total: 0, minDate: isoDate };
-        expenseGroups[label].total += tx.amount;
-        if (isoDate < expenseGroups[label].minDate) expenseGroups[label].minDate = isoDate;
+        const expenseKey = `${tx.date}\u0000${label}`;
+        if (!expenseGroups[expenseKey]) expenseGroups[expenseKey] = { label, date: tx.date, total: 0, minDate: isoDate };
+        expenseGroups[expenseKey].total += tx.amount;
       }
     });
 
-    const incomes = Object.entries(incomeGroups).map(([label, data]) => ({
-      label, total: data.total, minDate: data.minDate
+    const incomes = Object.values(incomeGroups).map((data) => ({
+      label: withTransactionDate(data.date, data.label), total: data.total, minDate: data.minDate
     })).sort((a, b) => a.minDate.localeCompare(b.minDate));
 
     if (previousDevir !== 0) {
@@ -158,8 +169,8 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
 
     return {
       incomes,
-      expenses: Object.entries(expenseGroups).map(([label, data]) => ({
-        label, total: data.total, minDate: data.minDate
+      expenses: Object.values(expenseGroups).map((data) => ({
+        label: withTransactionDate(data.date, data.label), total: data.total, minDate: data.minDate
       })).sort((a, b) => a.minDate.localeCompare(b.minDate))
     };
   }, [yearlyTransactions, previousDevir]);
@@ -185,18 +196,18 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
 
       const pdf = await createFinancialReportPdf({
         buildingName,
-        reportTitle: `${selectedYear} Yili Apartman Hesap Durum Cizelgesi`,
+        reportTitle: `${selectedYear} Yılı Apartman Hesap Durum Çizelgesi`,
         leftTitle: 'Giderler',
         rightTitle: 'Gelirler',
         leftItems: reportData.expenses.map((item) => ({ label: item.label, total: item.total, tone: 'default' as const })),
         rightItems: incomePdfItems,
         leftTotal: totalExpense,
-        cashLabel: 'Yillik Kasa Durumu',
+        cashLabel: 'Yıllık Kasa Durumu',
         cashPeriodLabel: `${selectedYear} Sonu`,
         cashTotal,
       });
 
-      const fileName = `${selectedYear} Yili Gelir Gider.pdf`;
+      const fileName = `${selectedYear} Yılı Gelir Gider.pdf`;
       const shouldShare = mode === 'share';
       const savedInfo = await PDFService.saveAndShareFromJsPDF(pdf, fileName, shouldShare);
       onAddFile(fileName, 'Karar', savedInfo.uri, savedInfo.size, savedInfo.fileName);
@@ -214,24 +225,24 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
 
   return (
     <div className="fixed inset-0 z-[200] bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a] flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
-      <div className="flex items-center justify-between px-4 pt-6 pb-2">
-        <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5">
-            <Building className="text-white" size={28} />
+      <div className="relative flex items-center justify-center px-4 pt-6 pb-2">
+        <div className="absolute left-1/2 flex -translate-x-1/2 items-center space-x-3">
+          <div className="w-10 h-10 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5">
+            <Building className="text-white" size={22} />
           </div>
-          <div>
-            <h2 className="text-[14px] font-black text-white uppercase tracking-wider leading-none">YILLIK BİLANÇO</h2>
-            <p className="text-[10px] text-white/40 italic mt-1">Yönetime ait yıllık bilançoları görüntüleyin.</p>
+          <div className="text-left">
+            <h2 className="whitespace-nowrap text-[17px] font-black text-white uppercase tracking-wider leading-none">YILLIK BİLANÇO</h2>
           </div>
         </div>
-        <div className="flex space-x-2">
+        <div className="ml-auto flex space-x-2">
           <button onClick={onClose} className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center border border-red-500/50 active:scale-95 shadow-lg">
             <X className="text-white" size={24} />
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-32 no-scrollbar">
+      <div className="bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a] px-4 pt-4 pb-3 border-b border-white/5 shadow-[0_14px_24px_rgba(15,23,42,0.55)]">
+        <div>
         <div className="grid grid-cols-1 gap-3 mb-4 min-[360px]:grid-cols-2">
           <PdfActionButton type="download" onClick={() => handleCreateAndSharePdf('download')} disabled={isProcessing} />
           <PdfActionButton type="share" onClick={() => handleCreateAndSharePdf('share')} disabled={isProcessing} />
@@ -271,16 +282,19 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
         )}
 
         <div className="mb-4 flex flex-row space-x-2">
-          <div className="flex-1 bg-white/5 rounded-xl border border-white/5 p-3 flex items-center justify-between shadow-inner">
-            <span className="text-[9px] font-black text-white uppercase tracking-wider">ALACAK BAKİYESİ</span>
-            <span className="text-[12px] font-black text-red-500 tracking-tight">{formatCurrency(netDebt).replace('₺', '')}</span>
+          <div className="flex-1 min-w-0 bg-white/5 rounded-xl border border-white/5 p-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 shadow-inner">
+            <span className="min-w-0 text-left text-[9px] font-black text-white uppercase tracking-wide leading-tight whitespace-nowrap">ALACAK BAKİYESİ</span>
+            <span className="shrink-0 text-right text-[14px] font-black text-red-500 tracking-tight tabular-nums">{formatCurrency(netDebt).replace('₺', '')}</span>
           </div>
-          <div className="flex-1 bg-white/5 rounded-xl border border-white/5 p-3 flex items-center justify-between shadow-inner">
-            <span className="text-[9px] font-black text-white uppercase tracking-wider">KREDİ BAKİYESİ</span>
-            <span className="text-[12px] font-black text-white tracking-tight">{formatCurrency(totalCredit).replace('₺', '')}</span>
+          <div className="flex-1 min-w-0 bg-white/5 rounded-xl border border-white/5 p-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 shadow-inner">
+            <span className="min-w-0 text-left text-[9px] font-black text-white uppercase tracking-wide leading-tight whitespace-nowrap">KREDİ BAKİYESİ</span>
+            <span className="shrink-0 text-right text-[14px] font-black text-white tracking-tight tabular-nums">{formatCurrency(totalCredit).replace('₺', '')}</span>
           </div>
         </div>
+        </div>
+      </div>
 
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-32 no-scrollbar">
         <div className="bg-[#1e293b]/40 rounded-[32px] border border-white/5 px-2 py-6 mb-6 shadow-2xl relative overflow-hidden ring-1 ring-white/5">
           <div className="grid grid-cols-1 gap-6 relative min-[380px]:grid-cols-2 min-[380px]:gap-3">
             <div className="absolute left-1/2 top-0 bottom-0 hidden w-[1px] bg-white/10 min-[380px]:block" />
@@ -292,7 +306,7 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
                 ) : (
                   reportData.expenses.map((ex, i) => (
                     <div key={i} className="flex justify-between items-baseline">
-                      <span className="text-[12px] font-black text-white pr-1 leading-tight">{ex.label}</span>
+                      <span className="text-[12px] font-black text-white pr-1 leading-tight">{fixCommonTurkishText(ex.label)}</span>
                       <span className="text-[12px] font-black text-white shrink-0">{formatCurrency(ex.total)}</span>
                     </div>
                   ))
@@ -308,7 +322,7 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
                 ) : (
                   displayIncomeItems.map((inc, i) => (
                     <div key={i} className="flex justify-between items-baseline">
-                      <span className="text-[12px] font-black text-white pr-1 leading-tight">{inc.label}</span>
+                      <span className="text-[12px] font-black text-white pr-1 leading-tight">{fixCommonTurkishText(inc.label)}</span>
                       <span className="text-[12px] font-black text-white shrink-0">{formatCurrency(inc.total)}</span>
                     </div>
                   ))
@@ -332,9 +346,9 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
             <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">YILLIK GİDER TOPLAMI</span>
             <span className="text-[12px] font-black text-white">{formatCurrency(totalExpense).replace('₺', '')}</span>
           </div>
-          <div className="bg-blue-900/40 rounded-xl h-12 px-5 flex items-center justify-between border border-blue-500/20 shadow-xl mt-4">
+          <div className="embossed-cash bg-blue-900/40 rounded-xl h-12 px-5 flex items-center justify-between border border-blue-500/20 shadow-xl mt-4">
             <span className="text-[11px] font-black text-white uppercase tracking-[0.2em]">KASA TOPLAMI</span>
-            <span className={`text-[16px] font-black tracking-tighter ${cashTotal >= 0 ? 'text-white' : 'text-red-500'}`}>{formatCurrency(cashTotal).replace('₺', '')}</span>
+            <span className={`embossed-cash-value text-[16px] font-black tracking-tighter ${cashTotal >= 0 ? 'text-white' : 'text-red-500'}`}>{formatCurrency(cashTotal).replace('₺', '')}</span>
           </div>
         </div>
       </div>
