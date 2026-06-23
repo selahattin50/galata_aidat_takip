@@ -54,11 +54,20 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
   const [formData, setFormData] = useState({ ...INITIAL_FORM_DATA });
 
   const filteredUnits = useMemo(() => {
-    return units.filter(unit =>
-      unit.no.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      unit.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (unit.tenantName && unit.tenantName.toLowerCase().includes(searchTerm.toLowerCase()))
-    ).sort((a, b) => {
+    const normalizedSearch = searchTerm.toLocaleLowerCase('tr-TR');
+    return units.filter(unit => {
+      const tenantHistoryMatches = unit.tenantHistory?.some(tenant =>
+        tenant.name.toLocaleLowerCase('tr-TR').includes(normalizedSearch) ||
+        tenant.phone?.toLocaleLowerCase('tr-TR').includes(normalizedSearch)
+      );
+
+      return (
+        unit.no.toLocaleLowerCase('tr-TR').includes(normalizedSearch) ||
+        unit.ownerName.toLocaleLowerCase('tr-TR').includes(normalizedSearch) ||
+        (unit.tenantName && unit.tenantName.toLocaleLowerCase('tr-TR').includes(normalizedSearch)) ||
+        tenantHistoryMatches
+      );
+    }).sort((a, b) => {
       const aNo = parseInt(a.no);
       const bNo = parseInt(b.no);
       if (isNaN(aNo) || isNaN(bNo)) return a.no.localeCompare(b.no);

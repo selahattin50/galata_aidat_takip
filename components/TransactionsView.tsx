@@ -134,6 +134,9 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
       const canvas = await html2canvas(element, { scale: 4, useCORS: true, backgroundColor: '#ffffff', width: 842, height: 595, logging: false });
       const pdf = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a5' });
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 148, undefined, 'FAST');
+      pdf.setDrawColor(15, 23, 42);
+      pdf.setLineWidth(0.2);
+      pdf.rect(2, 2, 206, 144);
 
       const sanitizedUnitNo = getUnitNo(tx.unitId).toString().replace(/[^a-zA-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
       const fileName = `Daire ${sanitizedUnitNo} ${tx.date} Dekont.pdf`;

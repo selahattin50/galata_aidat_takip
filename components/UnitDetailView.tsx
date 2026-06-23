@@ -502,6 +502,34 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
   const currentTenantHistory = useMemo(() => {
     return (unit.tenantHistory || []).find(item => item.isCurrent);
   }, [unit.tenantHistory]);
+  const passiveTenantHistory = useMemo(() => {
+    return (unit.tenantHistory || [])
+      .filter(item => !item.isCurrent)
+      .sort((a, b) => {
+        const dateA = a.endDate || a.startDate || '';
+        const dateB = b.endDate || b.startDate || '';
+        return dateB.localeCompare(dateA);
+      });
+  }, [unit.tenantHistory]);
+  const latestPassiveTenant = passiveTenantHistory[0];
+  const editPassiveOwnerHistory = useMemo(() => {
+    return getOwnerHistory()
+      .filter(item => !item.isCurrent)
+      .sort((a, b) => {
+        const dateA = a.endDate || a.startDate || '';
+        const dateB = b.endDate || b.startDate || '';
+        return dateB.localeCompare(dateA);
+      });
+  }, [editForm.ownerHistory, editForm.ownerName, editForm.phone]);
+  const editPassiveTenantHistory = useMemo(() => {
+    return getTenantHistory()
+      .filter(item => !item.isCurrent)
+      .sort((a, b) => {
+        const dateA = a.endDate || a.startDate || '';
+        const dateB = b.endDate || b.startDate || '';
+        return dateB.localeCompare(dateA);
+      });
+  }, [editForm.tenantHistory, editForm.tenantName, editForm.tenantPhone]);
 
   const handlePDF = async (shouldShare: boolean) => {
     setIsProcessing(true);
@@ -619,6 +647,28 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
                       onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                     />
                   </div>
+                  {editPassiveOwnerHistory.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => openHistoryModal('owner')}
+                      className="w-full rounded-xl border border-blue-400/20 bg-blue-500/10 p-2.5 text-left active:scale-[0.98] transition-all"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-black text-blue-200 uppercase tracking-widest">PASİF MALİKLER</span>
+                        <span className="text-[8px] font-black text-blue-100/80 uppercase tracking-wider">{editPassiveOwnerHistory.length} Kayıt</span>
+                      </div>
+                      <div className="mt-1.5 space-y-1">
+                        {editPassiveOwnerHistory.slice(0, 2).map(item => (
+                          <div key={item.id} className="flex items-center justify-between gap-2 text-[11px] font-bold">
+                            <span className="truncate text-white/80">{item.name}</span>
+                            <span className="shrink-0 text-white/35">
+                              {item.endDate ? formatHistoryDate(item.endDate) : 'Pasif'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -657,6 +707,28 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
                       onChange={(e) => setEditForm({ ...editForm, tenantPhone: e.target.value })}
                     />
                   </div>
+                  {editPassiveTenantHistory.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => openHistoryModal('tenant')}
+                      className="w-full rounded-xl border border-orange-400/20 bg-orange-500/10 p-2.5 text-left active:scale-[0.98] transition-all"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-black text-orange-200 uppercase tracking-widest">PASİF KİRACILAR</span>
+                        <span className="text-[8px] font-black text-orange-100/80 uppercase tracking-wider">{editPassiveTenantHistory.length} Kayıt</span>
+                      </div>
+                      <div className="mt-1.5 space-y-1">
+                        {editPassiveTenantHistory.slice(0, 2).map(item => (
+                          <div key={item.id} className="flex items-center justify-between gap-2 text-[11px] font-bold">
+                            <span className="truncate text-white/80">{item.name}</span>
+                            <span className="shrink-0 text-white/35">
+                              {item.endDate ? formatHistoryDate(item.endDate) : 'Pasif'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -713,6 +785,42 @@ const UnitDetailView: React.FC<UnitDetailViewProps> = ({ unit, info, transaction
                     </div>
                   </div>
                 </div>
+              )}
+
+              {!unit.tenantName && passiveTenantHistory.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => openHistoryModal('tenant')}
+                  className="w-full text-left bg-[#1e293b]/40 backdrop-blur-xl rounded-[20px] p-3 border border-amber-400/25 shadow-2xl relative overflow-hidden active:scale-[0.98] transition-all"
+                >
+                  <div className="flex items-center space-x-3 relative z-10">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-400/30 flex items-center justify-center shrink-0">
+                      <UserCheck size={22} className="text-amber-300" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-black text-amber-300 uppercase tracking-[0.2em] mb-0.5 block">
+                          KİRACI GEÇMİŞİ
+                        </span>
+                        <span className="shrink-0 text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest bg-amber-400/15 text-amber-100 border border-amber-300/30">
+                          {passiveTenantHistory.length} Pasif
+                        </span>
+                      </div>
+                      <h2 className="text-[16px] font-black text-white uppercase leading-tight tracking-tight truncate">
+                        {latestPassiveTenant?.name || 'Pasif kiracı'}
+                      </h2>
+                      <div className="flex items-center space-x-1.5 mt-1 bg-black/20 w-fit max-w-full px-2.5 py-0.5 rounded-full border border-white/5">
+                        <Calendar size={10} className="text-amber-300 shrink-0" />
+                        <span className="text-[11px] font-bold text-amber-100 tracking-wide truncate">
+                          {latestPassiveTenant?.endDate
+                            ? `Çıkış: ${formatHistoryDate(latestPassiveTenant.endDate)}`
+                            : 'Geçmişi görüntüle'}
+                        </span>
+                      </div>
+                    </div>
+                    <ArrowRight size={18} className="text-amber-200/70 shrink-0" />
+                  </div>
+                </button>
               )}
             </>
           )}
