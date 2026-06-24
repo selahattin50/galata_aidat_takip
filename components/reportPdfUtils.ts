@@ -110,11 +110,50 @@ const fitText = (pdf: jsPDF, value: string, maxWidth: number) => {
   return `${trimmed}${ellipsis}`;
 };
 
-const formatAmount = (value: number) =>
-  `TL ${new Intl.NumberFormat('tr-TR', {
+const formatAmountParts = (value: number) => {
+  const formatted = new Intl.NumberFormat('tr-TR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(value)}`;
+  }).format(value);
+  const [whole, fraction = '00'] = formatted.split(',');
+
+  return { whole, fraction };
+};
+
+/** Draws amounts in the app's visual format: 1.500,00 TL. */
+const drawAmount = (
+  pdf: jsPDF,
+  value: number,
+  rightX: number,
+  baselineY: number,
+  mainFontSize: number,
+) => {
+  const { whole, fraction } = formatAmountParts(value);
+  const fractionFontSize = Math.max(4.8, mainFontSize * 0.58);
+  const currencyFontSize = Math.max(5.2, mainFontSize * 0.68);
+
+  pdf.setFont(PDF_FONT_FAMILY, 'bold');
+  pdf.setFontSize(mainFontSize);
+  const wholeWidth = pdf.getTextWidth(whole);
+
+  pdf.setFontSize(fractionFontSize);
+  const fractionText = `,${fraction}`;
+  const fractionWidth = pdf.getTextWidth(fractionText);
+
+  pdf.setFontSize(currencyFontSize);
+  const currencyText = ' TL';
+  const currencyWidth = pdf.getTextWidth(currencyText);
+
+  const startX = rightX - wholeWidth - fractionWidth - currencyWidth;
+  pdf.setFontSize(mainFontSize);
+  pdf.text(whole, startX, baselineY);
+
+  pdf.setFontSize(fractionFontSize);
+  pdf.text(fractionText, startX + wholeWidth, baselineY);
+
+  pdf.setFontSize(currencyFontSize);
+  pdf.text(currencyText, startX + wholeWidth + fractionWidth, baselineY);
+};
 
 const drawCenteredText = (pdf: jsPDF, text: string, x: number, y: number) => {
   pdf.text(normalizePdfText(text), x, y, { align: 'center' });
@@ -147,9 +186,11 @@ export const createFinancialReportPdf = async ({
   const sectionHeaderY = tableY + 9;
   const itemsTop = tableY + 18;
   const totalY = tableY + tableHeight - 6;
+  // Keep a dedicated clear zone above the grand total so the final movement
+  // never collides with its larger amount text in long yearly reports.
   const itemsBottom = totalY - 10;
   const rowCount = Math.max(leftItems.length, rightItems.length, 1);
-  const rowHeight = Math.max(5.8, Math.min(8.0, (itemsBottom - itemsTop) / rowCount));
+  const rowHeight = Math.max(4.8, Math.min(8.0, (itemsBottom - itemsTop) / rowCount));
   const fontSize = rowHeight <= 6.5 ? 7.6 : rowHeight <= 7.5 ? 8.2 : 8.8;
   const amountWidth = 22;
 
@@ -172,9 +213,7 @@ export const createFinancialReportPdf = async ({
       pdf.setTextColor(color[0], color[1], color[2]);
       pdf.text(fitText(pdf, fixCommonTurkishText(normalizePdfText(item.label)), labelWidth), labelX, textY, { baseline: 'top' });
 
-      pdf.setFont(PDF_FONT_FAMILY, 'bold');
-      pdf.setFontSize(fontSize);
-      pdf.text(formatAmount(item.total), amountX, textY, { align: 'right', baseline: 'top' });
+      drawAmount(pdf, item.total, amountX, textY + fontSize * 0.8, fontSize);
     });
   };
 
@@ -208,7 +247,7 @@ export const createFinancialReportPdf = async ({
   pdf.setFont(PDF_FONT_FAMILY, 'bold');
   pdf.setFontSize(17);
   pdf.setTextColor(239, 68, 68);
-  pdf.text(formatAmount(leftTotal), tableX + columnWidth - columnGap, totalY, { align: 'right' });
+  drawAmount(pdf, leftTotal, tableX + columnWidth - columnGap, totalY, 17);
 
   const cashBoxWidth = 72;
   const cashBoxHeight = 22;
@@ -231,7 +270,7 @@ export const createFinancialReportPdf = async ({
   pdf.setFontSize(16);
   const cashColor = cashTotal >= 0 ? [34, 197, 94] : [239, 68, 68];
   pdf.setTextColor(cashColor[0], cashColor[1], cashColor[2]);
-  pdf.text(formatAmount(cashTotal), cashBoxX + cashBoxWidth - 4, cashBoxY + 19, { align: 'right' });
+  drawAmount(pdf, cashTotal, cashBoxX + cashBoxWidth - 4, cashBoxY + 19, 16);
 
   pdf.setFont(PDF_FONT_FAMILY, 'normal');
   pdf.setFontSize(6.2);
@@ -352,10 +391,8 @@ export const createUnitStatementPdf = async ({
       pdf.setTextColor(100, 116, 139);
       pdf.text(item.date, labelX, textY + 3.8, { baseline: 'top' });
 
-      pdf.setFont(PDF_FONT_FAMILY, 'bold');
-      pdf.setFontSize(fontSize);
       pdf.setTextColor(color[0], color[1], color[2]);
-      pdf.text(formatAmount(item.amount), amountX, textY + 1, { align: 'right', baseline: 'top' });
+      drawAmount(pdf, item.amount, amountX, textY + 1 + fontSize * 0.8, fontSize);
     });
   };
 
@@ -367,10 +404,10 @@ export const createUnitStatementPdf = async ({
   pdf.setFont(PDF_FONT_FAMILY, 'bold');
   pdf.setFontSize(11);
   pdf.setTextColor(239, 68, 68);
-  pdf.text(formatAmount(totalDebt), tableX + columnWidth - columnGap, totalY, { align: 'right' });
+  drawAmount(pdf, totalDebt, tableX + columnWidth - columnGap, totalY, 11);
 
   pdf.setTextColor(34, 197, 94);
-  pdf.text(formatAmount(totalCredit), tableX + tableWidth - columnGap, totalY, { align: 'right' });
+  drawAmount(pdf, totalCredit, tableX + tableWidth - columnGap, totalY, 11);
 
   // Summary Box
   const summaryBoxWidth = 80;
@@ -395,7 +432,7 @@ export const createUnitStatementPdf = async ({
   pdf.setFontSize(18);
   const statusColor = isCredit ? [34, 197, 94] : [239, 68, 68];
   pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
-  pdf.text(formatAmount(netBalance), summaryBoxX + summaryBoxWidth - 4, summaryBoxY + 18, { align: 'right' });
+  drawAmount(pdf, netBalance, summaryBoxX + summaryBoxWidth - 4, summaryBoxY + 18, 18);
 
   // Footer
   pdf.setFont(PDF_FONT_FAMILY, 'normal');

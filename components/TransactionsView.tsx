@@ -231,9 +231,15 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                 </div>
                 <div className="text-right flex flex-col items-end">
                   <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest -mt-2">TUTAR</p>
-                  <div className="flex items-baseline justify-end space-x-2 mb-6 -mt-2">
-                    <span className="text-[40px] font-black text-slate-950 leading-none tracking-tight">₺</span>
-                    <span className="text-[42px] font-black text-slate-950 leading-none tracking-tight">{formatCurrency(txToPrint.amount)}</span>
+                  <div className="flex items-end justify-end mb-6 -mt-2 text-slate-950 whitespace-nowrap">
+                    {(() => {
+                      const [whole, fraction = '00'] = formatCurrency(txToPrint.amount).split(',');
+                      return <>
+                        <span className="text-[42px] font-black leading-none tracking-tight">{whole}</span>
+                        <span className="relative top-[5px] text-[23px] font-black leading-none tracking-tight">,{fraction}</span>
+                        <span className="relative top-[5px] ml-1 text-[20px] font-black leading-none">TL</span>
+                      </>;
+                    })()}
                   </div>
                   <div className="relative w-[150px] h-[150px] flex items-center justify-center mt-[8px]">
                     <div className="absolute inset-0 border-[5px] border-blue-600 rounded-full"></div>
