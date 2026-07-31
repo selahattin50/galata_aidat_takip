@@ -3,8 +3,15 @@ import { ArrowLeft, Users, Mail, Phone, Calendar, Trash2, Loader2, ShieldCheck, 
 import { db } from '../databaseService';
 import { auth } from '../firebaseConfig';
 import { useAndroidBackHandler } from '../appBackButton';
-import { PROTECTED_ADMIN_PROFILE, isProtectedAdminEmail } from '../adminProfile';
 import { appConfirm } from './AppDialog';
+
+// Protected admin profile
+const PROTECTED_ADMIN_PROFILE = {
+  name: 'Selahattin Ölgün',
+  phone: '05555555555',
+  role: 'Sistem Yöneticisi'
+};
+const isProtectedAdminEmail = (email?: string | null) => email === 'selahattin50@gmail.com';
 
 interface User {
   uid?: string;

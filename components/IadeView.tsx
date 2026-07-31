@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft, CheckCircle2, RotateCcw, Wallet, Briefcase, Calendar, Home, ChevronDown, User, UserCheck, Save, Loader2, X, Check, Phone } from 'lucide-react';
 import { Unit, BuildingInfo } from '../types';
 import DatePickerModal from './DatePickerModal';
+import { toLocalIsoDate } from '../dateUtils';
 
 interface IadeViewProps {
   units: Unit[];
@@ -12,18 +13,26 @@ interface IadeViewProps {
 }
 
 const IadeView: React.FC<IadeViewProps> = ({ units, info, onClose, onSave, currentDate }) => {
+  const currentIsoDate = toLocalIsoDate(currentDate);
+  const previousDefaultDateRef = useRef(currentIsoDate);
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [sourceVault, setSourceVault] = useState<'genel' | 'demirbas'>('genel');
   const [selectedReturnType, setSelectedReturnType] = useState<'Malik' | 'Kiracı'>('Malik');
-  const [selectedDate, setSelectedDate] = useState<string>(currentDate.toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(currentIsoDate);
   const [showUnitList, setShowUnitList] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveComplete, setSaveComplete] = useState(false);
 
   const selectedUnit = units.find(u => u.id === selectedUnitId);
+
+  useEffect(() => {
+    const previousDefaultDate = previousDefaultDateRef.current;
+    setSelectedDate(prev => prev === previousDefaultDate ? currentIsoDate : prev);
+    previousDefaultDateRef.current = currentIsoDate;
+  }, [currentIsoDate]);
 
   const selectableUnits = useMemo(() =>
     units.sort((a, b) => parseInt(a.no) - parseInt(b.no)),

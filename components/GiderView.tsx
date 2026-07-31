@@ -1,15 +1,25 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Wallet, Briefcase, ChevronDown, Save, Loader2, CheckCircle2, Database, Zap, Droplets, ArrowUpDown, Trash2, Wrench, ClipboardList, Award, Flower2, MoreHorizontal, Flame, Wifi, Shield, Car, TreePine, Package } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Wallet, Briefcase, ChevronDown, Save, Loader2, CheckCircle2, Database, Zap, Droplets, ArrowUpDown, Wrench, ClipboardList, Award, Flower2, MoreHorizontal, Flame, Wifi, Shield, Car, TreePine, Package } from 'lucide-react';
 import { BuildingInfo } from '../types.ts';
 import DatePickerModal from './DatePickerModal';
 import { fixCommonTurkishText, upperTr } from '../textUtils';
+import { formatLocalIsoDateTr, toLocalIsoDate } from '../dateUtils';
+
+const BroomIcon = () => (
+  <img
+    src="/icons/supurge.svg"
+    alt=""
+    aria-hidden="true"
+    className="h-[24px] w-[24px] shrink-0 object-contain"
+  />
+);
 
 const getCategoryIcon = (cat: string) => {
   const c = cat.toLocaleLowerCase('tr-TR');
   if (c.includes('elektrik') || c.includes('elektirik') || c.includes('elekt'))   return <Zap size={18} className="text-yellow-400 shrink-0" />;
   if (c.includes('su'))         return <Droplets size={18} className="text-blue-400 shrink-0" />;
   if (c.includes('asansör') || c.includes('asansor')) return <ArrowUpDown size={18} className="text-purple-400 shrink-0" />;
-  if (c.includes('temizlik') || c.includes('çöp') || c.includes('cop')) return <Trash2 size={18} className="text-green-400 shrink-0" />;
+  if (c.includes('temizlik') || c.includes('çöp') || c.includes('cop')) return <BroomIcon />;
   if (c.includes('tamirat') || c.includes('onarım') || c.includes('onarim') || c.includes('bakım') || c.includes('bakim')) return <Wrench size={18} className="text-orange-400 shrink-0" />;
   if (c.includes('yönetim') || c.includes('yonetim')) return <ClipboardList size={18} className="text-cyan-400 shrink-0" />;
   if (c.includes('huzur'))      return <Award size={18} className="text-amber-400 shrink-0" />;
@@ -24,8 +34,35 @@ const getCategoryIcon = (cat: string) => {
   return <Package size={18} className="text-white/40 shrink-0" />;
 };
 
+const getMonthLabel = (date: Date) => {
+  const month = date.toLocaleDateString('tr-TR', { month: 'long' });
+  return month.charAt(0).toLocaleUpperCase('tr-TR') + month.slice(1);
+};
+
+const getExpenseDescription = (catLabel: string, currentDate: Date) => {
+  const normalizedCategory = catLabel.toLocaleLowerCase('tr-TR');
+  const currentMonth = getMonthLabel(currentDate);
+  const previousMonth = getMonthLabel(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+
+  if (normalizedCategory.includes('elektrik') || normalizedCategory.includes('elektirik')) {
+    return upperTr(`${previousMonth} Ayı Elektrik Faturası`);
+  }
+
+  if (normalizedCategory.includes('temizlik')) {
+    return upperTr(`${currentMonth} Ayı Temizlik Ve Çöp Alımı`);
+  }
+
+  if (normalizedCategory.includes('asansör') || normalizedCategory.includes('asansor')) {
+    return upperTr(`${currentMonth} Ayı Asansör Bakımı`);
+  }
+
+  return upperTr(catLabel);
+};
+
 const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, v: any, dt: string) => Promise<void>; currentDate: Date; info: BuildingInfo; }> = ({ onClose, onSave, currentDate, info }) => {
-  const [st, setSt] = useState({ cat: '', amt: '', desc: '', v: 'genel', dt: currentDate.toISOString().split('T')[0] });
+  const currentIsoDate = toLocalIsoDate(currentDate);
+  const previousDefaultDateRef = useRef(currentIsoDate);
+  const [st, setSt] = useState({ cat: '', amt: '', desc: '', v: 'genel', dt: currentIsoDate });
   const [showCatList, setShowCatList] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -33,8 +70,14 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
 
   const expenseCategories = info.expenseCategories || ['Elektrik', 'Su', 'Asansör', 'Temizlik', 'Tamirat', 'Yönetim Gideri', 'Huzur Hakkı', 'Bahçe Bakımı', 'Diğer'];
 
+  useEffect(() => {
+    const previousDefaultDate = previousDefaultDateRef.current;
+    setSt(prev => prev.dt === previousDefaultDate ? { ...prev, dt: currentIsoDate } : prev);
+    previousDefaultDateRef.current = currentIsoDate;
+  }, [currentIsoDate]);
+
   const handleCategorySelect = (catLabel: string) => {
-    const newDesc = upperTr(catLabel);
+    const newDesc = getExpenseDescription(catLabel, currentDate);
 
     setSt(prev => ({
       ...prev,
@@ -73,7 +116,7 @@ const GiderView: React.FC<{ onClose: () => void; onSave: (a: number, d: string, 
         amount: a,
         description: fixCommonTurkishText(st.desc),
         vault: st.v,
-        date: new Date(st.dt).toLocaleDateString('tr-TR')
+        date: formatLocalIsoDateTr(st.dt)
       });
 
       setLoading(false);

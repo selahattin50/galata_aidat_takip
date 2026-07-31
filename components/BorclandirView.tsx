@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft, CheckCircle2, UserPlus, Home, ChevronDown, Wallet, Briefcase, Calendar, Save, Loader2, User, UserCheck, Check, Phone } from 'lucide-react';
 import DatePickerModal from './DatePickerModal';
 import { Unit, BuildingInfo } from '../types';
+import { parseLocalIsoDate, toLocalIsoDate } from '../dateUtils';
 
 interface BorclandirViewProps {
   units: Unit[];
@@ -13,13 +14,15 @@ interface BorclandirViewProps {
 }
 
 const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, onSave, currentDate }) => {
+  const currentIsoDate = toLocalIsoDate(currentDate);
+  const previousDefaultDateRef = useRef(currentIsoDate);
   const [formData, setFormData] = useState({
     unitId: '',
     amount: '',
     description: '',
     kasa: 'genel' as 'genel' | 'demirbas',
     debtorType: 'Malik' as 'Malik' | 'Kiracı',
-    date: currentDate.toISOString().split('T')[0]
+    date: currentIsoDate
   });
 
   const [showUnitList, setShowUnitList] = useState(false);
@@ -28,6 +31,12 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
   const [isSuccess, setIsSuccess] = useState(false);
 
   const selectedUnit = units.find(u => u.id === formData.unitId);
+
+  useEffect(() => {
+    const previousDefaultDate = previousDefaultDateRef.current;
+    setFormData(prev => prev.date === previousDefaultDate ? { ...prev, date: currentIsoDate } : prev);
+    previousDefaultDateRef.current = currentIsoDate;
+  }, [currentIsoDate]);
 
   const selectableUnits = useMemo(() =>
     units.filter(u => !(info.isManagerExempt && u.id === info.managerUnitId))
@@ -38,7 +47,7 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
   useEffect(() => {
     if (selectedUnit) {
       const typeLabel = formData.debtorType === 'Kiracı' ? 'Kiracı' : 'Malik';
-      const selectedDate = new Date(formData.date);
+      const selectedDate = parseLocalIsoDate(formData.date);
       const monthLabel = selectedDate.toLocaleDateString('tr-TR', { month: 'long' }).toLocaleUpperCase('tr-TR');
       const newDesc = formData.kasa === 'genel'
         ? `${selectedUnit.no} Nolu Daire ${typeLabel} ${monthLabel} Ayı Aidat Borcu`
@@ -68,7 +77,7 @@ const BorclandirView: React.FC<BorclandirViewProps> = ({ units, info, onClose, o
 
     const kasaName = formData.kasa === 'genel' ? 'genel' : 'demirbas';
     const finalDescription = `${formData.description || 'Borçlandırma'} [${kasaName}]`;
-    const d = new Date(formData.date);
+    const d = parseLocalIsoDate(formData.date);
     const isDuesDebt = /A[İI]DAT/i.test(finalDescription);
 
     // Call onSave which updates the state and switches view in App.tsx

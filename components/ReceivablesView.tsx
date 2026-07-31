@@ -5,6 +5,8 @@ import { BuildingInfo, Unit } from '../types.ts';
 import { PDFService } from '../pdfService.ts';
 import { markExternalIntent } from '../externalIntentGuard';
 import buildingLogo from '../src/assets/logo-transparent.png';
+import { getNetDebtAfterFullCredit } from '../balanceUtils';
+import { escapeHtml } from '../textUtils';
 
 interface ReceivablesViewProps {
   units: Unit[];
@@ -158,7 +160,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
                 <img src="${buildingLogo}" alt="Galata Logo" style="width:132px;height:132px;object-fit:contain;display:block;filter:drop-shadow(0 8px 14px rgba(0,0,0,0.28));" />
               </div>
               <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;flex:1;">
-                <div style="width:100%;font-size:24px;font-weight:800;letter-spacing:0.2em;text-transform:uppercase;opacity:0.88;text-align:center;">${info?.name || 'YÖNETİM'}</div>
+                <div style="width:100%;font-size:24px;font-weight:800;letter-spacing:0.2em;text-transform:uppercase;opacity:0.88;text-align:center;">${escapeHtml(info?.name || 'YÖNETİM')}</div>
                 <div style="width:100%;margin-top:12px;font-size:50px;line-height:1.06;font-weight:900;text-align:center;">${cardTitleHtml}</div>
               </div>
             </div>
@@ -178,7 +180,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
               <path d="M25 16 H143" stroke="rgba(255,255,255,0.28)" stroke-width="2" stroke-linecap="round" opacity="0.55" />
               <rect x="18" y="54" width="132" height="56" rx="17" fill="rgba(15,23,42,0.18)" stroke="rgba(255,255,255,0.10)" />
               <text x="84" y="39" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="19" font-weight="900" letter-spacing="1.2" fill="rgba(255,255,255,0.92)">DAİRE NO</text>
-              <text x="84" y="84" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="44" font-weight="900" fill="#ffffff">${unitNo}</text>
+              <text x="84" y="84" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="44" font-weight="900" fill="#ffffff">${escapeHtml(unitNo)}</text>
             </svg>
           </div>
         </div>
@@ -187,7 +189,7 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
           <div style="display:grid;grid-template-columns:minmax(0,1fr) 370px;grid-template-areas:'name summary' 'due summary';gap:22px;align-items:stretch;">
             <div style="grid-area:name;min-height:168px;background:#f8fafc;border:1px solid #dde5ee;border-radius:22px;padding:26px 28px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
               <div style="font-size:22px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#64748b;">İsim</div>
-              <div style="margin-top:14px;font-size:50px;line-height:1.1;font-weight:900;color:#0f172a;">${name}</div>
+              <div style="margin-top:14px;font-size:50px;line-height:1.1;font-weight:900;color:#0f172a;">${escapeHtml(name)}</div>
             </div>
 
             <div style="grid-area:summary;min-height:328px;background:#fff8f8;border:1px solid #f2d4d4;border-radius:22px;padding:22px 24px;box-sizing:border-box;display:grid;grid-template-rows:1fr 1fr 1fr 1fr;">
@@ -225,8 +227,8 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
 
           <div style="margin-top:20px;background:#f8fafc;border:1px solid #dde5ee;border-radius:22px;padding:28px 10px;zoom:1.14;">
             <div style="font-size:22px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#475569;">Ödeme Bilgileri</div>
-            <div style="margin-top:16px;font-size:36px;line-height:1.15;font-weight:900;color:#0f172a;white-space:nowrap;">IBAN: ${info?.iban || 'Belirtilmedi'}</div>
-            <div style="margin-top:14px;font-size:31px;font-weight:800;color:#1f2937;">Alıcı : ${info?.ibanReceiver || 'Belirtilmedi'}</div>
+            <div style="margin-top:16px;font-size:36px;line-height:1.15;font-weight:900;color:#0f172a;white-space:nowrap;">IBAN: ${escapeHtml(info?.iban || 'Belirtilmedi')}</div>
+            <div style="margin-top:14px;font-size:31px;font-weight:800;color:#1f2937;">Alıcı : ${escapeHtml(info?.ibanReceiver || 'Belirtilmedi')}</div>
           </div>
 
           <div style="margin-top:18px;text-align:center;">
@@ -254,8 +256,8 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
   const shareCardToUnit = async (unit: Unit, mode: ReceivableCardMode) => {
     const activeName = toTitleCase(unit.tenantName || unit.ownerName);
     const duesAmt = info?.duesAmount || 0;
-    const netDebt = Math.max(0, unit.debt - unit.credit);
-    const previousDebt = Math.max(0, unit.debt - duesAmt - unit.credit);
+    const netDebt = getNetDebtAfterFullCredit(unit.debt, unit.credit, duesAmt);
+    const previousDebt = getNetDebtAfterFullCredit(Math.max(0, unit.debt - duesAmt), unit.credit, duesAmt);
     const imageDataUrl = await createReminderCard(
       activeName,
       netDebt,
@@ -299,8 +301,8 @@ const ReceivablesView: React.FC<ReceivablesViewProps> = ({ units, info, onClose,
     try {
       const previewName = toTitleCase(previewUnit.tenantName || previewUnit.ownerName);
       const previewDuesAmt = info?.duesAmount || 0;
-      const previewNetDebt = Math.max(0, previewUnit.debt - previewUnit.credit);
-      const previewPreviousDebt = Math.max(0, previewUnit.debt - previewDuesAmt - previewUnit.credit);
+      const previewNetDebt = getNetDebtAfterFullCredit(previewUnit.debt, previewUnit.credit, previewDuesAmt);
+      const previewPreviousDebt = getNetDebtAfterFullCredit(Math.max(0, previewUnit.debt - previewDuesAmt), previewUnit.credit, previewDuesAmt);
       const imageDataUrl = await createReminderCard(
         previewName,
         previewNetDebt,

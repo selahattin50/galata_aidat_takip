@@ -1,5 +1,5 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { FileText, FilePlus, Search, X, Trash2, File, ImageIcon, FolderOpen, ArrowLeft, Share2, Upload } from 'lucide-react';
@@ -7,6 +7,7 @@ import { FileEntry } from '../types.ts';
 import { useAndroidBackHandler } from '../appBackButton';
 import DatePickerModal from './DatePickerModal';
 import { appConfirm } from './AppDialog';
+import { formatLocalIsoDateTr, toLocalIsoDate } from '../dateUtils';
 
 interface FilesViewProps {
   files: FileEntry[];
@@ -19,6 +20,8 @@ interface FilesViewProps {
 }
 
 const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, onOpenFile, onShareFile, onClose, currentDate }) => {
+  const currentIsoDate = toLocalIsoDate(currentDate);
+  const previousDefaultDateRef = useRef(currentIsoDate);
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('Hepsi');
@@ -34,11 +37,17 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
 
   const [fileName, setFileName] = useState('');
   const [fileCategory, setFileCategory] = useState<FileEntry['category']>('Fatura');
-  const [fileDate, setFileDate] = useState(currentDate.toISOString().split('T')[0]);
+  const [fileDate, setFileDate] = useState(currentIsoDate);
   const [selectedFile, setSelectedFile] = useState<globalThis.File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const categories = ['Hepsi', 'Fatura', 'Sözleşme', 'Tutanak', 'Karar', 'Diğer'];
+
+  useEffect(() => {
+    const previousDefaultDate = previousDefaultDateRef.current;
+    setFileDate(prev => prev === previousDefaultDate ? currentIsoDate : prev);
+    previousDefaultDateRef.current = currentIsoDate;
+  }, [currentIsoDate]);
 
   const getExtension = (name: string) => {
     const ext = name.split('.').pop()?.toLowerCase() || '';
@@ -70,7 +79,7 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
     setFileName('');
     setSelectedFile(null);
     setFileCategory('Fatura');
-    setFileDate(currentDate.toISOString().split('T')[0]);
+    setFileDate(currentIsoDate);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -132,7 +141,7 @@ const FilesView: React.FC<FilesViewProps> = ({ files, onAddFile, onDeleteFile, o
     onAddFile({
       name: fileName.trim(),
       category: fileCategory,
-      date: new Date(fileDate).toLocaleDateString('tr-TR'),
+      date: formatLocalIsoDateTr(fileDate),
       size: selectedFile.size >= 1024 * 1024
         ? (selectedFile.size / 1024 / 1024).toFixed(1) + ' MB'
         : (selectedFile.size / 1024).toFixed(1) + ' KB',

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, ArrowRightLeft, Wallet, Briefcase, Save, Loader2 } from 'lucide-react';
 import DatePickerModal from './DatePickerModal';
+import { toLocalIsoDate } from '../dateUtils';
 
 interface TransferViewProps {
   onClose: () => void;
@@ -9,13 +10,21 @@ interface TransferViewProps {
 }
 
 const TransferView: React.FC<TransferViewProps> = ({ onClose, onSave, currentDate }) => {
+  const currentIsoDate = toLocalIsoDate(currentDate);
+  const previousDefaultDateRef = useRef(currentIsoDate);
   const [amount, setAmount] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [sourceVault, setSourceVault] = useState<'genel' | 'demirbas'>('genel');
-  const [selectedDate, setSelectedDate] = useState<string>(currentDate.toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(currentIsoDate);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveComplete, setSaveComplete] = useState(false);
+
+  useEffect(() => {
+    const previousDefaultDate = previousDefaultDateRef.current;
+    setSelectedDate(prev => prev === previousDefaultDate ? currentIsoDate : prev);
+    previousDefaultDateRef.current = currentIsoDate;
+  }, [currentIsoDate]);
 
   const handleProcess = async () => {
     const numAmount = parseFloat(amount);

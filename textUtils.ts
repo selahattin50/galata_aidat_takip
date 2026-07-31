@@ -42,3 +42,12 @@ export const fixCommonTurkishText = (value: string) => {
 };
 
 export const upperTr = (value: string) => fixCommonTurkishText(value.toLocaleUpperCase('tr-TR'));
+
+// Use when text must be interpolated into an HTML string for off-screen reports.
+export const escapeHtml = (value: unknown) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');

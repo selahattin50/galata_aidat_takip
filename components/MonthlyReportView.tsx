@@ -6,6 +6,7 @@ import { useAndroidBackHandler } from '../appBackButton';
 import { createFinancialReportPdf } from './reportPdfUtils';
 import PdfActionButton from './PdfActionButton';
 import { fixCommonTurkishText, upperTr } from '../textUtils';
+import { getNetDebtAfterFullCredit, isDebtSettlementDescription } from '../balanceUtils';
 
 const withTransactionDate = (date: string, label: string) => `${date} ${label}`;
 const toIsoDate = (date: string) => date.split('.').reverse().join('-');
@@ -115,6 +116,9 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
         const totalManualDebt = vaultTransactions
           .filter(tx => tx.type === 'BORÇLANDIRMA')
           .reduce((sum, tx) => sum + tx.amount, 0);
+        const totalManualDebtSettled = vaultTransactions
+          .filter(tx => tx.type === 'GELİR' && isDebtSettlementDescription(tx.description))
+          .reduce((sum, tx) => sum + tx.amount, 0);
 
         let paidDues = 0;
         let unpaidDues = 0;
@@ -138,8 +142,8 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
           }
         }
 
-        credit = Math.max(0, totalIncome - totalExpense - paidDues);
-        debt = totalManualDebt + unpaidDues;
+        credit = Math.max(0, totalIncome - totalExpense - paidDues - totalManualDebtSettled);
+        debt = Math.max(0, totalManualDebt - totalManualDebtSettled) + unpaidDues;
       } else {
         const totalIncome = vaultTransactions
           .filter(tx => tx.type === 'GELİR' && !isCreditBalanceIncome(tx))
@@ -147,15 +151,19 @@ const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({ transactions, uni
         const totalExpense = vaultTransactions
           .filter(tx => tx.type === 'GİDER')
           .reduce((sum, tx) => sum + tx.amount, 0);
-        debt = vaultTransactions
+        const totalManualDebt = vaultTransactions
           .filter(tx => tx.type === 'BORÇLANDIRMA')
           .reduce((sum, tx) => sum + tx.amount, 0);
-        credit = Math.max(0, totalIncome - totalExpense);
+        const totalManualDebtSettled = vaultTransactions
+          .filter(tx => tx.type === 'GELİR' && isDebtSettlementDescription(tx.description))
+          .reduce((sum, tx) => sum + tx.amount, 0);
+        debt = Math.max(0, totalManualDebt - totalManualDebtSettled);
+        credit = Math.max(0, totalIncome - totalExpense - totalManualDebtSettled);
       }
 
       return {
         totalCredit: acc.totalCredit + credit,
-        netDebt: acc.netDebt + Math.max(0, debt - credit)
+        netDebt: acc.netDebt + getNetDebtAfterFullCredit(debt, credit, selectedVault === 'genel' ? duesValue : 0)
       };
     }, { totalCredit: 0, netDebt: 0 });
   }, [transactions, units, info, selectedMonth, selectedYear, selectedVault]);

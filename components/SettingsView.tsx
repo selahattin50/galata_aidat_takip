@@ -140,10 +140,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
   };
 
   const handleSave = async () => {
-    const normalizedBulkMessageInfoDay = clampBulkMessageDay(st.bulkMessageInfoDay, 18, 27);
     const normalizedBulkMessageReminderDay = Math.max(
-      normalizedBulkMessageInfoDay + 1,
-      clampBulkMessageDay(st.bulkMessageReminderDay, normalizedBulkMessageInfoDay + 1)
+      2,
+      clampBulkMessageDay(st.bulkMessageReminderDay, 19)
+    );
+    const normalizedBulkMessageInfoDay = Math.min(
+      normalizedBulkMessageReminderDay - 1,
+      clampBulkMessageDay(st.bulkMessageInfoDay, normalizedBulkMessageReminderDay - 1, 27)
     );
     setIsSaving(true);
     await new Promise(r => setTimeout(r, 800));
@@ -184,7 +187,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
   };
 
   const selectedManagerUnit = units?.find(u => u && u.id === st.managerUnitId);
-  const messageInfoDayPreview = clampBulkMessageDay(st.bulkMessageInfoDay, 18, 27);
+  const messageReminderDayPreview = Math.max(2, clampBulkMessageDay(st.bulkMessageReminderDay, 19));
 
   if (showAdminPanel && canAccessAdminPanel) {
     return <UserManagementView onClose={() => setShowAdminPanel(false)} />;
@@ -381,28 +384,41 @@ const SettingsView: React.FC<SettingsViewProps> = ({ buildingInfo, onUpdateBuild
                   <p className="text-[7px] font-black text-zinc-100/50 uppercase mb-1">{bulkMessageEditor === 'info' ? 'M1 BİLGİLENDİRME' : 'M2 HATIRLATMA'}</p>
                   <input
                     type="number"
-                    min={bulkMessageEditor === 'info' ? 1 : messageInfoDayPreview + 1}
-                    max={28}
+                    min={bulkMessageEditor === 'info' ? 1 : 2}
+                    max={bulkMessageEditor === 'info' ? messageReminderDayPreview - 1 : 28}
                     disabled={!isEditing}
                     value={bulkMessageEditor === 'info' ? st.bulkMessageInfoDay : st.bulkMessageReminderDay}
                     onChange={e => {
                       const value = e.target.value;
                       if (bulkMessageEditor === 'info') {
-                        const nextInfoDay = clampBulkMessageDay(value, 18, 27);
                         setSt({
                           ...st,
-                          bulkMessageInfoDay: value,
-                          bulkMessageReminderDay: (nextInfoDay + 1).toString()
+                          bulkMessageInfoDay: value
                         });
                         return;
                       }
-                      setSt({...st, bulkMessageReminderDay: value});
+                      if (value === '') {
+                        setSt({ ...st, bulkMessageReminderDay: value });
+                        return;
+                      }
+                      const nextReminderDay = Math.max(2, clampBulkMessageDay(value, 19));
+                      const currentInfoDay = clampBulkMessageDay(st.bulkMessageInfoDay, nextReminderDay - 1, 27);
+                      setSt({
+                        ...st,
+                        bulkMessageInfoDay: Math.min(currentInfoDay, nextReminderDay - 1).toString(),
+                        bulkMessageReminderDay: value
+                      });
                     }}
                     className={`w-full bg-transparent text-center font-black text-2xl text-white outline-none ${!isEditing ? 'opacity-40' : ''}`}
                   />
                 </div>
                 <button onClick={() => setBulkMessageEditor('reminder')} className={`h-12 rounded-xl flex items-center justify-center border transition-all ${bulkMessageEditor === 'reminder' ? 'bg-zinc-400 text-black font-black' : 'bg-white/5 text-zinc-400'}`}>M2</button>
               </div>
+              {isEditing && bulkMessageEditor === 'reminder' && (
+                <p className="mt-3 text-center text-[8px] font-bold uppercase tracking-[0.12em] text-emerald-300/70">
+                  M2 gününü manuel girin · Son ödeme günü M2 + 1
+                </p>
+              )}
             </div>
           </section>
 
