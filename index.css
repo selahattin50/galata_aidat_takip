@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @keyframes slideUpIn {
   from {
     opacity: 0;
@@ -33,6 +37,17 @@
   }
 }
 
+@keyframes scrollRevealMotion {
+  from {
+    opacity: 0;
+    transform: translate(14px, -12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
 .animate-page-in {
   animation: slideUpIn 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
@@ -52,23 +67,26 @@
 }
 
 .scroll-reveal-from-top-right {
-  opacity: 0;
-  transform: translate(74px, -42px) scale(0.95);
-  will-change: opacity, transform;
+  min-width: 0;
 }
 
-.scroll-reveal-from-top-right.is-visible {
-  animation: cardDropInStrong 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.scroll-reveal-from-top-right > .scroll-reveal-card,
+.scroll-reveal-from-top-right-slow > .scroll-reveal-card {
+  opacity: 0;
+  transform: translate(14px, -12px) scale(0.985);
+  will-change: opacity, transform;
 }
 
 .scroll-reveal-from-top-right-slow {
-  opacity: 0;
-  transform: translate(88px, -50px) scale(0.94);
-  will-change: opacity, transform;
+  min-width: 0;
 }
 
-.scroll-reveal-from-top-right-slow.is-visible {
-  animation: cardDropInStrong 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.scroll-reveal-from-top-right.is-visible > .scroll-reveal-card {
+  animation: scrollRevealMotion 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.scroll-reveal-from-top-right-slow.is-visible > .scroll-reveal-card {
+  animation: scrollRevealMotion 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
 .app-back-button {

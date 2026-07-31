@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Lock, User, Eye, EyeOff, Loader2, Building2, ShieldCheck, Check, Info, Mail, X } from 'lucide-react';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { useAndroidBackHandler } from '../appBackButton';
 
 interface LoginViewProps {
@@ -10,6 +11,14 @@ interface LoginViewProps {
 
 const REMEMBERED_USER_KEY = 'galata_remembered_username';
 const FAILED_ATTEMPTS_KEY = 'galata_failed_login_attempts';
+
+interface CredentialStorePlugin {
+  save(options: { email: string; password: string }): Promise<void>;
+  load(): Promise<{ email: string; password: string }>;
+  clear(): Promise<void>;
+}
+
+const CredentialStore = registerPlugin<CredentialStorePlugin>('CredentialStore');
 
 const getAuthErrorDetails = (error: any, fallbackMessage: string) => {
   const code = error?.code || '';
@@ -89,17 +98,39 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
   const [contactEmail, setContactEmail] = useState('');
   const [contactMessage, setContactMessage] = useState('');
 
-  // Sayfa yüklendiğinde hatırlanan kullanıcı adını getir
+  // Sayfa yüklendiğinde Android Keystore ile korunan giriş bilgilerini getir.
   useEffect(() => {
+    let cancelled = false;
     const savedUser = localStorage.getItem(REMEMBERED_USER_KEY);
     if (savedUser) {
       setUsername(savedUser);
     }
-    const savedPassword = localStorage.getItem('galata_remembered_password');
-    if (savedPassword) {
-      setPassword(savedPassword);
+    // Eski sürümlerde düz metin saklanan parolayı güvenli kasaya taşımadan sil.
+    localStorage.removeItem('galata_remembered_password');
+
+    if (Capacitor.isNativePlatform()) {
+      CredentialStore.load()
+        .then(credentials => {
+          if (cancelled || !credentials.email || !credentials.password) return;
+          setUsername(credentials.email);
+          setPassword(credentials.password);
+          setRememberMe(true);
+        })
+        .catch(error => console.warn('Hatırlanan giriş bilgileri okunamadı:', error));
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const handleRememberMeToggle = () => {
+    const nextValue = !rememberMe;
+    setRememberMe(nextValue);
+    if (!nextValue && Capacitor.isNativePlatform()) {
+      void CredentialStore.clear().catch(error => console.warn('Hatırlanan giriş bilgileri temizlenemedi:', error));
+    }
+  };
 
   useAndroidBackHandler(() => {
     if (showContactUs) {
@@ -123,7 +154,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
     setIsLoading(true);
 
     const cleanUsername = username.trim().toLowerCase();
-    const cleanPassword = password.trim();
+    // Passwords may legitimately start or end with whitespace.
+    const cleanPassword = password;
 
     // Sadece email formatında girişe izin ver
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -138,21 +170,44 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
 
     // Firebase Authentication ile giriş
     try {
-      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      const {
+        browserLocalPersistence,
+        browserSessionPersistence,
+        sendEmailVerification,
+        setPersistence,
+        signInWithEmailAndPassword,
+        signOut
+      } = await import('firebase/auth');
       const { auth } = await import('../firebaseConfig');
 
-      await signInWithEmailAndPassword(auth, cleanUsername, cleanPassword);
+      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+      const userCredential = await signInWithEmailAndPassword(auth, cleanUsername, cleanPassword);
+
+      if (!userCredential.user.emailVerified) {
+        await sendEmailVerification(userCredential.user).catch(() => {});
+        await signOut(auth);
+        setError('E-posta adresiniz henüz doğrulanmamış. Yeni doğrulama e-postası gönderildi; gelen bağlantıya tıklayıp tekrar giriş yapın.');
+        setIsLoading(false);
+        return;
+      }
 
       // Giriş başarılı - Deneme sayısını sıfırla
       localStorage.removeItem(FAILED_ATTEMPTS_KEY);
 
       if (rememberMe) {
         localStorage.setItem(REMEMBERED_USER_KEY, cleanUsername);
-        localStorage.setItem('galata_remembered_password', cleanPassword);
+        if (Capacitor.isNativePlatform()) {
+          await CredentialStore.save({ email: cleanUsername, password: cleanPassword })
+            .catch(error => console.warn('Giriş bilgileri güvenli kasaya kaydedilemedi:', error));
+        }
       } else {
         localStorage.removeItem(REMEMBERED_USER_KEY);
-        localStorage.removeItem('galata_remembered_password');
+        if (Capacitor.isNativePlatform()) {
+          await CredentialStore.clear()
+            .catch(error => console.warn('Hatırlanan giriş bilgileri temizlenemedi:', error));
+        }
       }
+      localStorage.removeItem('galata_remembered_password');
 
       onLogin(rememberMe);
     } catch (error: any) {
@@ -246,16 +301,18 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
         <div className="bg-[#1e293b]/50 backdrop-blur-3xl rounded-[40px] p-8 border border-white/20 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} autoComplete="on" className="space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-white/80 uppercase tracking-[0.2em] ml-1">KULLANICI ADI</label>
               <div className="relative group">
                 <input
-                  type="text"
+                  type="email"
+                  name="email"
+                  autoComplete="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="ornek@email.com"
-                  className={`w-full h-14 bg-white/5 border rounded-2xl px-12 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all placeholder:text-white/10 ${error ? 'border-red-500/50' : 'border-white/10 focus:border-blue-500/50'}`}
+                  className={`w-full h-14 bg-white/5 border rounded-2xl px-12 text-sm font-bold text-white/60 outline-none focus:bg-white/10 transition-all placeholder:text-white/10 ${error ? 'border-red-500/50' : 'border-white/10 focus:border-blue-500/50'}`}
                   required
                 />
                 <User size={18} className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${error ? 'text-red-400' : 'text-white/20 group-focus-within:text-blue-400'}`} />
@@ -267,6 +324,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
               <div className="relative group">
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••"
@@ -293,7 +352,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
             <div className="flex items-center justify-between px-1">
               <button
                 type="button"
-                onClick={() => setRememberMe(!rememberMe)}
+                onClick={handleRememberMeToggle}
                 className="flex items-center space-x-2 group cursor-pointer"
               >
                 <div className={`w-5 h-5 rounded-md border transition-all flex items-center justify-center ${rememberMe ? 'bg-blue-600 border-blue-500' : 'bg-white/5 border-white/10'}`}>
@@ -466,7 +525,9 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onShowRegister }) => {
                         alert("Lütfen tüm alanları doldurun.");
                         return;
                       }
-                      window.location.href = `mailto:selahattin50@gmail.com?subject=Galata Aidat Takip - İletişim&body=Gönderen: ${contactEmail}%0D%0A%0D%0A${contactMessage}`;
+                      const subject = encodeURIComponent('Galata Aidat Takip - İletişim');
+                      const body = encodeURIComponent(`Gönderen: ${contactEmail}\r\n\r\n${contactMessage}`);
+                      window.location.href = `mailto:selahattin50@gmail.com?subject=${subject}&body=${body}`;
                       setShowContactUs(false);
                       setContactEmail('');
                       setContactMessage('');

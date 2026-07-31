@@ -9,6 +9,9 @@ import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
+import android.util.Base64;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
@@ -20,24 +23,34 @@ import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.JSObject;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import androidx.core.content.FileProvider;
 import androidx.core.view.WindowCompat;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(WhatsAppSharePlugin.class);
+        registerPlugin(PdfOpenerPlugin.class);
+        registerPlugin(CredentialStorePlugin.class);
+        registerPlugin(NativeAppControlPlugin.class);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         getWindow().setStatusBarColor(Color.TRANSPARENT);
         getWindow().setNavigationBarColor(Color.rgb(15, 23, 42));
         super.onCreate(savedInstanceState);
-        registerPlugin(WhatsAppSharePlugin.class);
-        registerPlugin(PdfOpenerPlugin.class);
+        bridge.getWebView().setBackgroundColor(Color.rgb(3, 7, 18));
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -47,6 +60,121 @@ public class MainActivity extends BridgeActivity {
                 }
             }
         });
+    }
+}
+
+@CapacitorPlugin(name = "NativeAppControl")
+class NativeAppControlPlugin extends Plugin {
+    @PluginMethod
+    public void closeAndRemoveTask(PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            call.resolve();
+            getActivity().finishAndRemoveTask();
+        });
+    }
+}
+
+@CapacitorPlugin(name = "CredentialStore")
+class CredentialStorePlugin extends Plugin {
+    private static final String KEY_ALIAS = "galata_login_credentials_key";
+    private static final String PREFS_NAME = "galata_secure_credentials";
+    private static final String EMAIL_KEY = "email";
+    private static final String PASSWORD_KEY = "password";
+
+    private SecretKey getOrCreateKey() throws Exception {
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+        if (keyStore.containsAlias(KEY_ALIAS)) {
+            return ((KeyStore.SecretKeyEntry) keyStore.getEntry(KEY_ALIAS, null)).getSecretKey();
+        }
+
+        KeyGenerator keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+        keyGenerator.init(new KeyGenParameterSpec.Builder(
+            KEY_ALIAS,
+            KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT
+        )
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setRandomizedEncryptionRequired(true)
+            .build());
+        return keyGenerator.generateKey();
+    }
+
+    private String encrypt(String value) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey());
+        byte[] encrypted = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
+        return Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP)
+            + ":"
+            + Base64.encodeToString(encrypted, Base64.NO_WRAP);
+    }
+
+    private String decrypt(String value) throws Exception {
+        String[] parts = value.split(":", 2);
+        if (parts.length != 2) throw new IllegalArgumentException("Invalid credential data");
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(
+            Cipher.DECRYPT_MODE,
+            getOrCreateKey(),
+            new GCMParameterSpec(128, Base64.decode(parts[0], Base64.NO_WRAP))
+        );
+        byte[] decrypted = cipher.doFinal(Base64.decode(parts[1], Base64.NO_WRAP));
+        return new String(decrypted, StandardCharsets.UTF_8);
+    }
+
+    @PluginMethod
+    public void save(PluginCall call) {
+        String email = call.getString("email", "");
+        String password = call.getString("password", "");
+        if (email.isEmpty() || password.isEmpty()) {
+            call.reject("Email and password are required");
+            return;
+        }
+
+        try {
+            boolean saved = getContext().getSharedPreferences(PREFS_NAME, 0)
+                .edit()
+                .putString(EMAIL_KEY, encrypt(email))
+                .putString(PASSWORD_KEY, encrypt(password))
+                .commit();
+            if (!saved) {
+                call.reject("Credentials could not be written");
+                return;
+            }
+            call.resolve();
+        } catch (Exception error) {
+            call.reject("Credentials could not be saved", error);
+        }
+    }
+
+    @PluginMethod
+    public void load(PluginCall call) {
+        SharedPreferences preferences = getContext().getSharedPreferences(PREFS_NAME, 0);
+        String encryptedEmail = preferences.getString(EMAIL_KEY, "");
+        String encryptedPassword = preferences.getString(PASSWORD_KEY, "");
+        JSObject result = new JSObject();
+
+        if (encryptedEmail.isEmpty() || encryptedPassword.isEmpty()) {
+            result.put("email", "");
+            result.put("password", "");
+            call.resolve(result);
+            return;
+        }
+
+        try {
+            result.put("email", decrypt(encryptedEmail));
+            result.put("password", decrypt(encryptedPassword));
+            call.resolve(result);
+        } catch (Exception error) {
+            preferences.edit().clear().apply();
+            call.reject("Credentials could not be loaded", error);
+        }
+    }
+
+    @PluginMethod
+    public void clear(PluginCall call) {
+        getContext().getSharedPreferences(PREFS_NAME, 0).edit().clear().apply();
+        call.resolve();
     }
 }
 

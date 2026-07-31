@@ -50,7 +50,7 @@ class DatabaseService {
       return [];
     } catch (error) {
       console.error('getUserSites error:', error);
-      return [];
+      throw error;
     }
   }
 

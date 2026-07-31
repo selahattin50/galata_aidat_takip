@@ -92,13 +92,13 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 pt-2 pb-4 space-y-1.5 no-scrollbar touch-pan-y">
-        {units.sort((a, b) => parseInt(a.no) - parseInt(b.no)).map((unit, index) => (
+        {units.sort((a, b) => parseInt(a.no) - parseInt(b.no)).map((unit) => (
           <div 
             key={unit.id} 
             ref={unitReveal.observe(unit.id)}
-            className={`w-full max-w-full bg-[#1e293b]/50 backdrop-blur-md rounded-2xl p-3 border border-white/5 shadow-xl flex flex-col scroll-reveal-from-top-right relative overflow-hidden ${unitReveal.isVisible(unit.id) ? 'is-visible' : ''}`}
-            style={{ animationDelay: `${Math.min(index, 6) * 45}ms` }}
+            className={`w-full scroll-reveal-from-top-right ${unitReveal.isVisible(unit.id) ? 'is-visible' : ''}`}
           >
+          <div className="scroll-reveal-card w-full max-w-full bg-[#1e293b]/50 backdrop-blur-md rounded-2xl p-3 border border-white/5 shadow-xl flex flex-col relative overflow-hidden">
             {/* Sol ve Sağ Mavi Çizgiler */}
             <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 opacity-40" />
             <div className="absolute top-0 right-0 w-1 h-full bg-blue-600 opacity-40" />
@@ -141,6 +141,7 @@ const AidatCizelgeView: React.FC<AidatCizelgeViewProps> = ({ units, transactions
                 );
               })}
             </div>
+          </div>
           </div>
         ))}
       </div>

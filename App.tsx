@@ -37,6 +37,8 @@ import { auth } from './firebaseConfig';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { consumeRecentExternalIntent, markExternalIntent } from './externalIntentGuard';
 import { fixCommonTurkishText } from './textUtils';
+import { toLocalIsoDate } from './dateUtils';
+import { getNetDebtAfterFullCredit, isDebtSettlementDescription, toCurrencyCents } from './balanceUtils';
 
 const STORAGE_KEYS = {
   AUTH: 'galata_v16_auth',
@@ -47,12 +49,45 @@ const RECEIVABLES_INFO_NOTIFICATION_ID = 190010;
 const RECEIVABLES_REMINDER_NOTIFICATION_ID = 190011;
 const RECEIVABLES_REMINDER_CHANNEL_ID = 'receivables-reminders';
 const ADMIN_EMAIL = 'selahattin50@gmail.com';
+const AUTO_DUES_MONTHS = [
+  'OCAK',
+  'ŞUBAT',
+  'MART',
+  'NİSAN',
+  'MAYIS',
+  'HAZİRAN',
+  'TEMMUZ',
+  'AĞUSTOS',
+  'EYLÜL',
+  'EKİM',
+  'KASIM',
+  'ARALIK'
+];
+
+const hasEnoughCreditForDues = (credit: number, duesAmount: number) =>
+  toCurrencyCents(credit) >= toCurrencyCents(duesAmount);
+
+const hasSessionData = (data: any) => Boolean(
+  data && (
+    data.building_info ||
+    data.units ||
+    data.transactions ||
+    data.board_members ||
+    data.files
+  )
+);
 
 interface PdfOpenerPlugin {
   open(options: { filePath: string; contentType?: string; title?: string }): Promise<void>;
 }
 
 const PdfOpener = registerPlugin<PdfOpenerPlugin>('PdfOpener');
+
+interface NativeAppControlPlugin {
+  closeAndRemoveTask(): Promise<void>;
+}
+
+const NativeAppControl = registerPlugin<NativeAppControlPlugin>('NativeAppControl');
 
 const DEFAULT_BUILDING_INFO: BuildingInfo = {
   name: "",
@@ -474,6 +509,20 @@ const isAutoDuesTransaction = (tx: Transaction) => {
   return /^\s*\d{1,2}\.?\s*AY\s+AIDAT(\s+TAHSILATI)?\s+BORCU(\s+\[GENEL\])?\s*$/.test(description);
 };
 
+const repairAutoCreditDuesDescriptions = (items: Transaction[]) => {
+  let changed = false;
+  const repaired = items.map(tx => {
+    if (!tx.unitId || tx.type !== 'GELİR') return tx;
+    const description = fixCommonTurkishText(tx.description || '');
+    const nextDescription = description.replace(/^DAİRE\s+\S+\s+(.+\bAYI\s+AİDATI\s+KREDİ\b.*)$/i, '$1');
+    if (nextDescription === description) return tx;
+    changed = true;
+    return { ...tx, description: nextDescription };
+  });
+
+  return { transactions: repaired, changed };
+};
+
 const getTransferDirection = (tx: Transaction): { from: VaultType; to: VaultType } | null => {
   if (tx.type !== 'TRANSFER') return null;
   const description = (tx.description || '').toLocaleUpperCase('tr-TR');
@@ -500,6 +549,7 @@ const App: React.FC = () => {
 
   const [showRegister, setShowRegister] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSessionReady, setIsSessionReady] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
@@ -544,6 +594,9 @@ const App: React.FC = () => {
           console.log('📅 Gün değişti, takvimler güncelleniyor:', now.toLocaleDateString('tr-TR'));
           return now;
         }
+        if (prevDate.getHours() !== now.getHours() || prevDate.getMinutes() !== now.getMinutes()) {
+          return now;
+        }
         return prevDate;
       });
     }, 60000);
@@ -569,7 +622,8 @@ const App: React.FC = () => {
           });
           // Arka planda çok uzun kaldıysa otomatik logout
           const returnedFromExternalViewer = consumeRecentExternalIntent();
-          if (!returnedFromExternalViewer && backgroundTime !== null && (Date.now() - backgroundTime) >= AUTO_LOGOUT_MS) {
+          const shouldRememberSession = localStorage.getItem(STORAGE_KEYS.AUTH) === 'true';
+          if (!shouldRememberSession && !returnedFromExternalViewer && backgroundTime !== null && (Date.now() - backgroundTime) >= AUTO_LOGOUT_MS) {
             console.log('🔒 Uzun süre arka planda kaldı, oturum kapatılıyor');
             handleLogout();
           }
@@ -617,46 +671,87 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    if (!isAuthenticated || isLoading || !buildingInfo.isAutoDuesEnabled || !units.length) return;
-
-    const now = currentDate;
-    const currentMonthKey = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-    
-    if (now.getDate() === 1 && buildingInfo.lastAutoDuesMonth !== currentMonthKey) {
-      const duesAmount = buildingInfo.duesAmount || 0;
-      if (duesAmount <= 0) return;
-
-      setBuildingInfo(p => ({ ...p, lastAutoDuesMonth: currentMonthKey }));
-    }
-  }, [currentDate, isAuthenticated, isLoading, buildingInfo, units]);
-
-  useEffect(() => {
     if (!isAuthenticated) {
+      setIsSessionReady(false);
       setIsLoading(false);
       return;
     }
 
     const loadDataFromFirebase = async () => {
       try {
+        setIsSessionReady(false);
         setIsLoading(true);
         let currentUser = auth.currentUser;
 
         if (!currentUser) {
           currentUser = await new Promise<any>((resolve) => {
             const unsubscribe = onAuthStateChanged(auth, (user) => {
-              if (user) { unsubscribe(); resolve(user); }
+              unsubscribe();
+              resolve(user);
             });
           });
         }
 
-        if (!currentUser) { handleLogout(); return; }
+        if (!currentUser || (!currentUser.emailVerified && currentUser.email !== ADMIN_EMAIL)) {
+          alert('E-posta adresinizi doğrulamadan uygulamayı kullanamazsınız.');
+          handleLogout();
+          return;
+        }
 
-        const sites = await db.getUserSites(currentUser.uid);
+        const emailKey = currentUser.email?.replace(/[.@]/g, '_');
+        const [userRoot, userProfile, bannedData] = await Promise.all([
+          db.getDataDirect(`users/${currentUser.uid}`),
+          db.getDataDirect(`_userProfiles/${currentUser.uid}`),
+          db.getDataDirect(`_bannedUsers/${emailKey}`)
+        ]);
+
+        if (bannedData && currentUser.email !== ADMIN_EMAIL) { alert('Hesabınız yasaklanmıştır.'); handleLogout(); return; }
+        if (!userProfile && currentUser.email !== ADMIN_EMAIL) { alert('Hesabınız silinmiştir.'); handleLogout(); return; }
+        setCreateSiteCredits(currentUser.email === ADMIN_EMAIL ? Number.MAX_SAFE_INTEGER : Math.max(0, Number(userProfile?.createSiteCredits || 0)));
+
+        const listedSiteNames = (userRoot?.available_sites || {}) as Record<string, string>;
+        const nestedSessions = (userRoot?.sites || {}) as Record<string, any>;
+        const sessionCatalog = new Map<string, { id: string; name: string; hasData: boolean }>();
+
+        Object.entries(listedSiteNames).forEach(([id, name]) => {
+          sessionCatalog.set(id, {
+            id,
+            name: String(name || nestedSessions[id]?.building_info?.name || 'Varsayılan'),
+            hasData: hasSessionData(nestedSessions[id])
+          });
+        });
+
+        Object.entries(nestedSessions).forEach(([id, data]) => {
+          if (!hasSessionData(data)) return;
+          const existing = sessionCatalog.get(id);
+          sessionCatalog.set(id, {
+            id,
+            name: existing?.name || data?.building_info?.name || 'Varsayılan',
+            hasData: true
+          });
+        });
+
+        if (hasSessionData(userRoot)) {
+          sessionCatalog.set('main', {
+            id: 'main',
+            name: listedSiteNames.main || userRoot?.building_info?.name || 'Varsayılan',
+            hasData: true
+          });
+        }
+
+        if (sessionCatalog.size === 0) {
+          sessionCatalog.set('main', { id: 'main', name: 'Varsayılan', hasData: false });
+        }
+
+        const catalog = Array.from(sessionCatalog.values());
+        const currentSiteId = catalog.find(site => site.id === activeSiteId && site.hasData)?.id
+          || catalog.find(site => site.hasData)?.id
+          || catalog.find(site => site.id === activeSiteId)?.id
+          || catalog[0].id;
+        const sites = catalog.map(({ id, name }) => ({ id, name }));
         setUserSites(sites);
 
-        let currentSiteId = activeSiteId;
-        if (sites.length > 0 && !sites.find(s => s.id === currentSiteId)) {
-          currentSiteId = sites[0].id;
+        if (currentSiteId !== activeSiteId) {
           setActiveSiteId(currentSiteId);
           localStorage.setItem('galata_active_site_id', currentSiteId);
         }
@@ -664,16 +759,7 @@ const App: React.FC = () => {
         const sessionPath = currentSiteId === 'main' ? `users/${currentUser.uid}` : `users/${currentUser.uid}/sites/${currentSiteId}`;
         db.setCurrentSession(sessionPath);
 
-        const emailKey = currentUser.email?.replace(/[.@]/g, '_');
-        const [sessionData, userProfile, bannedData] = await Promise.all([
-          db.getCurrentSessionData().catch(() => null),
-          db.getDataDirect(`_userProfiles/${currentUser.uid}`).catch(() => null),
-          db.getDataDirect(`_bannedUsers/${emailKey}`).catch(() => null)
-        ]);
-
-        if (bannedData && currentUser.email !== ADMIN_EMAIL) { alert('Hesabınız yasaklanmıştır.'); handleLogout(); return; }
-        if (!userProfile && currentUser.email !== ADMIN_EMAIL) { alert('Hesabınız silinmiştir.'); handleLogout(); return; }
-        setCreateSiteCredits(currentUser.email === ADMIN_EMAIL ? Number.MAX_SAFE_INTEGER : Math.max(0, Number(userProfile?.createSiteCredits || 0)));
+        const sessionData = await db.getCurrentSessionData();
 
         const info = sessionData?.buildingInfo || null;
         const unitsData = sessionData?.units || [];
@@ -681,11 +767,13 @@ const App: React.FC = () => {
         const boardData = sessionData?.boardMembers || [];
         const filesData = sessionData?.files || [];
 
+        setBuildingInfo(info || DEFAULT_BUILDING_INFO);
         if (info) {
-          setBuildingInfo(info);
-          if (sites.length === 0 || !sites.find(s => s.id === (activeSiteId || 'main'))) {
-            await db.addSiteToUser(currentUser.uid, activeSiteId || 'main', info.name || "Varsayılan");
-            setUserSites([{ id: activeSiteId || 'main', name: info.name || "Varsayılan" }]);
+          if (!Object.prototype.hasOwnProperty.call(listedSiteNames, currentSiteId)) {
+            await db.addSiteToUser(currentUser.uid, currentSiteId, info.name || "Varsayılan");
+            setUserSites(previousSites => previousSites.map(site =>
+              site.id === currentSiteId ? { ...site, name: info.name || 'Varsayılan' } : site
+            ));
           }
         }
         if (unitsData?.length > 0) {
@@ -697,14 +785,16 @@ const App: React.FC = () => {
           setUnits(passiveTenantRepair.units);
           if (activeTenantRepair.changed || unitRepair.changed || phoneRepair.changed || passiveOwnerRepair.changed || passiveTenantRepair.changed) await db.saveUnits(passiveTenantRepair.units);
         }
-        else db.saveUnits(INITIAL_UNITS);
+        else setUnits(INITIAL_UNITS);
 
         const loadedTransactions = ensure2025OpeningCashCarry(repair2025CarryOverCash(transactionsData || [], unitsData || []));
         const autoDuesTransactions = loadedTransactions.filter(isAutoDuesTransaction);
         const hasTransactionsWithoutTime = loadedTransactions.some(tx => !isAutoDuesTransaction(tx) && !tx.time);
-        const cleanedTransactions = loadedTransactions
+        const normalizedTransactions = loadedTransactions
           .filter(tx => !isAutoDuesTransaction(tx))
           .map(tx => tx.time ? tx : { ...tx, time: '00:00' });
+        const autoCreditDescriptionRepair = repairAutoCreditDuesDescriptions(normalizedTransactions);
+        const cleanedTransactions = autoCreditDescriptionRepair.transactions;
 
         if (autoDuesTransactions.length > 0) {
           await Promise.all(autoDuesTransactions.map(tx => db.deleteTransaction(tx.id).catch(error => {
@@ -713,13 +803,16 @@ const App: React.FC = () => {
         }
 
         setTransactions(cleanedTransactions);
-        if (hasTransactionsWithoutTime) {
+        if (hasTransactionsWithoutTime || autoCreditDescriptionRepair.changed) {
           await db.saveTransactions(cleanedTransactions);
         }
         setBoardMembers(boardData || []);
         setFiles(filesData || []);
+        setIsSessionReady(true);
       } catch (error) {
         console.error('Firebase error:', error);
+        setIsSessionReady(false);
+        alert('Veriler Firebase\'den yüklenemedi. İnternet bağlantınızı kontrol edip tekrar giriş yapın. Mevcut verilerinizin üzerine boş kayıt yazılmadı.');
       } finally {
         setIsLoading(false);
       }
@@ -729,46 +822,46 @@ const App: React.FC = () => {
   }, [isAuthenticated, activeSiteId]);
 
   useEffect(() => {
-    if (isAuthenticated && !isLoading && buildingInfo) {
+    if (isAuthenticated && isSessionReady && !isLoading && buildingInfo) {
       const timer = setTimeout(() => db.saveBuildingInfo(buildingInfo), 500);
       return () => clearTimeout(timer);
     }
-  }, [buildingInfo, isAuthenticated, isLoading]);
+  }, [buildingInfo, isAuthenticated, isSessionReady, isLoading]);
 
   useEffect(() => {
-    if (isAuthenticated && !isLoading && units) {
+    if (isAuthenticated && isSessionReady && !isLoading && units) {
       const timer = setTimeout(() => db.saveUnits(units), 500);
       return () => clearTimeout(timer);
     }
-  }, [units, isAuthenticated, isLoading]);
+  }, [units, isAuthenticated, isSessionReady, isLoading]);
 
   useEffect(() => {
-    if (isAuthenticated && !isLoading && transactions) {
+    if (isAuthenticated && isSessionReady && !isLoading && transactions) {
       const timer = setTimeout(() => db.saveTransactions(transactions), 500);
       return () => clearTimeout(timer);
     }
-  }, [transactions, isAuthenticated, isLoading]);
+  }, [transactions, isAuthenticated, isSessionReady, isLoading]);
 
   useEffect(() => {
-    if (isAuthenticated && !isLoading && boardMembers) {
+    if (isAuthenticated && isSessionReady && !isLoading && boardMembers) {
       const timer = setTimeout(() => db.saveBoardMembers(boardMembers), 500);
       return () => clearTimeout(timer);
     }
-  }, [boardMembers, isAuthenticated, isLoading]);
+  }, [boardMembers, isAuthenticated, isSessionReady, isLoading]);
 
   useEffect(() => {
-    if (isAuthenticated && !isLoading && files) {
+    if (isAuthenticated && isSessionReady && !isLoading && files) {
       const timer = setTimeout(() => db.saveFiles(files), 500);
       return () => clearTimeout(timer);
     }
-  }, [files, isAuthenticated, isLoading]);
+  }, [files, isAuthenticated, isSessionReady, isLoading]);
 
   useEffect(() => {
-    if (isAuthenticated && !isLoading && messages) {
+    if (isAuthenticated && isSessionReady && !isLoading && messages) {
       const timer = setTimeout(() => db.saveMessages(messages), 500);
       return () => clearTimeout(timer);
     }
-  }, [messages, isAuthenticated, isLoading]);
+  }, [messages, isAuthenticated, isSessionReady, isLoading]);
 
   useEffect(() => {
     if (Capacitor.getPlatform() === 'android') {
@@ -780,6 +873,10 @@ const App: React.FC = () => {
       if (activeSubViewRef.current) { setActiveSubView(null); event?.preventDefault(); return; }
       if (activeTabRef.current !== 'home') { setActiveTab('home'); event?.preventDefault(); return; }
       event?.preventDefault();
+      if (Capacitor.isNativePlatform()) {
+        void handleLogout({ exitApp: true });
+        return;
+      }
       void handleLogout();
     };
 
@@ -826,9 +923,15 @@ const App: React.FC = () => {
       const totalIncome = generalTransactions.filter(tx => tx.type === 'GELİR' && !isCreditBalanceTransaction(tx)).reduce((s, t) => s + t.amount, 0);
       const totalExpense = generalTransactions.filter(tx => tx.type === 'GİDER').reduce((s, t) => s + t.amount, 0);
       const totalManualDebt = generalTransactions.filter(tx => tx.type === 'BORÇLANDIRMA').reduce((s, t) => s + t.amount, 0);
+      const totalManualDebtSettled = generalTransactions
+        .filter(tx => tx.type === 'GELİR' && isDebtSettlementDescription(tx.description))
+        .reduce((s, t) => s + t.amount, 0);
       const totalDemirbasIncome = demirbasTransactions.filter(tx => tx.type === 'GELİR' && !isCreditBalanceTransaction(tx)).reduce((s, t) => s + t.amount, 0);
       const totalDemirbasExpense = demirbasTransactions.filter(tx => tx.type === 'GİDER').reduce((s, t) => s + t.amount, 0);
       const totalDemirbasDebt = demirbasTransactions.filter(tx => tx.type === 'BORÇLANDIRMA').reduce((s, t) => s + t.amount, 0);
+      const totalDemirbasDebtSettled = demirbasTransactions
+        .filter(tx => tx.type === 'GELİR' && isDebtSettlementDescription(tx.description))
+        .reduce((s, t) => s + t.amount, 0);
       const duesValue = buildingInfo.duesAmount || 0;
 
       let paidDues = 0; let unpaidDues = 0;
@@ -848,13 +951,82 @@ const App: React.FC = () => {
       }
       return {
         ...unit,
-        credit: Math.max(0, totalIncome - totalExpense - paidDues),
-        debt: totalManualDebt + unpaidDues,
-        demirbasCredit: Math.max(0, totalDemirbasIncome - totalDemirbasExpense),
-        demirbasDebt: totalDemirbasDebt
+        credit: Math.max(0, totalIncome - totalExpense - paidDues - totalManualDebtSettled),
+        debt: Math.max(0, totalManualDebt - totalManualDebtSettled) + unpaidDues,
+        demirbasCredit: Math.max(0, totalDemirbasIncome - totalDemirbasExpense - totalDemirbasDebtSettled),
+        demirbasDebt: Math.max(0, totalDemirbasDebt - totalDemirbasDebtSettled)
       };
     });
   }, [units, activeBalanceTransactions, buildingInfo, currentDate]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !isSessionReady || isLoading || !buildingInfo.isAutoDuesEnabled || !unitsWithBalances.length) return;
+
+    const now = currentDate;
+    if (now.getDate() !== 1) return;
+    if (now.getHours() === 0 && now.getMinutes() < 1) return;
+
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+    const isAutoDuesMarkedForMonth = buildingInfo.lastAutoDuesMonth === currentMonthKey;
+
+    const duesAmount = buildingInfo.duesAmount || 0;
+    if (duesAmount <= 0) return;
+
+    const transactionDate = toLocalIsoDate(now).split('-').reverse().join('.');
+    const monthName = AUTO_DUES_MONTHS[currentMonth];
+    const existingPaymentKeys = new Set(
+      transactions
+        .filter(tx =>
+          tx.type === 'GELİR' &&
+          tx.unitId &&
+          tx.periodMonth === currentMonth &&
+          tx.periodYear === currentYear
+        )
+        .map(tx => tx.unitId as string)
+    );
+
+    const autoCreditTransactions: Transaction[] = unitsWithBalances
+      .filter(unit => !(buildingInfo.isManagerExempt && unit.id === buildingInfo.managerUnitId))
+      .filter(unit => !existingPaymentKeys.has(unit.id))
+      .filter(unit => (unit.debt || 0) >= duesAmount)
+      .filter(unit => hasEnoughCreditForDues(unit.credit || 0, duesAmount))
+      .map(unit => ({
+        id: Math.random().toString(36).slice(2),
+        type: 'GELİR',
+        amount: duesAmount,
+        description: `${monthName} AYI AİDATI KREDİ [genel]`,
+        unitId: unit.id,
+        date: transactionDate,
+        time: '00:01',
+        periodMonth: currentMonth,
+        periodYear: currentYear
+      }));
+
+    const updatedTransactions = autoCreditTransactions.length > 0
+      ? [...autoCreditTransactions, ...transactions]
+      : transactions;
+
+    if (isAutoDuesMarkedForMonth && autoCreditTransactions.length === 0) return;
+
+    if (!isAutoDuesMarkedForMonth) {
+      setBuildingInfo(prev => ({ ...prev, lastAutoDuesMonth: currentMonthKey }));
+    }
+
+    if (autoCreditTransactions.length > 0) {
+      setTransactions(updatedTransactions);
+    }
+
+    if (isAuthenticated && isSessionReady && !isLoading) {
+      Promise.all([
+        !isAutoDuesMarkedForMonth ? db.saveBuildingInfo({ ...buildingInfo, lastAutoDuesMonth: currentMonthKey }) : Promise.resolve(),
+        autoCreditTransactions.length > 0 ? db.saveTransactions(updatedTransactions) : Promise.resolve()
+      ]).catch(error => {
+        console.error('Otomatik kredi aidat tahsilatı kaydedilemedi:', error);
+      });
+    }
+  }, [currentDate, isAuthenticated, isSessionReady, isLoading, buildingInfo, unitsWithBalances, transactions]);
 
   const balance: BalanceSummary = useMemo(() => {
     const cashByVault = activeBalanceTransactions.reduce((acc, tx) => {
@@ -874,7 +1046,7 @@ const App: React.FC = () => {
 
     const mevcut = cashByVault.genel;
     const demirbasMevcut = cashByVault.demirbas;
-    const alacakBakiyesi = unitsWithBalances.reduce((s, u) => s + Math.max(0, u.debt - u.credit), 0);
+    const alacakBakiyesi = unitsWithBalances.reduce((s, u) => s + getNetDebtAfterFullCredit(u.debt, u.credit, buildingInfo.duesAmount || 0), 0);
     const demirbasAlacakBakiyesi = unitsWithBalances.reduce((s, u) => s + Math.max(0, (u.demirbasDebt || 0) - (u.demirbasCredit || 0)), 0);
     
     const now = currentDate;
@@ -903,10 +1075,8 @@ const App: React.FC = () => {
         signOut(auth).catch(() => {}),
         new Promise(resolve => window.setTimeout(resolve, 1500))
       ]);
-      CapacitorApp.exitApp();
-      window.setTimeout(() => {
-        CapacitorApp.exitApp();
-      }, 300);
+      localStorage.removeItem(STORAGE_KEYS.LOGOUT_PENDING);
+      await NativeAppControl.closeAndRemoveTask().catch(() => CapacitorApp.exitApp());
       return;
     }
 
@@ -922,7 +1092,19 @@ const App: React.FC = () => {
     setUnits(p => [...p, newUnit]);
   };
 
-  const handleEditUnit = (u: Unit) => setUnits(p => p.map(x => x.id === u.id ? u : x));
+  const handleEditUnit = (u: Unit) => {
+    setUnits(previousUnits => {
+      const updatedUnits = previousUnits.map(item => item.id === u.id ? u : item);
+
+      if (isAuthenticated && isSessionReady) {
+        void db.saveUnits(updatedUnits).catch(error => {
+          console.error('Daire güncellemesi anında kaydedilemedi:', error);
+        });
+      }
+
+      return updatedUnits;
+    });
+  };
 
   const handleDeleteUnit = async (id: string) => {
     const unitToDelete = units.find(u => u.id === id);
@@ -930,7 +1112,7 @@ const App: React.FC = () => {
     if (await appConfirm(`${label} silinecek.\n\nBu işlem geri alınamaz. Silmek istediğinizden emin misiniz?`, 'Silme Onayı', 'SİL')) {
       const updatedUnits = units.filter(u => u.id !== id);
       setUnits(updatedUnits);
-      if (isAuthenticated) await db.saveUnits(updatedUnits);
+      if (isAuthenticated && isSessionReady) await db.saveUnits(updatedUnits);
       return true;
     }
     return false;
@@ -944,7 +1126,7 @@ const App: React.FC = () => {
     const newTx: Transaction = { id: Math.random().toString(36).slice(2), type, amount, description: finalDesc, unitId, date: formattedDate, time: currentTime, periodMonth, periodYear };
     const updated = [newTx, ...transactions];
     setTransactions(updated);
-    if (isAuthenticated && !isLoading) {
+    if (isAuthenticated && isSessionReady && !isLoading) {
       try { await db.saveTransactions(updated); setActiveSubView('history'); } catch (err) { alert('Hata: ' + err); }
     } else setActiveSubView('history');
   };
@@ -1030,12 +1212,12 @@ const App: React.FC = () => {
 
   const handleSendMessage = async (content: string) => {
     const newMsg: AppMessage = { id: Math.random().toString(36).slice(2), senderEmail: auth.currentUser?.email || 'Bilinmiyor', senderName: auth.currentUser?.displayName || 'Kullanıcı', content, createdAt: new Date().toISOString() };
-    if (isAuthenticated) await db.pushMessage(newMsg);
+    if (isAuthenticated && isSessionReady) await db.pushMessage(newMsg);
   };
 
   const handleDeleteMessage = async (id: string) => {
     setMessages(p => p.filter(m => m.id !== id));
-    if (isAuthenticated && !isLoading) await db.deleteMessage(id);
+    if (isAuthenticated && isSessionReady && !isLoading) await db.deleteMessage(id);
   };
 
   const themeClass = "bg-gradient-to-br from-[#334155] via-[#1e293b] to-[#0f172a]";
@@ -1057,11 +1239,11 @@ const App: React.FC = () => {
             {activeSubView === 'iade' && <IadeView currentDate={currentDate} units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt, uId) => handleAddTransaction(a, d, 'GİDER', v, dt, uId)} />}
             {activeSubView === 'transfer' && <TransferView currentDate={currentDate} onClose={() => setActiveSubView(null)} onSave={(a, d, v, dt) => handleAddTransaction(a, d, 'TRANSFER', v, dt)} />}
             {activeSubView === 'units' && <UnitsView currentDate={currentDate} units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddUnit={handleAddUnit} onEditUnit={handleEditUnit} onDeleteUnit={handleDeleteUnit} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} />}
-            {activeSubView === 'history' && <TransactionsView currentDate={currentDate} transactions={transactions} units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} onDeleteTransaction={async (id) => { setTransactions(p => p.filter(x => x.id !== id)); if (isAuthenticated) await db.deleteTransaction(id); }} onUpdateTransaction={tx => setTransactions(p => p.map(x => x.id === tx.id ? { ...tx, description: fixCommonTurkishText(tx.description) } : x))} />}
+            {activeSubView === 'history' && <TransactionsView currentDate={currentDate} transactions={transactions} units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} onDeleteTransaction={async (id) => { setTransactions(p => p.filter(x => x.id !== id)); if (isAuthenticated && isSessionReady) await db.deleteTransaction(id); }} onUpdateTransaction={tx => setTransactions(p => p.map(x => x.id === tx.id ? { ...tx, description: fixCommonTurkishText(tx.description) } : x))} />}
             {activeSubView === 'receivables' && <ReceivablesView currentDate={currentDate} units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} />}
             {activeSubView === 'aidat-cizelge' && <AidatCizelgeView currentDate={currentDate} units={unitsWithBalances} transactions={transactions} info={buildingInfo} onClose={() => setActiveSubView(null)} onAddDues={() => { }} />}
             {activeSubView === 'monthly-report' && <MonthlyReportView currentDate={currentDate} transactions={transactions} units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} />}
-            {activeSubView === 'yearly-report' && <YearlyReportView currentDate={currentDate} transactions={transactions} units={unitsWithBalances} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} />}
+            {activeSubView === 'yearly-report' && <YearlyReportView currentDate={currentDate} transactions={transactions} units={unitsWithBalances} info={buildingInfo} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddFile={(name, category, uri, size, fileName) => handleAddFile(name, category, uri, size, fileName)} />}
             {activeSubView === 'board' && <BoardView members={boardMembers} onClose={() => setActiveSubView(null)} buildingName={buildingInfo.name} onAddMember={m => setBoardMembers(p => [...p, { ...m, id: Math.random().toString(36).slice(2) }])} onDeleteMember={id => setBoardMembers(p => p.filter(x => x.id !== id))} />}
             {activeSubView === 'messages' && <MessagesView messages={messages} onClose={() => setActiveSubView(null)} onSendMessage={handleSendMessage} onDeleteMessage={handleDeleteMessage} />}
           </div>

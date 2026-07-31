@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Users, FileDown, Plus, Search, Home, Phone, User, Trash2, Edit3, Check, X, Building, ArrowLeft, Loader2, Share2, MessageCircle } from 'lucide-react';
+import { Users, FileDown, Plus, Search, Home, Phone, User, Trash2, Edit3, Check, X, Building, ArrowLeft, Loader2, Share2, MessageCircle, Archive } from 'lucide-react';
 import { Unit, Transaction, BuildingInfo, FileEntry } from '../types';
 import UnitDetailView from './UnitDetailView';
 import html2canvas from 'html2canvas';
@@ -8,6 +8,8 @@ import { jsPDF } from 'jspdf';
 import { PDFService } from '../pdfService';
 import { useAndroidBackHandler } from '../appBackButton';
 import { useScrollReveal } from './useScrollReveal';
+import { toLocalIsoDate } from '../dateUtils';
+import { escapeHtml } from '../textUtils';
 
 interface UnitsViewProps {
   units: Unit[];
@@ -23,6 +25,7 @@ interface UnitsViewProps {
 
 const INITIAL_FORM_DATA = {
   no: '',
+  depoNo: '',
   ownerName: '',
   tenantName: '',
   phone: '',
@@ -63,6 +66,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
 
       return (
         unit.no.toLocaleLowerCase('tr-TR').includes(normalizedSearch) ||
+        (unit.depoNo && unit.depoNo.toLocaleLowerCase('tr-TR').includes(normalizedSearch)) ||
         unit.ownerName.toLocaleLowerCase('tr-TR').includes(normalizedSearch) ||
         (unit.tenantName && unit.tenantName.toLocaleLowerCase('tr-TR').includes(normalizedSearch)) ||
         tenantHistoryMatches
@@ -101,12 +105,13 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
     e.preventDefault();
     const normalizedNo = normalizeUnitNo(formData.no);
     if (!normalizedNo || !formData.ownerName) return;
-    const today = currentDate.toISOString().split('T')[0];
+    const today = toLocalIsoDate(currentDate);
     const ownerName = toTitleCase(formData.ownerName);
     const tenantName = formData.status === 'Kiracı' ? toTitleCase(formData.tenantName) : '';
     setIsSaving(true);
     onAddUnit({
       no: normalizedNo,
+      depoNo: formData.depoNo.trim(),
       ownerName,
       tenantName,
       phone: formData.phone,
@@ -167,7 +172,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
         </h1>
         <div style="border: 3px solid #000; background-color: #fff; display: flex; align-items: center; justify-content: center; padding: 7px 0;">
           <div style="text-align: center; white-space: nowrap;">
-            <p style="font-size: 23px; font-weight: 900; margin: 0; color: #000; line-height: 1;">${info.name.toUpperCase()} YÖNETİMİ</p>
+            <p style="font-size: 23px; font-weight: 900; margin: 0; color: #000; line-height: 1;">${escapeHtml(info.name.toUpperCase())} YÖNETİMİ</p>
           </div>
         </div>
       `;
@@ -198,9 +203,9 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
         row.style.backgroundColor = index % 2 === 0 ? '#ffffff' : '#f2f3ff';
         row.style.height = `${rowHeight}px`;
         row.innerHTML = `
-          <td style="border-right: 1px solid #000; padding: 3px 6px; text-align: center; font-size: ${rowFontSize}px; font-weight: bold; color: #000; white-space: nowrap; line-height: 1;">${unit.no}</td>
+          <td style="border-right: 1px solid #000; padding: 3px 6px; text-align: center; font-size: ${rowFontSize}px; font-weight: bold; color: #000; white-space: nowrap; line-height: 1;">${escapeHtml(unit.no)}</td>
           <td style="border-right: 1px solid #000; padding: 3px 8px; text-align: left; font-size: ${rowFontSize}px; font-weight: bold; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1;">
-            ${unit.tenantName || unit.ownerName} 
+            ${escapeHtml(unit.tenantName || unit.ownerName)}
           </td>
           <td style="border-right: 1px solid #000; padding: 3px 7px; text-align: right; font-size: ${rowFontSize}px; font-weight: bold; color: #22c55e; white-space: nowrap; line-height: 1;">${unit.credit > 0 ? formatCurrency(unit.credit) : ''}</td>
           <td style="padding: 3px 7px; text-align: right; font-size: ${rowFontSize}px; font-weight: bold; color: #ef4444; white-space: nowrap; line-height: 1;">${unit.debt > 0 ? formatCurrency(unit.debt) : ''}</td>
@@ -316,15 +321,17 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-2 pb-10 no-scrollbar touch-pan-y">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-2 pb-2 no-scrollbar touch-pan-y">
         <div className="grid w-full max-w-full grid-cols-1 gap-2 overflow-x-hidden">
-          {filteredUnits.map((unit, index) => (
+          {filteredUnits.map((unit) => (
             <div
               key={unit.id}
               ref={unitReveal.observe(unit.id)}
+              className={`w-full scroll-reveal-from-top-right ${unitReveal.isVisible(unit.id) ? 'is-visible' : ''}`}
+            >
+            <div
               onClick={() => setSelectedUnit(unit)}
-              className={`group w-full max-w-full bg-[#1e293b]/60 border border-white/5 rounded-[22px] py-1.5 px-2 active:scale-[0.98] transition-all relative overflow-hidden ring-1 ring-white/5 hover:bg-[#1e293b]/70 shadow-xl scroll-reveal-from-top-right ${unitReveal.isVisible(unit.id) ? 'is-visible' : ''}`}
-              style={{ animationDelay: `${Math.min(index, 6) * 45}ms` }}
+              className="scroll-reveal-card group w-full max-w-full bg-[#1e293b]/60 border border-white/5 rounded-[22px] py-1.5 px-2 active:scale-[0.98] transition-all relative overflow-hidden ring-1 ring-white/5 hover:bg-[#1e293b]/70 shadow-xl"
             >
               {/* Sol ve Sağ Mavi Çizgiler */}
               <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 opacity-40" />
@@ -361,6 +368,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
                 </div>
               </div>
             </div>
+            </div>
           ))}
         </div>
 
@@ -374,7 +382,7 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
 
       {showAddModal && (
         <div className="fixed inset-0 z-[300] bg-gradient-to-br from-slate-700/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl px-4 flex items-start justify-center pt-16 animate-in fade-in duration-300">
-          <div className="w-full max-w-sm">
+          <div className="w-full max-w-sm max-h-[calc(100vh-5rem)] overflow-y-auto no-scrollbar pb-4">
             <div className="flex items-center justify-between mb-8 px-2">
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-blue-600/10 rounded-2xl flex items-center justify-center border border-blue-600/20">
@@ -388,12 +396,19 @@ const UnitsView: React.FC<UnitsViewProps> = ({ units, transactions, info, onAddU
               <button onClick={handleCloseAddModal} className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/5 text-zinc-400"><X size={20} /></button>
             </div>
             <form onSubmit={handleAddSubmit} className="space-y-3">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="min-w-0">
                   <label className="text-[9px] font-black text-white/55 uppercase tracking-widest mb-2 block px-1">DAİRE NO</label>
                   <div className="relative">
                     <Home className="absolute left-4 top-1/2 -translate-y-1/2 text-white/35" size={18} />
                     <input type="text" required placeholder="No" value={formData.no} onChange={(e) => setFormData({ ...formData, no: normalizeUnitNo(e.target.value) })} className="w-full h-11 bg-slate-900/35 border border-white/10 rounded-2xl pl-9 pr-3 text-white placeholder:text-white/65 text-[15px] font-black shadow-inner focus:outline-none focus:border-blue-400/50 transition-all" />
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <label className="text-[9px] font-black text-white/55 uppercase tracking-widest mb-2 block px-1">DEPO NO</label>
+                  <div className="relative">
+                    <Archive className="absolute left-4 top-1/2 -translate-y-1/2 text-white/35" size={18} />
+                    <input type="text" placeholder="No" value={formData.depoNo} onChange={(e) => setFormData({ ...formData, depoNo: e.target.value })} className="w-full h-11 bg-slate-900/35 border border-white/10 rounded-2xl pl-10 pr-3 text-white placeholder:text-white/65 text-[15px] font-black shadow-inner focus:outline-none focus:border-blue-400/50 transition-all" />
                   </div>
                 </div>
                 <div className="col-span-2 min-w-0">

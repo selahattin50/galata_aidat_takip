@@ -1,9 +1,11 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ChevronDown, CheckCircle2, Save, Home, Loader2, User, UserCheck, Wallet, Briefcase } from 'lucide-react';
 import { Unit, BuildingInfo, Transaction } from '../types.ts';
 import DatePickerModal from './DatePickerModal';
 import { fixCommonTurkishText } from '../textUtils';
+import { toLocalIsoDate } from '../dateUtils';
+import { DEBT_SETTLEMENT_MARKER } from '../balanceUtils';
 
 interface TahsilatViewProps {
   units: Unit[];
@@ -18,20 +20,34 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
   const now = currentDate;
   const currentMonthIdx = now.getMonth();
   const currentYearActual = now.getFullYear();
+  const currentIsoDate = toLocalIsoDate(now);
+  const previousDefaultDateRef = useRef(currentIsoDate);
 
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState<string>(now.toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(currentIsoDate);
   const [selectedPayerType, setSelectedPayerType] = useState<'Malik' | 'Kiracı'>('Kiracı');
   const [selectedVault, setSelectedVault] = useState<'genel' | 'demirbas'>('genel');
   const [paymentMethod, setPaymentMethod] = useState<'EFT/Havale' | 'Elden Ödeme' | 'Kredi Bakiyesinden'>('EFT/Havale');
+  const [collectionType, setCollectionType] = useState<'aidat' | 'diger' | 'serbest'>('aidat');
+  const [otherDescription, setOtherDescription] = useState('');
+  const [showCollectionTypeList, setShowCollectionTypeList] = useState(false);
   const [showPaymentMethodList, setShowPaymentMethodList] = useState(false);
   const [showUnitGrid, setShowUnitGrid] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [warningMessage, setWarningMessage] = useState('');
 
+  useEffect(() => {
+    const previousDefaultDate = previousDefaultDateRef.current;
+    setSelectedDate(prev => prev === previousDefaultDate ? currentIsoDate : prev);
+    previousDefaultDateRef.current = currentIsoDate;
+  }, [currentIsoDate]);
+
   const selectedUnit = useMemo(() => units.find(u => u.id === selectedUnitId), [units, selectedUnitId]);
+  const selectedCredit = selectedUnit
+    ? (selectedVault === 'genel' ? selectedUnit.credit : (selectedUnit.demirbasCredit || 0))
+    : 0;
 
   const selectableUnits = useMemo(() =>
     units.filter(u => !(info.isManagerExempt && u.id === info.managerUnitId))
@@ -45,10 +61,35 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
     return new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 0 }).format(val);
   };
 
+  const collectionTypeLabel = collectionType === 'aidat'
+    ? 'Aidat'
+    : collectionType === 'diger'
+      ? 'Aidat Dışı'
+      : 'Serbest Tahsilat';
+
+  const handleCollectionTypeSelect = (type: 'aidat' | 'diger' | 'serbest') => {
+    setCollectionType(type);
+    setShowCollectionTypeList(false);
+    setAmount('');
+    setOtherDescription('');
+
+    if (type === 'aidat') {
+      setSelectedVault('genel');
+    } else if (type === 'diger') {
+      setPaymentMethod('Kredi Bakiyesinden');
+      setShowPaymentMethodList(false);
+    } else if (paymentMethod === 'Kredi Bakiyesinden') {
+      setPaymentMethod('EFT/Havale');
+    }
+  };
+
   const handleUnitSelect = (unit: Unit) => {
     setSelectedUnitId(unit.id);
     setShowUnitGrid(false);
     setAmount('');
+    setCollectionType('aidat');
+    setSelectedVault('genel');
+    setOtherDescription('');
     if (unit.tenantName && unit.tenantName.trim() !== '') {
       setSelectedPayerType('Kiracı');
     } else {
@@ -63,9 +104,22 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
     const isManualAmountCollection = !debtItem;
 
     if (!selectedUnitId || isNaN(finalAmount) || finalAmount <= 0) return;
+    if (isManualAmountCollection && collectionType === 'diger' && !otherDescription.trim()) {
+      setWarningMessage('Aidat dışı tahsilat için açıklama giriniz.');
+      return;
+    }
+
+    if (collectionType === 'diger' && paymentMethod !== 'Kredi Bakiyesinden') {
+      setWarningMessage('Aidat dışı tahsilat yalnızca kredi bakiyesinden yapılabilir.');
+      return;
+    }
 
     if (paymentMethod === 'Kredi Bakiyesinden' && selectedUnit) {
       const availableCredit = selectedVault === 'genel' ? selectedUnit.credit : (selectedUnit.demirbasCredit || 0);
+      if (availableCredit <= 0) {
+        setWarningMessage('Seçili kasada kullanılabilir kredi bakiyesi bulunmuyor.');
+        return;
+      }
       if (availableCredit < finalAmount) {
         setWarningMessage("Kredi bakiyesi yapılacak tahsilatı karşılamıyor.");
         return;
@@ -75,17 +129,59 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
     setIsSaving(true);
     await new Promise(r => setTimeout(r, 600));
 
-    const description = isManualAmountCollection
+    const description = debtItem?.kind === 'other'
+      ? `${debtItem.title} TAHSİLATI ${methodLabel} [${debtItem.vault}] [${DEBT_SETTLEMENT_MARKER}:${debtItem.debtId}]`
+      : isManualAmountCollection && collectionType === 'diger'
+      ? `${otherDescription.trim()} TAHSİLATI ${methodLabel} [${selectedVault}] [${DEBT_SETTLEMENT_MARKER}]`
+      : isManualAmountCollection
       ? `${payerLabel} SERBEST TAHSİLAT ${methodLabel}`
       : `${months[debtItem.month]} AYI AİDATI ${methodLabel}${selectedPayerType === 'Kiracı' ? ' KİRACI' : ''}`;
 
     const finalMonth = debtItem ? debtItem.month : undefined;
     const finalYear = debtItem ? debtItem.year : undefined;
-    const finalVault = debtItem ? 'genel' : selectedVault;
+    const finalVault = debtItem?.kind === 'other' ? debtItem.vault : (debtItem ? 'genel' : selectedVault);
 
     onSave(finalAmount, fixCommonTurkishText(description), finalVault, selectedDate, selectedUnitId, finalMonth, finalYear);
     setIsSaving(false);
     setIsSuccess(true);
+  };
+
+  const getPendingOtherDebts = (unit: Unit) => {
+    let unassignedSettlement = transactions
+      .filter(tx => tx.unitId === unit.id && tx.type === 'GELİR')
+      .filter(tx => (tx.description || '').includes(`[${DEBT_SETTLEMENT_MARKER}]`))
+      .filter(tx => {
+        const vault = (tx.description || '').toLocaleLowerCase('tr-TR').includes('[demirbas]') ? 'demirbas' : 'genel';
+        return vault === selectedVault;
+      })
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    return transactions
+      .filter(tx => tx.unitId === unit.id && tx.type === 'BORÇLANDIRMA')
+      .filter(tx => !/A[İI]DAT/i.test(tx.description || ''))
+      .filter(tx => {
+        const vault = (tx.description || '').toLocaleLowerCase('tr-TR').includes('[demirbas]') ? 'demirbas' : 'genel';
+        return vault === selectedVault;
+      })
+      .map(tx => {
+        const specificallyPaidAmount = transactions
+          .filter(payment => payment.unitId === unit.id && payment.type === 'GELİR')
+          .filter(payment => (payment.description || '').includes(`[${DEBT_SETTLEMENT_MARKER}:${tx.id}]`))
+          .reduce((sum, payment) => sum + payment.amount, 0);
+        const remainingAfterSpecificPayment = Math.max(0, tx.amount - specificallyPaidAmount);
+        const assignedSettlement = Math.min(remainingAfterSpecificPayment, unassignedSettlement);
+        unassignedSettlement -= assignedSettlement;
+        const vault = (tx.description || '').toLocaleLowerCase('tr-TR').includes('[demirbas]') ? 'demirbas' : 'genel';
+        return {
+          kind: 'other',
+          debtId: tx.id,
+          vault,
+          amount: remainingAfterSpecificPayment - assignedSettlement,
+          title: (tx.description || 'AİDAT DIŞI BORÇ').split('[')[0].trim(),
+          id: tx.id
+        };
+      })
+      .filter(debt => debt.amount > 0);
   };
 
   const getPendingDebts = (unit: Unit) => {
@@ -205,23 +301,59 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
         )}
 
         {selectedUnit && (
+          <section className="animate-in fade-in zoom-in-95 duration-300 relative z-[120]">
+            <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">TAHSİLAT TÜRÜ</label>
+            <button
+              type="button"
+              onClick={() => setShowCollectionTypeList(!showCollectionTypeList)}
+              className="embossed-cash w-full bg-[#1e293b] rounded-xl h-12 flex items-center justify-between px-4 border border-white/10 hover:bg-[#203140] transition-all shadow-lg"
+            >
+              <span className="text-[13px] font-black uppercase tracking-wider text-white">{collectionTypeLabel}</span>
+              <ChevronDown size={16} className={`text-white/30 transition-transform ${showCollectionTypeList ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showCollectionTypeList && (
+              <div className="absolute top-full left-0 right-0 z-[130] mt-1 overflow-hidden rounded-xl border border-white/10 bg-[#1e293b] shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+                {[
+                  { id: 'aidat', label: 'Aidat' },
+                  { id: 'serbest', label: 'Serbest Tahsilat' },
+                  { id: 'diger', label: 'Aidat Dışı' }
+                ].map(option => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => handleCollectionTypeSelect(option.id as 'aidat' | 'diger' | 'serbest')}
+                    className={`embossed-cash w-full border-b border-white/5 px-4 py-3 text-left last:border-0 hover:bg-blue-500/20 ${collectionType === option.id ? 'bg-blue-500/10 text-blue-400' : 'text-white/70'}`}
+                  >
+                    <span className="text-[12px] font-black uppercase tracking-widest">{option.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {selectedUnit && (
           <section className="animate-in fade-in zoom-in-95 duration-300 relative">
             <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">
               {selectedUnit.tenantName ? '3. ÖDEME ŞEKLİ' : '2. ÖDEME ŞEKLİ'}
             </label>
             <button
-              onClick={() => setShowPaymentMethodList(!showPaymentMethodList)}
-              className="embossed-cash w-full bg-[#1e293b] rounded-xl h-12 flex items-center justify-between px-4 border border-white/10 hover:bg-[#203140] transition-all shadow-lg"
+              onClick={() => collectionType !== 'diger' && setShowPaymentMethodList(!showPaymentMethodList)}
+              disabled={collectionType === 'diger'}
+              className="embossed-cash w-full bg-[#1e293b] rounded-xl h-12 flex items-center justify-between px-4 border border-white/10 hover:bg-[#203140] transition-all shadow-lg disabled:cursor-not-allowed"
             >
               <span className="text-[13px] font-black uppercase tracking-wider text-white">
                 {paymentMethod}
               </span>
-              <ChevronDown size={16} className={`text-white/30 transition-transform ${showPaymentMethodList ? 'rotate-180' : ''}`} />
+              {collectionType !== 'diger'
+                ? <ChevronDown size={16} className={`text-white/30 transition-transform ${showPaymentMethodList ? 'rotate-180' : ''}`} />
+                : <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400">ZORUNLU</span>}
             </button>
 
-            {showPaymentMethodList && (
+            {collectionType !== 'diger' && showPaymentMethodList && (
               <div className="absolute top-full left-0 right-0 z-[110] mt-1 bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
-                {['EFT/Havale', 'Elden Ödeme', 'Kredi Bakiyesinden'].map((method) => (
+                {(collectionType === 'serbest' ? ['EFT/Havale', 'Elden Ödeme'] : ['EFT/Havale', 'Elden Ödeme', 'Kredi Bakiyesinden']).map((method) => (
                   <button
                     key={method}
                     onClick={() => { setPaymentMethod(method as any); setShowPaymentMethodList(false); }}
@@ -235,7 +367,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
           </section>
         )}
 
-        {selectedUnit && (
+        {selectedUnit && collectionType !== 'aidat' && (
           <section className="animate-in fade-in zoom-in-95 duration-300">
             <label className="text-[11px] font-black tracking-widest text-white/40 uppercase mb-1.5 block ml-1">TAHSİLAT KASASI</label>
             <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
@@ -259,7 +391,15 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
 
         {selectedUnit && (
           <div className="animate-in fade-in zoom-in-95 duration-500 space-y-4">
+            {collectionType !== 'aidat' && (
             <section className="bg-[#111827] rounded-[28px] p-5 border border-white/10 shadow-2xl space-y-4">
+              {collectionType === 'diger' && (
+                <div className={`rounded-xl border px-3 py-2 text-center ${selectedCredit > 0 ? 'border-emerald-500/20 bg-emerald-500/10' : 'border-red-500/20 bg-red-500/10'}`}>
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${selectedCredit > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    Kullanılabilir kredi: ₺{formatCurrency(selectedCredit)}
+                  </span>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em] ml-1 mb-1.5 block">İşlem Tarihi</label>
@@ -271,6 +411,7 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
                   <label className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em] ml-1 mb-1.5 block">Ödeme Tutarı (₺)</label>
                   <input
                     type="number"
+                    max={collectionType === 'diger' ? selectedCredit : undefined}
                     placeholder="0.00"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
@@ -279,23 +420,39 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
                 </div>
               </div>
 
+              {collectionType === 'diger' && (
+                <div>
+                  <label className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em] ml-1 mb-1.5 block">Açıklama</label>
+                  <input
+                    type="text"
+                    placeholder="Örn: Su gideri borcu"
+                    value={otherDescription}
+                    onChange={(e) => setOtherDescription(e.target.value)}
+                    className="w-full h-[46px] bg-black/40 border border-white/10 rounded-xl px-3 text-[14px] font-bold text-white outline-none focus:border-blue-500/40 transition-all shadow-inner"
+                  />
+                </div>
+              )}
+
               <button
                 onClick={() => handleProcess()}
-                disabled={!amount || parseFloat(amount) <= 0 || isSaving}
+                disabled={!amount || parseFloat(amount) <= 0 || (collectionType === 'diger' && (!otherDescription.trim() || selectedCredit <= 0 || parseFloat(amount) > selectedCredit)) || isSaving}
                 className="embossed-cash w-full h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-[20px] flex items-center justify-center space-x-3 active:scale-95 transition-all shadow-xl disabled:opacity-50"
               >
                 {isSaving ? <Loader2 className="animate-spin" size={20} /> : <><Save size={20} /><span className="text-[12px] font-black uppercase tracking-[0.2em]">TAHSİLATI KAYDET</span></>}
               </button>
             </section>
+            )}
 
-            <div className="flex items-center space-x-2 px-1">
-              <div className="h-px bg-white/5 flex-1"></div>
-              <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">BEKLEYEN BORÇLAR</span>
-              <div className="h-px bg-white/5 flex-1"></div>
-            </div>
+            {collectionType !== 'serbest' && (
+            <>
+              <div className="flex items-center space-x-2 px-1">
+                <div className="h-px bg-white/5 flex-1"></div>
+                <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">BEKLEYEN BORÇLAR</span>
+                <div className="h-px bg-white/5 flex-1"></div>
+              </div>
 
-            <section className="space-y-3">
-              {getPendingDebts(selectedUnit).map((debt) => (
+              <section className="space-y-3">
+                {(collectionType === 'aidat' ? getPendingDebts(selectedUnit) : getPendingOtherDebts(selectedUnit)).map((debt: any) => (
                 <button key={debt.id} onClick={() => handleProcess(debt)} className="embossed-cash w-full bg-slate-800/40 rounded-[24px] py-4 px-5 border border-white/5 text-left active:scale-[0.98] transition-all flex items-center justify-between shadow-lg">
                   <div className="min-w-0 flex-1">
                     <span className="text-[11px] font-black text-red-500 uppercase tracking-widest mb-1 block">{debt.title}</span>
@@ -307,13 +464,17 @@ const TahsilatView: React.FC<TahsilatViewProps> = ({ units, info, transactions, 
                     <span className="text-[20px] font-black text-red-500">₺{debt.amount}</span>
                   </div>
                 </button>
-              ))}
-              {getPendingDebts(selectedUnit).length === 0 && (
+                ))}
+                {(collectionType === 'aidat' ? getPendingDebts(selectedUnit) : getPendingOtherDebts(selectedUnit)).length === 0 && (
                 <div className="text-center py-6 bg-white/5 rounded-[24px] border border-dashed border-white/10">
-                  <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">ÖDENMEMİŞ BORÇ BULUNMUYOR</p>
+                  <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
+                    {collectionType === 'aidat' ? 'ÖDENMEMİŞ AİDAT BULUNMUYOR' : 'ÖDENMEMİŞ AİDAT DIŞI BORÇ BULUNMUYOR'}
+                  </p>
                 </div>
-              )}
-            </section>
+                )}
+              </section>
+            </>
+            )}
           </div>
         )}
       </div>

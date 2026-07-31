@@ -14,6 +14,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
   const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useAndroidBackHandler(() => {
     onBackToLogin();
@@ -52,9 +53,11 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
       console.warn('Ban kontrolü yapılamadı, devam ediliyor...');
     }
 
+    setIsSubmitting(true);
+
     // Firebase Authentication ile kayıt
     try {
-      const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+      const { createUserWithEmailAndPassword, sendEmailVerification, signOut, updateProfile } = await import('firebase/auth');
       const { auth } = await import('../firebaseConfig');
 
       console.log('Firebase Authentication ile kayıt başlatılıyor...');
@@ -80,12 +83,16 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
         name: name,
         phone: phone || '',
         email: email,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        emailVerified: false
       });
 
       console.log('Kullanıcı profili kaydedildi');
 
-      alert(`Hesabınız başarıyla oluşturuldu!\n\nE-posta: ${email}\nAd: ${name}\n\nŞimdi giriş yapabilirsiniz.`);
+      await sendEmailVerification(userCredential.user);
+      await signOut(auth);
+
+      alert(`Doğrulama e-postası gönderildi!\n\n${email} adresine gelen bağlantıya tıklayın. E-posta adresinizi doğrulamadan giriş yapamazsınız.\n\nE-posta görünmüyorsa spam/gereksiz klasörünü kontrol edin.`);
       onBackToLogin();
     } catch (error: any) {
       console.error('Kayıt hatası:', error);
@@ -104,6 +111,8 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
       }
 
       alert(errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -216,9 +225,10 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onBackToLogin }) => {
 
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white h-16 rounded-[28px] font-black text-sm uppercase tracking-[0.2em] active:scale-95 transition-all shadow-2xl shadow-blue-900/50 mt-6"
+            disabled={isSubmitting}
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white h-16 rounded-[28px] font-black text-sm uppercase tracking-[0.2em] active:scale-95 transition-all shadow-2xl shadow-blue-900/50 mt-6 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            HESAP OLUŞTUR
+            {isSubmitting ? 'DOĞRULAMA E-POSTASI GÖNDERİLİYOR...' : 'HESAP OLUŞTUR'}
           </button>
 
           <button

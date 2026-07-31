@@ -50,6 +50,7 @@ export interface TenantHistory {
 export interface Unit {
   id: string;
   no: string;
+  depoNo?: string;
   ownerName: string;
   tenantName?: string;
   phone: string; // Malik Telefonu

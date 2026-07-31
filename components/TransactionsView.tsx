@@ -9,6 +9,7 @@ import DatePickerModal from './DatePickerModal';
 import { appConfirm } from './AppDialog';
 import { fixCommonTurkishText, upperTr } from '../textUtils';
 import { useScrollReveal } from './useScrollReveal';
+import { toLocalIsoDate } from '../dateUtils';
 
 interface TransactionsViewProps {
   transactions: Transaction[];
@@ -79,7 +80,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
 
   const trToIsoDate = (trDate: string) => {
     const parts = trDate.split('.');
-    if (parts.length !== 3) return currentDate.toISOString().split('T')[0];
+    if (parts.length !== 3) return toLocalIsoDate(currentDate);
     return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
   };
 
@@ -139,7 +140,10 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
       pdf.rect(2, 2, 206, 144);
 
       const sanitizedUnitNo = getUnitNo(tx.unitId).toString().replace(/[^a-zA-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
-      const fileName = `Daire ${sanitizedUnitNo} ${tx.date} Dekont.pdf`;
+      const isGeneralExpense = tx.type === 'GİDER' && upperTr(sanitizedUnitNo) === 'GENEL';
+      const fileName = isGeneralExpense
+        ? 'Bina Gideri.pdf'
+        : `Daire ${sanitizedUnitNo} ${tx.date} Dekont.pdf`;
 
       const unit = units.find(u => u.id === tx.unitId);
       let phoneNumber = '';
@@ -194,6 +198,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                     }
                     let desc = fixCommonTurkishText(txToPrint.description.split('[')[0].trim())
                       .replace(/^MAKBUZ\s+/i, '')
+                      .replace(/^DAİRE\s+\S+\s+/i, '')
                       .replace(/\s+(MALİK|KİRACI)\s*$/i, '')
                       .replace(/\b(MALİK|KİRACI)\b/gi, '')
                       .replace(/\bSERBEST\s+TAHSİLAT\b/gi, '')
@@ -227,7 +232,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                 <div className="flex flex-col justify-center mt-[-40px]">
                   <p className="text-[22px] font-black text-slate-950 uppercase italic tracking-tight mb-5 bg-slate-100/50 p-2"># YALNIZ {numberToWordsTr(txToPrint.amount)} #</p>
                   <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest leading-none">İŞLEM TÜRÜ</p>
-                  <p className="text-[40px] font-black text-blue-600 uppercase leading-none m-0">{txToPrint.type}</p>
+                  <p className={`text-[40px] font-black uppercase leading-none m-0 ${txToPrint.type === 'GİDER' ? 'text-red-600' : 'text-blue-600'}`}>{txToPrint.type}</p>
                 </div>
                 <div className="text-right flex flex-col items-end">
                   <p className="text-[14px] font-black text-slate-400 uppercase mb-1 tracking-widest -mt-2">TUTAR</p>
@@ -242,14 +247,14 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                     })()}
                   </div>
                   <div className="relative w-[150px] h-[150px] flex items-center justify-center mt-[8px]">
-                    <div className="absolute inset-0 border-[5px] border-blue-600 rounded-full"></div>
-                    <div className="absolute inset-[10px] border-[2px] border-blue-600 rounded-full"></div>
+                    <div className={`absolute inset-0 border-[5px] rounded-full ${txToPrint.type === 'GİDER' ? 'border-red-600' : 'border-blue-600'}`}></div>
+                    <div className={`absolute inset-[10px] border-[2px] rounded-full ${txToPrint.type === 'GİDER' ? 'border-red-600' : 'border-blue-600'}`}></div>
                     <svg viewBox="0 0 150 150" className="absolute inset-0 w-full h-full">
                       <defs><path id="txPathTop" d="M 30,75 A 45,45 0 0,1 120,75" /><path id="txPathBottom" d="M 20,75 A 55,55 0 0,0 130,75" /></defs>
-                      <text className="fill-blue-600 text-[18px] font-black uppercase tracking-[0.2em]"><textPath xlinkHref="#txPathTop" startOffset="50%" textAnchor="middle">{(info?.name || 'YENİ YÖNETİM').split(' ')[0]}</textPath></text>
-                      <text dy="4" className="fill-blue-600 text-[18px] font-black uppercase tracking-[0.05em]"><textPath xlinkHref="#txPathBottom" startOffset="50%" textAnchor="middle">{(info?.name || 'YENİ YÖNETİM').split(' ').slice(1).join(' ') || 'YÖNETİMİ'}</textPath></text>
+                      <text className={`${txToPrint.type === 'GİDER' ? 'fill-red-600' : 'fill-blue-600'} text-[18px] font-black uppercase tracking-[0.2em]`}><textPath xlinkHref="#txPathTop" startOffset="50%" textAnchor="middle">{(info?.name || 'YENİ YÖNETİM').split(' ')[0]}</textPath></text>
+                      <text dy="4" className={`${txToPrint.type === 'GİDER' ? 'fill-red-600' : 'fill-blue-600'} text-[18px] font-black uppercase tracking-[0.05em]`}><textPath xlinkHref="#txPathBottom" startOffset="50%" textAnchor="middle">{(info?.name || 'YENİ YÖNETİM').split(' ').slice(1).join(' ') || 'YÖNETİMİ'}</textPath></text>
                     </svg>
-                    <div className="z-10 bg-blue-600 text-white px-4 pt-[2px] pb-[13px] rotate-[-2deg] shadow-2xl flex items-center justify-center border border-white/20 min-w-[120px]"><span className="text-[16px] font-black tracking-tighter uppercase whitespace-nowrap leading-none">{txToPrint.type === 'GİDER' ? 'ÖDEME YAPILDI' : 'TAHSİL EDİLDİ'}</span></div>
+                    <div className={`z-10 ${txToPrint.type === 'GİDER' ? 'bg-red-600' : 'bg-blue-600'} text-white px-4 pt-[2px] pb-[13px] rotate-[-2deg] shadow-2xl flex items-center justify-center border border-white/20 min-w-[120px]`}><span className="text-[16px] font-black tracking-tighter uppercase whitespace-nowrap leading-none">{txToPrint.type === 'GİDER' ? 'ÖDEME YAPILDI' : 'TAHSİL EDİLDİ'}</span></div>
                   </div>
                 </div>
               </div>
@@ -293,19 +298,21 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pb-20 touch-pan-y">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pb-2 touch-pan-y">
         {filteredTransactions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 opacity-20"><Inbox size={32} className="mb-2" /><p className="text-[8px] font-black uppercase tracking-widest">Kayıt Yok</p></div>
         ) : (
           <div className="w-full max-w-full overflow-x-hidden px-2 py-3 space-y-1.5">
-            {filteredTransactions.map((tx, index) => (
+            {filteredTransactions.map((tx) => (
               <div 
                 key={tx.id}
                 ref={txReveal.observe(tx.id)}
-                className={`relative w-full max-w-full bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 border-l-[3px] px-4 py-2.5 flex items-center justify-between rounded-xl shadow-lg scroll-reveal-from-top-right-slow overflow-hidden ${txReveal.isVisible(tx.id) ? 'is-visible' : ''}`}
+                className={`w-full scroll-reveal-from-top-right-slow ${txReveal.isVisible(tx.id) ? 'is-visible' : ''}`}
+              >
+              <div
+                className="scroll-reveal-card relative w-full max-w-full bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 border-l-[3px] px-4 py-2.5 flex items-center justify-between rounded-xl shadow-lg overflow-hidden"
                 style={{ 
                   borderLeftColor: tx.type === 'GELİR' ? '#22c55e' : tx.type === 'BORÇLANDURMA' ? '#f97316' : '#ef4444',
-                  animationDelay: `${Math.min(index, 6) * 55}ms`
                 }}
               >
                 {/* Sağ Taraf Çizgisi */}
@@ -323,6 +330,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                       .replace(/\(KREDİ\)/gi, 'KREDİ')
                       .replace(/\(KREDİDEN\)/gi, 'KREDİ')
                       .replace(/KREDİDEN/gi, 'KREDİ')
+                      .replace(/^DAİRE\s+\S+\s+/i, '')
                       .replace(/\s+/g, ' ')
                       .replace(/\bAİDAT\b(?!\s*TAHSİLATI|\s*KREDİ)/gi, 'AİDAT TAHSİLATI')
                       .replace(/\s*\([^)]*\)/g, '')
@@ -337,6 +345,7 @@ const TransactionsView: React.FC<TransactionsViewProps> = ({ transactions, units
                   </div>
                 </div>
                 <div className="text-right shrink-0"><span className={`text-[15px] font-black tracking-tighter transition-colors ${tx.type === 'GELİR' ? 'text-green-400' : 'text-red-400'}`}>₺{formatCurrency(tx.amount)}</span></div>
+              </div>
               </div>
             ))}
           </div>

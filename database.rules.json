@@ -7,8 +7,8 @@
       ".read": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
       ".write": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
       "$uid": {
-        ".read": "auth != null && (auth.uid == $uid || auth.token.email == 'selahattin50@gmail.com')",
-        ".write": "auth != null && (auth.uid == $uid || auth.token.email == 'selahattin50@gmail.com')"
+        ".read": "auth != null && ((auth.uid == $uid && auth.token.email_verified == true) || auth.token.email == 'selahattin50@gmail.com')",
+        ".write": "auth != null && ((auth.uid == $uid && auth.token.email_verified == true) || auth.token.email == 'selahattin50@gmail.com')"
       }
     },
 
@@ -16,8 +16,8 @@
       ".read": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
       ".write": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
       "$uid": {
-        ".read": "auth != null && (auth.uid == $uid || auth.token.email == 'selahattin50@gmail.com')",
-        ".write": "auth != null && (auth.uid == $uid || auth.token.email == 'selahattin50@gmail.com')"
+        ".read": "auth != null && ((auth.uid == $uid && auth.token.email_verified == true) || auth.token.email == 'selahattin50@gmail.com')",
+        ".write": "auth != null && (auth.token.email == 'selahattin50@gmail.com' || (auth.uid == $uid && ((!data.exists() && newData.exists() && newData.child('email').val() == auth.token.email && !newData.child('createSiteCredits').exists() && !newData.child('canCreateSites').exists()) || (data.exists() && newData.exists() && auth.token.email_verified == true && newData.child('email').val() == data.child('email').val() && ((newData.child('createSiteCredits').val() == data.child('createSiteCredits').val() && newData.child('canCreateSites').val() == data.child('canCreateSites').val()) || (data.child('createSiteCredits').isNumber() && newData.child('createSiteCredits').isNumber() && newData.child('createSiteCredits').val() >= 0 && newData.child('createSiteCredits').val() < data.child('createSiteCredits').val() && newData.child('canCreateSites').val() == (newData.child('createSiteCredits').val() > 0)))))))"
       }
     },
 
@@ -25,14 +25,17 @@
       ".read": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
       ".write": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
       "$banId": {
-        ".read": "auth != null",
+        ".read": "auth != null && (auth.token.email_verified == true || auth.token.email == 'selahattin50@gmail.com')",
         ".write": "auth != null && auth.token.email == 'selahattin50@gmail.com'"
       }
     },
 
     "_globalMessages": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth != null && (auth.token.email_verified == true || auth.token.email == 'selahattin50@gmail.com')",
+      ".write": "auth != null && auth.token.email == 'selahattin50@gmail.com'",
+      "$messageId": {
+        ".write": "auth != null && (auth.token.email == 'selahattin50@gmail.com' || (!data.exists() && auth.token.email_verified == true && newData.exists() && newData.child('id').val() == $messageId && newData.child('senderEmail').val() == auth.token.email && newData.child('content').isString() && newData.child('content').val().length > 0 && newData.child('content').val().length <= 2000))"
+      }
     }
   }
 }

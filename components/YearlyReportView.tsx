@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { ChevronDown, ArrowLeft, FileText, Loader2, Check, Wallet, Calendar, MessageCircle, Building, Inbox, X, Lock } from 'lucide-react';
-import { Transaction, Unit, FileEntry } from '../types';
+import { Transaction, Unit, FileEntry, BuildingInfo } from '../types';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { PDFService } from '../pdfService';
@@ -8,6 +8,7 @@ import { useAndroidBackHandler } from '../appBackButton';
 import { createFinancialReportPdf } from './reportPdfUtils';
 import PdfActionButton from './PdfActionButton';
 import { fixCommonTurkishText, upperTr } from '../textUtils';
+import { getNetDebtAfterFullCredit } from '../balanceUtils';
 
 const withTransactionDate = (date: string, label: string) => `${date} ${label}`;
 const toIsoDate = (date: string) => date.split('.').reverse().join('-');
@@ -19,9 +20,10 @@ interface YearlyReportViewProps {
   buildingName: string;
   onAddFile: (name: string, category: FileEntry['category'], uri?: string, size?: number, fileName?: string) => void;
   currentDate: Date;
+  info: BuildingInfo;
 }
 
-const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units, onClose, buildingName, onAddFile, currentDate }) => {
+const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units, onClose, buildingName, onAddFile, currentDate, info }) => {
   const currentYear = currentDate.getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedVault, setSelectedVault] = useState<'genel' | 'demirbas'>('genel');
@@ -51,10 +53,10 @@ const YearlyReportView: React.FC<YearlyReportViewProps> = ({ transactions, units
       return {
         totalDebt: acc.totalDebt + debt,
         totalCredit: acc.totalCredit + credit,
-        netDebt: acc.netDebt + Math.max(0, debt - credit)
+        netDebt: acc.netDebt + getNetDebtAfterFullCredit(debt, credit, selectedVault === 'genel' ? info.duesAmount || 0 : 0)
       };
     }, { totalDebt: 0, totalCredit: 0, netDebt: 0 });
-  }, [units, selectedVault]);
+  }, [units, selectedVault, info]);
 
   function isCreditBalanceIncome(tx: Transaction) {
     if (tx.type !== 'GELİR') return false;

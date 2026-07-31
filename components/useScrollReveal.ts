@@ -2,31 +2,31 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const useScrollReveal = <T extends HTMLElement>() => {
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(() => new Set());
-  const visibleKeysRef = useRef(visibleKeys);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const elementsRef = useRef<Map<string, T>>(new Map());
-
-  useEffect(() => {
-    visibleKeysRef.current = visibleKeys;
-  }, [visibleKeys]);
 
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           const key = (entry.target as HTMLElement).dataset.revealKey;
-          if (!entry.isIntersecting || !key || visibleKeysRef.current.has(key)) return;
+          if (!key) return;
 
           setVisibleKeys((current) => {
-            if (current.has(key)) return current;
+            const shouldBeVisible = entry.isIntersecting && entry.intersectionRatio >= 0.1;
+            const shouldReset = !entry.isIntersecting;
+
+            if (!shouldBeVisible && !shouldReset) return current;
+            if (shouldBeVisible === current.has(key)) return current;
+
             const next = new Set(current);
-            next.add(key);
+            if (shouldBeVisible) next.add(key);
+            else next.delete(key);
             return next;
           });
-          observerRef.current?.unobserve(entry.target);
         });
       },
-      { rootMargin: '0px 0px -10% 0px', threshold: 0.15 }
+      { rootMargin: '0px', threshold: [0, 0.1] }
     );
 
     elementsRef.current.forEach((element) => observerRef.current?.observe(element));
@@ -46,7 +46,7 @@ export const useScrollReveal = <T extends HTMLElement>() => {
 
       node.dataset.revealKey = key;
       elementsRef.current.set(key, node);
-      if (!visibleKeysRef.current.has(key)) observerRef.current?.observe(node);
+      observerRef.current?.observe(node);
     },
     []
   );

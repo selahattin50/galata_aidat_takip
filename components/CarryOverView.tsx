@@ -4,6 +4,7 @@ import { BalanceSummary, BuildingInfo, Unit, Transaction } from '../types.ts';
 import DatePickerModal from './DatePickerModal';
 import { appConfirm } from './AppDialog';
 import { fixCommonTurkishText } from '../textUtils';
+import { getNetDebtAfterFullCredit, getRemainingCreditAfterFullDebt, isDebtSettlementDescription } from '../balanceUtils';
 
 interface CarryOverViewProps {
   units: Unit[];
@@ -158,7 +159,7 @@ const CarryOverView: React.FC<CarryOverViewProps> = ({ units, transactions, info
         },
         unitsWithClosingBalances: units,
         generalDebt: appBalance.alacakBakiyesi || 0,
-        generalCredit: units.reduce((sum, unit) => sum + Math.max(0, (unit.credit || 0) - (unit.debt || 0)), 0),
+        generalCredit: units.reduce((sum, unit) => sum + getRemainingCreditAfterFullDebt(unit.debt || 0, unit.credit || 0, info.duesAmount || 0), 0),
         demirbasDebt: appBalance.demirbasAlacakBakiyesi || 0,
         demirbasCredit: units.reduce((sum, unit) => sum + Math.max(0, (unit.demirbasCredit || 0) - (unit.demirbasDebt || 0)), 0)
       };
@@ -185,9 +186,11 @@ const CarryOverView: React.FC<CarryOverViewProps> = ({ units, transactions, info
       const totalIncome = generalTransactions.filter(tx => tx.type === 'GELİR' && !isCashlessIncomeTransaction(tx)).reduce((sum, tx) => sum + tx.amount, 0);
       const totalExpense = generalTransactions.filter(tx => tx.type === 'GİDER').reduce((sum, tx) => sum + tx.amount, 0);
       const totalManualDebt = generalTransactions.filter(tx => tx.type === 'BORÇLANDIRMA').reduce((sum, tx) => sum + tx.amount, 0);
+      const totalManualDebtSettled = generalTransactions.filter(tx => tx.type === 'GELİR' && isDebtSettlementDescription(tx.description)).reduce((sum, tx) => sum + tx.amount, 0);
       const totalDemirbasIncome = demirbasTransactions.filter(tx => tx.type === 'GELİR' && !isCashlessIncomeTransaction(tx)).reduce((sum, tx) => sum + tx.amount, 0);
       const totalDemirbasExpense = demirbasTransactions.filter(tx => tx.type === 'GİDER').reduce((sum, tx) => sum + tx.amount, 0);
       const totalDemirbasDebt = demirbasTransactions.filter(tx => tx.type === 'BORÇLANDIRMA').reduce((sum, tx) => sum + tx.amount, 0);
+      const totalDemirbasDebtSettled = demirbasTransactions.filter(tx => tx.type === 'GELİR' && isDebtSettlementDescription(tx.description)).reduce((sum, tx) => sum + tx.amount, 0);
 
       let paidDues = 0;
       let unpaidDues = 0;
@@ -216,15 +219,15 @@ const CarryOverView: React.FC<CarryOverViewProps> = ({ units, transactions, info
 
       return {
         ...unit,
-        credit: Math.max(0, totalIncome - totalExpense - paidDues),
-        debt: totalManualDebt + unpaidDues,
-        demirbasCredit: Math.max(0, totalDemirbasIncome - totalDemirbasExpense),
-        demirbasDebt: totalDemirbasDebt
+        credit: Math.max(0, totalIncome - totalExpense - paidDues - totalManualDebtSettled),
+        debt: Math.max(0, totalManualDebt - totalManualDebtSettled) + unpaidDues,
+        demirbasCredit: Math.max(0, totalDemirbasIncome - totalDemirbasExpense - totalDemirbasDebtSettled),
+        demirbasDebt: Math.max(0, totalDemirbasDebt - totalDemirbasDebtSettled)
       };
     });
 
-    const generalDebt = unitsWithClosingBalances.reduce((sum, unit) => sum + Math.max(0, unit.debt - unit.credit), 0);
-    const generalCredit = unitsWithClosingBalances.reduce((sum, unit) => sum + Math.max(0, unit.credit - unit.debt), 0);
+    const generalDebt = unitsWithClosingBalances.reduce((sum, unit) => sum + getNetDebtAfterFullCredit(unit.debt, unit.credit, info.duesAmount || 0), 0);
+    const generalCredit = unitsWithClosingBalances.reduce((sum, unit) => sum + getRemainingCreditAfterFullDebt(unit.debt, unit.credit, info.duesAmount || 0), 0);
     const demirbasDebt = unitsWithClosingBalances.reduce((sum, unit) => sum + Math.max(0, (unit.demirbasDebt || 0) - (unit.demirbasCredit || 0)), 0);
     const demirbasCredit = unitsWithClosingBalances.reduce((sum, unit) => sum + Math.max(0, (unit.demirbasCredit || 0) - (unit.demirbasDebt || 0)), 0);
 
@@ -297,11 +300,13 @@ const CarryOverView: React.FC<CarryOverViewProps> = ({ units, transactions, info
     addCashCarry(closingBalance.cashByVault.demirbas, 'demirbas');
 
     closingBalance.unitsWithClosingBalances.forEach(unit => {
-      const generalBalance = (unit.credit || 0) - (unit.debt || 0);
-      if (generalBalance > 0) {
-        carryTransactions.push(createTransaction('GELİR', generalBalance, 'ALACAK [genel]', unit.id));
-      } else if (generalBalance < 0) {
-        carryTransactions.push(createTransaction('BORÇLANDIRMA', Math.abs(generalBalance), 'BORÇ [genel]', unit.id));
+      const generalDebtBalance = getNetDebtAfterFullCredit(unit.debt || 0, unit.credit || 0, info.duesAmount || 0);
+      const generalCreditBalance = getRemainingCreditAfterFullDebt(unit.debt || 0, unit.credit || 0, info.duesAmount || 0);
+      if (generalCreditBalance > 0) {
+        carryTransactions.push(createTransaction('GELİR', generalCreditBalance, 'ALACAK [genel]', unit.id));
+      }
+      if (generalDebtBalance > 0) {
+        carryTransactions.push(createTransaction('BORÇLANDIRMA', generalDebtBalance, 'BORÇ [genel]', unit.id));
       }
 
       const demirbasBalance = (unit.demirbasCredit || 0) - (unit.demirbasDebt || 0);
@@ -399,9 +404,10 @@ const CarryOverView: React.FC<CarryOverViewProps> = ({ units, transactions, info
             <label className="text-[9px] font-black text-white/50 uppercase ml-2">Oluşacak Devir Kaydı ({carryPreviewCount})</label>
             <div className="space-y-1 max-h-[88px] overflow-y-auto pr-2 no-scrollbar">
               {closingBalance.unitsWithClosingBalances.map(unit => {
-                const generalBalance = (unit.credit || 0) - (unit.debt || 0);
+                const generalDebtBalance = getNetDebtAfterFullCredit(unit.debt || 0, unit.credit || 0, info.duesAmount || 0);
+                const generalCreditBalance = getRemainingCreditAfterFullDebt(unit.debt || 0, unit.credit || 0, info.duesAmount || 0);
                 const demirbasBalance = (unit.demirbasCredit || 0) - (unit.demirbasDebt || 0);
-                if (generalBalance === 0 && demirbasBalance === 0) return null;
+                if (generalDebtBalance === 0 && generalCreditBalance === 0 && demirbasBalance === 0) return null;
                 return (
                   <div key={unit.id} className="bg-white/5 rounded-2xl px-3 py-2 flex items-center justify-between border border-white/5">
                     <div className="flex flex-col min-w-0">
@@ -409,9 +415,14 @@ const CarryOverView: React.FC<CarryOverViewProps> = ({ units, transactions, info
                       <span className="text-[9px] font-bold text-white/50 truncate max-w-[140px] uppercase">{unit.ownerName}</span>
                     </div>
                     <div className="text-right shrink-0 space-y-1">
-                      {generalBalance !== 0 && (
-                        <div className={`text-[11px] font-black ${generalBalance > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          Genel {generalBalance > 0 ? '+' : ''}{formatCurrency(generalBalance)}
+                      {generalCreditBalance > 0 && (
+                        <div className="text-[11px] font-black text-emerald-400">
+                          Genel +{formatCurrency(generalCreditBalance)}
+                        </div>
+                      )}
+                      {generalDebtBalance > 0 && (
+                        <div className="text-[11px] font-black text-red-400">
+                          Genel -{formatCurrency(generalDebtBalance)}
                         </div>
                       )}
                       {demirbasBalance !== 0 && (

@@ -110,6 +110,19 @@ const fitText = (pdf: jsPDF, value: string, maxWidth: number) => {
   return `${trimmed}${ellipsis}`;
 };
 
+const fitTextLines = (pdf: jsPDF, value: string, maxWidth: number, maxLines: number) => {
+  const safeValue = normalizePdfText(value);
+  const lines = pdf.splitTextToSize(safeValue, maxWidth) as string[];
+
+  if (lines.length <= maxLines) {
+    return lines;
+  }
+
+  const visibleLines = lines.slice(0, maxLines);
+  visibleLines[maxLines - 1] = fitText(pdf, visibleLines[maxLines - 1], maxWidth);
+  return visibleLines;
+};
+
 const formatAmountParts = (value: number) => {
   const formatted = new Intl.NumberFormat('tr-TR', {
     minimumFractionDigits: 2,
@@ -176,13 +189,13 @@ export const createFinancialReportPdf = async ({
   await registerPdfFonts(pdf);
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 15;
+  const margin = 7;
   const tableX = margin;
   const tableY = 34;
   const tableWidth = pageWidth - margin * 2;
   const tableHeight = 155;
   const columnWidth = tableWidth / 2;
-  const columnGap = 3.5;
+  const columnGap = 3;
   const sectionHeaderY = tableY + 9;
   const itemsTop = tableY + 18;
   const totalY = tableY + tableHeight - 6;
@@ -190,9 +203,10 @@ export const createFinancialReportPdf = async ({
   // never collides with its larger amount text in long yearly reports.
   const itemsBottom = totalY - 10;
   const rowCount = Math.max(leftItems.length, rightItems.length, 1);
-  const rowHeight = Math.max(4.8, Math.min(8.0, (itemsBottom - itemsTop) / rowCount));
-  const fontSize = rowHeight <= 6.5 ? 7.6 : rowHeight <= 7.5 ? 8.2 : 8.8;
-  const amountWidth = 22;
+  const rowHeight = Math.max(4.8, Math.min(5.6, (itemsBottom - itemsTop) / rowCount));
+  const fontSize = 7.2;
+  const amountWidth = 20;
+  const lineHeight = 3.45;
 
   const drawColumn = (columnX: number, items: ReportPdfItem[]) => {
     const labelX = columnX + columnGap;
@@ -211,9 +225,12 @@ export const createFinancialReportPdf = async ({
       pdf.setFont(PDF_FONT_FAMILY, 'bold');
       pdf.setFontSize(fontSize);
       pdf.setTextColor(color[0], color[1], color[2]);
-      pdf.text(fitText(pdf, fixCommonTurkishText(normalizePdfText(item.label)), labelWidth), labelX, textY, { baseline: 'top' });
+      const labelLines = fitTextLines(pdf, fixCommonTurkishText(normalizePdfText(item.label)), labelWidth, 1);
+      labelLines.forEach((line, lineIndex) => {
+        pdf.text(line, labelX, textY + lineIndex * lineHeight, { baseline: 'top' });
+      });
 
-      drawAmount(pdf, item.total, amountX, textY + fontSize * 0.8, fontSize);
+      drawAmount(pdf, item.total, amountX, textY + fontSize * 0.34, fontSize);
     });
   };
 
@@ -384,7 +401,7 @@ export const createUnitStatementPdf = async ({
       pdf.setFontSize(fontSize);
       pdf.setTextColor(17, 24, 39);
 
-      const desc = fixCommonTurkishText(item.description.split('[')[0].trim());
+      const desc = fixCommonTurkishText(item.description.split('[')[0].trim()).toLocaleUpperCase('tr-TR');
       pdf.text(fitText(pdf, desc, labelWidth), labelX, textY, { baseline: 'top' });
 
       pdf.setFontSize(fontSize - 1.5);
@@ -392,7 +409,10 @@ export const createUnitStatementPdf = async ({
       pdf.text(item.date, labelX, textY + 3.8, { baseline: 'top' });
 
       pdf.setTextColor(color[0], color[1], color[2]);
-      drawAmount(pdf, item.amount, amountX, textY + 1 + fontSize * 0.8, fontSize);
+      // jsPDF font sizes are points while the document coordinates are millimetres.
+      // Keep the amount baseline on the description row instead of pushing it
+      // down beside the following transaction.
+      drawAmount(pdf, item.amount, amountX, textY + fontSize * 0.34, fontSize);
     });
   };
 

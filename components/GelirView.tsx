@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, TrendingUp, Wallet, Briefcase, Calendar, ChevronDown, Save, Loader2, X, Database } from 'lucide-react';
 import DatePickerModal from './DatePickerModal';
 import { fixCommonTurkishText, upperTr } from '../textUtils';
+import { formatLocalIsoDateTr, toLocalIsoDate } from '../dateUtils';
 
 interface GelirViewProps {
   onClose: () => void;
@@ -11,18 +12,26 @@ interface GelirViewProps {
 }
 
 const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) => {
+  const currentIsoDate = toLocalIsoDate(currentDate);
+  const previousDefaultDateRef = useRef(currentIsoDate);
   const [formData, setFormData] = useState({
     category: '',
     amount: '',
     description: '',
     kasa: 'genel' as 'genel' | 'demirbas',
-    date: currentDate.toISOString().split('T')[0]
+    date: currentIsoDate
   });
 
   const [isSuccess, setIsSuccess] = useState(false);
   const [showCategoryList, setShowCategoryList] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
+
+  useEffect(() => {
+    const previousDefaultDate = previousDefaultDateRef.current;
+    setFormData(prev => prev.date === previousDefaultDate ? { ...prev, date: currentIsoDate } : prev);
+    previousDefaultDateRef.current = currentIsoDate;
+  }, [currentIsoDate]);
 
   const incomeCategories = [
     { id: 'devir', label: 'Devir Kaynaklı', icon: '🔄' },
@@ -53,7 +62,7 @@ const GelirView: React.FC<GelirViewProps> = ({ onClose, onSave, currentDate }) =
         amount: numAmount,
         description: fixCommonTurkishText(formData.description || formData.category),
         vault: formData.kasa,
-        date: new Date(formData.date).toLocaleDateString('tr-TR')
+        date: formatLocalIsoDateTr(formData.date)
     });
 
     setIsSaving(false);
